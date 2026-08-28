@@ -42,22 +42,30 @@ COLUMNAS_OFICIALES = [
 ]
 
 # -----------------------------------------------------------------------------
-# CONEXIÓN CON GOOGLE SHEETS Y DIAGNÓSTICO
+# CONEXIÓN CON GOOGLE SHEETS Y DIAGNÓSTICO (ACTUALIZADO CON st.secrets)
 # -----------------------------------------------------------------------------
 @st.cache_resource
 def conectar_google_sheets():
     try:
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        ruta_cred = "credenciales.json"
-        if not os.path.exists(ruta_cred):
-            print("DIAGNÓSTICO: No se encontró el archivo credenciales.json en la ruta actual.")
-            return None
-        creds = ServiceAccountCredentials.from_json_keyfile_name(ruta_cred, scope)
+        
+        # Verificamos si estamos en Streamlit Cloud usando st.secrets
+        if "gcp_service_account" in st.secrets:
+            cred_dict = dict(st.secrets["gcp_service_account"])
+            creds = ServiceAccountCredentials.from_json_keyfile_dict(cred_dict, scope)
+        else:
+            # Opción local con el archivo físico
+            ruta_cred = "credenciales.json"
+            if not os.path.exists(ruta_cred):
+                print("DIAGNÓSTICO: No se encontró el archivo credenciales.json ni st.secrets.")
+                return None
+            creds = ServiceAccountCredentials.from_json_keyfile_name(ruta_cred, scope)
+            
         client = gspread.authorize(creds)
         print("DIAGNÓSTICO: Autenticación con Google exitosa.")
         return client
     except Exception as e:
-        print(f"DIAGNÓSTICO: Error al autenticar con credenciales.json: {e}")
+        print(f"DIAGNÓSTICO: Error al autenticar: {e}")
         return None
 
 # Prueba de diagnóstico en consola al iniciar
