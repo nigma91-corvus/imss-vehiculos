@@ -42,40 +42,28 @@ COLUMNAS_OFICIALES = [
 ]
 
 # -----------------------------------------------------------------------------
-# CONEXIÓN CON GOOGLE SHEETS Y DIAGNÓSTICO (ACTUALIZADO CON st.secrets)
+# CONEXIÓN CON GOOGLE SHEETS Y DIAGNÓSTICO
 # -----------------------------------------------------------------------------
 @st.cache_resource
 def conectar_google_sheets():
     try:
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
         
-        # Verificamos si estamos en Streamlit Cloud usando st.secrets
         if "gcp_service_account" in st.secrets:
             cred_dict = dict(st.secrets["gcp_service_account"])
             creds = ServiceAccountCredentials.from_json_keyfile_dict(cred_dict, scope)
         else:
-            # Opción local con el archivo físico
             ruta_cred = "credenciales.json"
             if not os.path.exists(ruta_cred):
-                print("DIAGNÓSTICO: No se encontró el archivo credenciales.json ni st.secrets.")
                 return None
             creds = ServiceAccountCredentials.from_json_keyfile_name(ruta_cred, scope)
             
         client = gspread.authorize(creds)
-        print("DIAGNÓSTICO: Autenticación con Google exitosa.")
         return client
     except Exception as e:
-        print(f"DIAGNÓSTICO: Error al autenticar: {e}")
         return None
 
-# Prueba de diagnóstico en consola al iniciar
 client_test = conectar_google_sheets()
-if client_test:
-    try:
-        sh_test = client_test.open("Imss_Vehiculos_Administrativos")
-        print("DIAGNÓSTICO: ¡Conexión exitosa al archivo 'Imss_Vehiculos_Administrativos' en Drive!")
-    except Exception as e:
-        print(f"DIAGNÓSTICO: Error al abrir el archivo en Drive (Verifica permisos de 'Editor' para el bot y nombre exacto): {e}")
 
 # =============================================================================
 # RUTAS DINÁMICAS Y CATÁLOGO TÉCNICO
@@ -135,7 +123,12 @@ def obtener_imagen_catalogo(tipo_o_linea):
         return ruta_assets
     return None
 
-logo_base64 = obtener_imagen_base64(os.path.join(BASE_DIR, "logo_imss.png"))
+# Búsqueda segura del logo en assets o raíz
+ruta_logo_posible = os.path.join(BASE_DIR, "assets", "logo_imss.png")
+if not os.path.exists(ruta_logo_posible):
+    ruta_logo_posible = os.path.join(BASE_DIR, "logo_imss.png")
+
+logo_base64 = obtener_imagen_base64(ruta_logo_posible)
 
 os.makedirs("data", exist_ok=True)
 os.makedirs("expedientes", exist_ok=True)
@@ -147,7 +140,7 @@ os.makedirs(os.path.join("img", "vehiculos"), exist_ok=True)
 # GESTIÓN DEL ESTADO DE SESIÓN
 # -----------------------------------------------------------------------------
 if "categoria_seleccionada" not in st.session_state:
-    st.session_state.categoria_seleccionada = "ADMINISTRATIVOS"
+    st.session_state.categoria_seleccionada = "Administrativos"
 
 if "modulo_activo" not in st.session_state:
     st.session_state.modulo_activo = "Dashboard General"
@@ -178,9 +171,9 @@ def cargar_o_generar_base(categoria):
     client = conectar_google_sheets()
     if client:
         try:
-            if categoria == "ADMINISTRATIVOS":
+            if categoria == "Administrativos":
                 nombre_pestana = "Administrativos"
-            elif categoria == "AMBULANCIAS":
+            elif categoria == "Ambulancias":
                 nombre_pestana = "Ambulancias"
             else:
                 nombre_pestana = "Institucionales"
@@ -196,7 +189,6 @@ def cargar_o_generar_base(categoria):
         except Exception as e:
             print(f"Error cargando desde Drive para {categoria}: {e}")
 
-    # Respaldo local si Drive falla
     cat_limpia = categoria.lower().replace(" ", "_").replace("/", "").replace("ó", "o")
     ruta_excel = os.path.join("data", f"plantilla_{cat_limpia}.xlsx")
     ruta_csv = os.path.join("data", f"plantilla_{cat_limpia}.csv")
@@ -220,13 +212,13 @@ def cargar_o_generar_base(categoria):
 df_base = cargar_o_generar_base(cat_actual)
 
 # -----------------------------------------------------------------------------
-# ESTILOS CSS EXTENDIDOS
+# ESTILOS CSS EXTENDIDOS (Corrección de corte superior y contenedor)
 # -----------------------------------------------------------------------------
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
     html, body, [class*="css"] { font-family: 'Montserrat', sans-serif !important; }
-    .block-container { padding: 2rem !important; }
+    .block-container { padding: 1.2rem 2rem 2rem 2rem !important; }
     .main { background-color: #FFFFFF; }
     [data-testid="stSidebar"] { background-color: #13382C !important; }
     [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] div { color: #FFFFFF !important; font-weight: 600; }
@@ -256,9 +248,9 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("<p style='font-size: 12px; margin-bottom: 8px;'><b>SELECCIONAR FLOTILLA:</b></p>", unsafe_allow_html=True)
     
-    st.button("ADMINISTRATIVOS", width='stretch', type="primary" if st.session_state.categoria_seleccionada == "ADMINISTRATIVOS" else "secondary", on_click=cambiar_categoria, args=("ADMINISTRATIVOS",))
-    st.button("AMBULANCIAS", width='stretch', type="primary" if st.session_state.categoria_seleccionada == "AMBULANCIAS" else "secondary", on_click=cambiar_categoria, args=("AMBULANCIAS",))
-    st.button("INSTITUCIONALES / PROPIEDAD", width='stretch', type="primary" if st.session_state.categoria_seleccionada == "INSTITUCIONALES O DE PROPIEDAD" else "secondary", on_click=cambiar_categoria, args=("INSTITUCIONALES O DE PROPIEDAD",))
+    st.button("ADMINISTRATIVOS", use_container_width=True, type="primary" if st.session_state.categoria_seleccionada == "Administrativos" else "secondary", on_click=cambiar_categoria, args=("Administrativos",))
+    st.button("AMBULANCIAS", use_container_width=True, type="primary" if st.session_state.categoria_seleccionada == "Ambulancias" else "secondary", on_click=cambiar_categoria, args=("Ambulancias",))
+    st.button("INSTITUCIONALES", use_container_width=True, type="primary" if st.session_state.categoria_seleccionada == "Institucionales" else "secondary", on_click=cambiar_categoria, args=("Institucionales",))
     
     st.markdown("---")
     
@@ -301,7 +293,7 @@ if mod_actual == "Dashboard General":
     st.markdown(f'<p class="subtitulo-seccion">Dashboard General - Flotilla: {cat_actual}</p>', unsafe_allow_html=True)
     
     if df_base.empty:
-        st.warning(f"⚠️ No se han cargado datos para la flotilla **{cat_actual}** desde Google Drive o respaldo local. Verifica que el archivo en Drive contenga filas de datos.")
+        st.warning(f"⚠️ No se han cargado datos para la flotilla **{cat_actual}** desde Google Drive o respaldo local.")
     
     col_filtro, col_exp = st.columns([3, 1])
     unidades_list = ["Todas las Ubicaciones (Nacional)"] + (list(df_base['UBICACIÓN'].dropna().unique()) if 'UBICACIÓN' in df_base.columns else [])
@@ -369,15 +361,15 @@ if mod_actual == "Dashboard General":
         if not resumen_tipo.empty:
             df_totales = pd.DataFrame([{"Tipo": "TOTAL UNIDADES", "Cantidad": resumen_tipo['Cantidad'].sum()}])
             df_mostrar_res = pd.concat([resumen_tipo, df_totales], ignore_index=True)
-            st.dataframe(df_mostrar_res, hide_index=True, width='stretch')
+            st.dataframe(df_mostrar_res, hide_index=True, use_container_width=True)
         else:
-            st.dataframe(pd.DataFrame(columns=['Tipo', 'Cantidad']), hide_index=True, width='stretch')
+            st.dataframe(pd.DataFrame(columns=['Tipo', 'Cantidad']), hide_index=True, use_container_width=True)
 
     st.markdown("---")
     st.markdown("##### **Vistas Detalladas de la Base de Datos Activa**")
     cols_mostrar = ['No. Ecco.', 'Tipo', 'Linea', 'UBICACIÓN', 'Arrendadora', 'Estatus', 'Placas', 'VIN', 'CUOTA DIARIA', 'TOTAL A PAGAR (b)']
     cols_existentes = [c for c in cols_mostrar if c in df_dash.columns]
-    st.dataframe(df_dash[cols_existentes] if not df_dash.empty else pd.DataFrame(columns=cols_mostrar), width='stretch', hide_index=True)
+    st.dataframe(df_dash[cols_existentes] if not df_dash.empty else pd.DataFrame(columns=cols_mostrar), use_container_width=True, hide_index=True)
 
 # -----------------------------------------------------------------------------
 # 2. SEMÁFORO DE MOVILIDAD POR CIUDAD
@@ -439,13 +431,13 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
             elif val == "ROJO": return 'background-color: #c0392b; color: white; font-weight: bold;'
             return ''
 
-        st.dataframe(df_ciudades.style.map(colorear_estado, subset=['Estado']), width='stretch', hide_index=True)
+        st.dataframe(df_ciudades.style.map(colorear_estado, subset=['Estado']), use_container_width=True, hide_index=True)
 
 # -----------------------------------------------------------------------------
 # 3. CONTROL DEL POOL DE SUSTITUTOS (20%)
 # -----------------------------------------------------------------------------
 elif mod_actual == "Control del Pool de Sustitutos (20%)":
-    if cat_actual == "INSTITUCIONALES O DE PROPIEDAD":
+    if cat_actual == "Institucionales":
         st.warning("El control del pool del 20% de sustitutos aplica únicamente para los contratos de Arrendamiento (Administrativos y Ambulancias).")
     else:
         st.markdown(f'<p class="subtitulo-seccion">Control del Pool del 20% de Sustitutos - Flotilla {cat_actual}</p>', unsafe_allow_html=True)
@@ -516,7 +508,7 @@ elif mod_actual == "Carga Inicial":
 
         st.markdown("---")
         st.markdown("##### **Histórico y Bitácora de Cargas Realizadas**")
-        st.dataframe(pd.DataFrame(st.session_state.bitacora_cargas), width='stretch', hide_index=True)
+        st.dataframe(pd.DataFrame(st.session_state.bitacora_cargas), use_container_width=True, hide_index=True)
 
 # -----------------------------------------------------------------------------
 # 5. EXPEDIENTE POR ECO Y DOCUMENTAL
@@ -543,7 +535,7 @@ elif mod_actual == "Expediente por ECO y Documental":
                 linea_o_tipo = v_data.get('Linea', v_data.get('Tipo', ''))
                 ruta_cat = obtener_imagen_catalogo(linea_o_tipo)
                 if ruta_cat:
-                    st.image(ruta_cat, caption=f"Catálogo Ilustrativo: {linea_o_tipo}", width='stretch')
+                    st.image(ruta_cat, caption=f"Catálogo Ilustrativo: {linea_o_tipo}", use_container_width=True)
                 else:
                     st.info(f"📷 [Sin foto en catálogo: {linea_o_tipo}]")
                     
@@ -593,13 +585,13 @@ elif mod_actual == "Expediente por ECO y Documental":
             with t2:
                 st.markdown("##### **Documentos Oficiales Registrados**")
                 df_docs = pd.DataFrame(columns=["Tipo Documento", "Nombre Archivo", "Fecha de Carga", "Estado Documental"])
-                st.dataframe(df_docs, width='stretch', hide_index=True)
+                st.dataframe(df_docs, use_container_width=True, hide_index=True)
 
             with t3:
                 st.markdown("##### **Bitácora de Servicios e Intervenciones**")
                 hist_taller = [r for r in st.session_state.taller_registros if r["ECO"] == eco_search]
                 if hist_taller:
-                    st.dataframe(pd.DataFrame(hist_taller), width='stretch', hide_index=True)
+                    st.dataframe(pd.DataFrame(hist_taller), use_container_width=True, hide_index=True)
                 else:
                     st.caption("No se registran mantenimientos o siniestros previos para este ECO.")
 
@@ -780,7 +772,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
 
     st.markdown("---")
     st.markdown("##### **Bitácora de Control de Taller e Incidencias**")
-    st.dataframe(pd.DataFrame(st.session_state.taller_registros), width='stretch', hide_index=True)
+    st.dataframe(pd.DataFrame(st.session_state.taller_registros), use_container_width=True, hide_index=True)
 
 # -----------------------------------------------------------------------------
 # 7. REASIGNACIÓN POR NECESIDAD DE SERVICIO
@@ -827,7 +819,7 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
 
     st.markdown("---")
     st.markdown("##### **Histórico de Reasignaciones Realizadas**")
-    st.dataframe(pd.DataFrame(st.session_state.reasignaciones_historial), width='stretch', hide_index=True)
+    st.dataframe(pd.DataFrame(st.session_state.reasignaciones_historial), use_container_width=True, hide_index=True)
 
 # -----------------------------------------------------------------------------
 # 8. REPORTES Y EXPORTACIÓN
@@ -875,4 +867,4 @@ elif mod_actual == "Conciliación Financiera y Pagos":
     st.markdown("##### **Detalle por Registro de Unidad**")
     cols_fin = ['No. Ecco.', 'UBICACIÓN', 'Arrendadora', 'CUOTA DIARIA', 'TOTAL DÍAS DE SERVICIO', 'COSTO MENSUAL SIN IVA (a)', 'TOTAL DE DEDUCCIÓN', 'TOTAL A PAGAR (b)']
     cols_fin_existentes = [c for c in cols_fin if c in df_p.columns]
-    st.dataframe(df_p[cols_fin_existentes] if not df_p.empty else pd.DataFrame(columns=cols_fin), width='stretch', hide_index=True)
+    st.dataframe(df_p[cols_fin_existentes] if not df_p.empty else pd.DataFrame(columns=cols_fin), use_container_width=True, hide_index=True)
