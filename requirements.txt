@@ -1,6 +1,5 @@
 streamlit
 pandas
-openpyxl
+supabase
 matplotlib
-gspread
-oauth2client
+numpy
