@@ -1,5 +1,5 @@
 # =============================================================================
-# CÓDIGO COMPLETO - SISTEMA DE CONTROL VEHICULAR IMSS (CORRECCIÓN DE ESCUDO)[cite: 3]
+# CÓDIGO COMPLETO - SISTEMA DE CONTROL VEHICULAR IMSS (CORRECCIONES APLICADAS)
 # =============================================================================
 import streamlit as st
 import base64
@@ -12,7 +12,7 @@ import pandas as pd
 from supabase import create_client
 
 # -----------------------------------------------------------------------------
-# CONFIGURACIÓN DE PÁGINA[cite: 3]
+# CONFIGURACIÓN DE PÁGINA
 # -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="Sistema de Control Vehicular - IMSS",
@@ -22,8 +22,20 @@ st.set_page_config(
 )
 
 # =============================================================================
-# CONSTANTES Y CONFIGURACIÓN DE COLUMNAS[cite: 3]
+# CONSTANTES Y CONFIGURACIÓN DE COLUMNAS Y PALETA INSTITUCIONAL (PANTONES)
 # =============================================================================
+COLORES_PANTONE = {
+    "7421": "#7A1332",
+    "7420": "#8A1538",
+    "627": "#1C3B30",
+    "626": "#275043",
+    "561": "#326053",
+    "504": "#421924",
+    "490": "#5A202E",
+    "465": "#A4855B",
+    "468": "#D3C281"
+}
+
 COLUMNAS_OFICIALES = [
     "No. Ecco.",
     "Tipo",
@@ -55,7 +67,7 @@ def parse_float(val):
         return 0.0
 
 # -----------------------------------------------------------------------------
-# CONEXIÓN CON SUPABASE[cite: 3]
+# CONEXIÓN CON SUPABASE
 # -----------------------------------------------------------------------------
 @st.cache_resource
 def conectar_supabase():
@@ -71,7 +83,7 @@ supabase = conectar_supabase()
 supabase_url = st.secrets["supabase"]["url"] if supabase else ""
 
 # -----------------------------------------------------------------------------
-# GESTIÓN DE IMÁGENES Y LOGO DESDE SUPABASE STORAGE[cite: 3]
+# GESTIÓN DE IMÁGENES Y LOGO DESDE SUPABASE STORAGE
 # -----------------------------------------------------------------------------
 def obtener_url_supabase(nombre_archivo):
   if supabase_url:
@@ -110,7 +122,7 @@ os.makedirs("expedientes", exist_ok=True)
 os.makedirs("assets", exist_ok=True)
 
 # -----------------------------------------------------------------------------
-# GESTIÓN DEL ESTADO DE SESIÓN[cite: 3]
+# GESTIÓN DEL ESTADO DE SESIÓN
 # -----------------------------------------------------------------------------
 if "categoria_seleccionada" not in st.session_state:
   st.session_state.categoria_seleccionada = "Administrativos"
@@ -137,7 +149,7 @@ def cambiar_categoria(cat):
 cat_actual = st.session_state.categoria_seleccionada
 
 # -----------------------------------------------------------------------------
-# CARGA DE DATOS DESDE TABLAS SEPARADAS EN SUPABASE CON PAGINACIÓN[cite: 3]
+# CARGA DE DATOS DESDE TABLAS SEPARADAS EN SUPABASE CON PAGINACIÓN
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=600)
 def cargar_datos_supabase(categoria):
@@ -183,28 +195,28 @@ def cargar_datos_supabase(categoria):
 df_base = cargar_datos_supabase(cat_actual)
 
 # -----------------------------------------------------------------------------
-# ESTILOS CSS EXTENDIDOS[cite: 3]
+# ESTILOS CSS EXTENDIDOS
 # -----------------------------------------------------------------------------
 st.markdown(
-    """
+    f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
-    html, body, [class*="css"] { font-family: 'Montserrat', sans-serif !important; }
-    .block-container { padding: 1.2rem 2rem 2rem 2rem !important; }
-    .main { background-color: #FFFFFF; }
-    [data-testid="stSidebar"] { background-color: #13382C !important; }
-    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] div { color: #FFFFFF !important; font-weight: 600; }
-    [data-testid="stSidebar"] button[kind="primary"] { background-color: #D3C281 !important; color: #13382C !important; font-weight: 800 !important; border: 1px solid #D3C281 !important; }
-    [data-testid="stSidebar"] button[kind="secondary"] { background-color: #1E4D3B !important; color: #FFFFFF !important; font-weight: 700 !important; border: 1px solid #286B53 !important; }
-    [data-testid="stSidebar"] img { max-width: 100%; height: auto; object-fit: contain; }
-    div[data-testid="stMetricValue"] { font-size: 22px !important; color: #13382C !important; font-weight: 800 !important; }
-    div[data-testid="stMetricLabel"] { font-size: 11px !important; font-weight: 700 !important; color: #555555 !important; }
-    .subtitulo-seccion { color: #222222; font-weight: 700; font-size: 18px; margin-bottom: 15px !important; }
-    .badge-verde { background-color: #27ae60; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px; }
-    .badge-amarillo { background-color: #f39c12; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px; }
-    .badge-rojo { background-color: #c0392b; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px; }
-    .card-resumen { background-color: #F8F9FA; border: 1px solid #E9ECEF; border-radius: 8px; padding: 14px; margin-bottom: 12px; }
-    .image-container-full {
+    html, body, [class*="css"] {{ font-family: 'Montserrat', sans-serif !important; }}
+    .block-container {{ padding: 1.2rem 2rem 2rem 2rem !important; }}
+    .main {{ background-color: #FFFFFF; }}
+    [data-testid="stSidebar"] {{ background-color: {COLORES_PANTONE["627"]} !important; }}
+    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] div {{ color: #FFFFFF !important; font-weight: 600; }}
+    [data-testid="stSidebar"] button[kind="primary"] {{ background-color: {COLORES_PANTONE["468"]} !important; color: {COLORES_PANTONE["627"]} !important; font-weight: 800 !important; border: 1px solid {COLORES_PANTONE["468"]} !important; }}
+    [data-testid="stSidebar"] button[kind="secondary"] {{ background-color: {COLORES_PANTONE["626"]} !important; color: #FFFFFF !important; font-weight: 700 !important; border: 1px solid {COLORES_PANTONE["561"]} !important; }}
+    [data-testid="stSidebar"] img {{ max-width: 100%; height: auto; object-fit: contain; }}
+    div[data-testid="stMetricValue"] {{ font-size: 22px !important; color: {COLORES_PANTONE["627"]} !important; font-weight: 800 !important; }}
+    div[data-testid="stMetricLabel"] {{ font-size: 11px !important; font-weight: 700 !important; color: #555555 !important; }}
+    .subtitulo-seccion {{ color: #222222; font-weight: 700; font-size: 18px; margin-bottom: 15px !important; }}
+    .badge-verde {{ background-color: #27ae60; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px; }}
+    .badge-amarillo {{ background-color: #f39c12; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px; }}
+    .badge-rojo {{ background-color: {COLORES_PANTONE["7420"]}; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px; }}
+    .card-resumen {{ background-color: #F8F9FA; border: 1px solid #E9ECEF; border-radius: 8px; padding: 14px; margin-bottom: 12px; }}
+    .image-container-full {{
         width: 100%;
         max-height: 220px;
         display: flex;
@@ -215,33 +227,33 @@ st.markdown(
         border-radius: 8px;
         padding: 8px;
         overflow: hidden;
-    }
-    .image-container-full img {
+    }}
+    .image-container-full img {{
         max-width: 100% !important;
         max-height: 200px !important;
         object-fit: contain !important;
-    }
+    }}
     </style>
 """,
     unsafe_allow_html=True,
 )
 
 # -----------------------------------------------------------------------------
-# BARRA LATERAL (SIDEBAR)[cite: 3]
+# BARRA LATERAL (SIDEBAR)
 # -----------------------------------------------------------------------------
 with st.sidebar:
   if url_logo_supa:
     st.image(url_logo_supa, use_container_width=True)
   else:
     st.markdown(
-        "<h2 style='color:#D3C281; text-align:center;'>IMSS</h2>",
+        f"<h2 style='color:{COLORES_PANTONE['468']}; text-align:center;'>IMSS</h2>",
         unsafe_allow_html=True,
     )
 
   st.markdown(
       "<div style='text-align: center; font-size: 11px; margin-bottom:"
       " 10px;'><b>DIRECCIÓN DE ADMINISTRACIÓN</b><br><span"
-      " style='font-size:9px; color:#D3C281;'>Coordinación Técnica de Servicios"
+      f" style='font-size:9px; color:{COLORES_PANTONE['468']};'>Coordinación Técnica de Servicios"
       " Generales</span></div>",
       unsafe_allow_html=True,
   )
@@ -310,15 +322,15 @@ with st.sidebar:
   )
 
 # -----------------------------------------------------------------------------
-# ENCABEZADO INSTITUCIONAL ÚNICO (Con altura controlada y display flex adaptado)
+# ENCABEZADO INSTITUCIONAL ÚNICO
 # -----------------------------------------------------------------------------
-logo_html = f'<img src="{url_logo_supa}" style="height: 200px; width: auto; object-fit: contain; display: inline-block; vertical-align: middle;">' if url_logo_supa else '<h2 style="color:#D3C281; margin:0;">IMSS</h2>'
+logo_html = f'<img src="{url_logo_supa}" style="height: 200px; width: auto; object-fit: contain; display: inline-block; vertical-align: middle;">' if url_logo_supa else f'<h2 style="color:{COLORES_PANTONE["468"]}; margin:0;">IMSS</h2>'
 
 st.markdown(f"""
     <div style="display: flex; align-items: center; gap: 15px; width: 100%; margin: 10px 0 15px 0;">
         <div>{logo_html}</div>
         <div style="line-height: 1.2;">
-            <p style="color: #13382C; font-weight: 800; font-size: 20px; margin: 0;">Sistema de Gestión y Control Vehicular</p>
+            <p style="color: {COLORES_PANTONE["627"]}; font-weight: 800; font-size: 20px; margin: 0;">Sistema de Gestión y Control Vehicular</p>
             <p style="color: #555555; font-size: 11px; margin: 2px 0 0 0; font-weight: 600;">
                 <b>Flotilla Seleccionada:</b> <code>{st.session_state.categoria_seleccionada}</code> &nbsp;|&nbsp; 
                 <b>Módulo Activo:</b> <code>{st.session_state.modulo_activo}</code> &nbsp;|&nbsp; 
@@ -332,7 +344,7 @@ st.markdown(f"""
 mod_actual = st.session_state.modulo_activo
 
 # -----------------------------------------------------------------------------
-# 1. DASHBOARD GENERAL[cite: 3]
+# 1. DASHBOARD GENERAL
 # -----------------------------------------------------------------------------
 if mod_actual == "Dashboard General":
   st.markdown(
@@ -427,7 +439,8 @@ if mod_actual == "Dashboard General":
         "En Taller",
         "Baja / Inoperativos",
     ]
-    colores_dona = ["#13382C", "#D3C281", "#8A1538", "#7f8c8d"]
+    # Aplicando Pantones institucionales 627, 468, 7420, 490
+    colores_dona = [COLORES_PANTONE["627"], COLORES_PANTONE["468"], COLORES_PANTONE["7420"], COLORES_PANTONE["490"]]
 
     fig_d, ax_d = plt.subplots(figsize=(3.5, 3.5))
     if sum(valores_dona) == 0:
@@ -474,8 +487,9 @@ if mod_actual == "Dashboard General":
       )
       
       if not resumen_tipo.empty:
+        # Usando Pantone 626 para barras principales
         bars = ax_v.bar(
-            resumen_tipo["Tipo"], resumen_tipo["Cantidad"], color="#13382C"
+            resumen_tipo["Tipo"], resumen_tipo["Cantidad"], color=COLORES_PANTONE["626"]
         )
         ax_v.tick_params(axis="x", rotation=30, labelsize=8)
         ax_v.grid(axis="y", linestyle="--", alpha=0.5)
@@ -547,7 +561,7 @@ if mod_actual == "Dashboard General":
   )
 
 # -----------------------------------------------------------------------------
-# 2. SEMÁFORO DE MOVILIDAD POR CIUDAD[cite: 3]
+# 2. SEMÁFORO DE MOVILIDAD POR CIUDAD (GRÁFICA ILEGIBLE REMOVIDA)
 # -----------------------------------------------------------------------------
 elif mod_actual == "Semáforo de Movilidad por Ciudad":
   st.markdown(
@@ -633,41 +647,14 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
   if df_ciudades.empty:
     st.info("Sin registros cargados para evaluar semáforo de movilidad.")
   else:
-    if ciudad_sel == "Todas las Ciudades (General)":
-      fig_v, ax_v = plt.subplots(figsize=(8, 3))
-      colores_v = [
-          "#27ae60" if m >= 95 else ("#f39c12" if m >= 85 else "#c0392b")
-          for m in df_ciudades["Movilidad (%)"]
-      ]
-      bars = ax_v.bar(
-          df_ciudades["Ciudad / OOAD"],
-          df_ciudades["Movilidad (%)"],
-          color=colores_v,
-      )
-      ax_v.axhline(
-          95, color="#27ae60", linestyle="--", linewidth=1, label="Meta (95%)"
-      )
-      ax_v.set_ylim(0, 105)
-      ax_v.legend(loc="lower right", fontsize=8)
-      for bar in bars:
-        h = bar.get_height()
-        ax_v.text(
-            bar.get_x() + bar.get_width() / 2,
-            h + 1,
-            f"{h}%",
-            ha="center",
-            va="bottom",
-            fontweight="bold",
-            fontsize=8,
-        )
-      fig_v.tight_layout()
-      st.pyplot(fig_v)
-    else:
+    if ciudad_sel != "Todas las Ciudades (General)":
       info_c = df_ciudades.iloc[0]
       m1, m2, m3 = st.columns(3)
       m1.metric("Flotilla Asignada en Sede", info_c["Flotilla Asignada"])
       m2.metric("Porcentaje Movilidad Real", f"{info_c['Movilidad (%)']}%")
       m3.metric("Estatus del Semáforo", info_c["Estado"])
+    else:
+      st.info("ℹ️ Nota: La gráfica de barras de movilidad general ha sido retirada por cuestiones de legibilidad, priorizando el reporte métrico consolidado y tabla ejecutiva inferior.")
 
     def colorear_estado(val):
       if val == "VERDE":
@@ -675,7 +662,7 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
       elif val == "AMARILLO":
         return "background-color: #f39c12; color: white; font-weight: bold;"
       elif val == "ROJO":
-        return "background-color: #c0392b; color: white; font-weight: bold;"
+        return f"background-color: {COLORES_PANTONE['7420']}; color: white; font-weight: bold;"
       return ""
 
     try:
@@ -690,7 +677,7 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
     )
 
 # -----------------------------------------------------------------------------
-# 3. CONTROL DEL POOL DE SUSTITUTOS (20%)[cite: 3]
+# 3. CONTROL DEL POOL DE SUSTITUTOS (20%)
 # -----------------------------------------------------------------------------
 elif mod_actual == "Control del Pool de Sustitutos (20%)":
   if cat_actual == "Institucionales":
@@ -749,7 +736,7 @@ elif mod_actual == "Control del Pool de Sustitutos (20%)":
     )
 
 # -----------------------------------------------------------------------------
-# 4. CARGA INICIAL[cite: 3]
+# 4. CARGA INICIAL
 # -----------------------------------------------------------------------------
 elif mod_actual == "Carga Inicial":
   st.markdown(
@@ -837,7 +824,7 @@ elif mod_actual == "Carga Inicial":
     )
 
 # -----------------------------------------------------------------------------
-# 5. EXPEDIENTE POR ECO Y DOCUMENTAL[cite: 3]
+# 5. EXPEDIENTE POR ECO Y DOCUMENTAL
 # -----------------------------------------------------------------------------
 elif mod_actual == "Expediente por ECO y Documental":
   st.markdown(
@@ -977,7 +964,7 @@ elif mod_actual == "Expediente por ECO y Documental":
           )
 
 # -----------------------------------------------------------------------------
-# 6. REGISTRO DE TALLER E INCIDENCIAS[cite: 3]
+# 6. REGISTRO DE TALLER E INCIDENCIAS
 # -----------------------------------------------------------------------------
 elif mod_actual == "Registro de Taller e Incidencias":
   st.markdown(
@@ -1281,7 +1268,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
   )
 
 # -----------------------------------------------------------------------------
-# 7. REASIGNACIÓN POR NECESIDAD DE SERVICIO[cite: 3]
+# 7. REASIGNACIÓN POR NECESIDAD DE SERVICIO
 # -----------------------------------------------------------------------------
 elif mod_actual == "Reasignación por Necesidad de Servicio":
   st.markdown(
@@ -1360,7 +1347,7 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
   )
 
 # -----------------------------------------------------------------------------
-# 8. REPORTES Y EXPORTACIÓN[cite: 3]
+# 8. REPORTES Y EXPORTACIÓN (GENERA ARCHIVOS REALES DESCARGABLES)
 # -----------------------------------------------------------------------------
 elif mod_actual == "Reportes y Exportación":
   st.markdown(
@@ -1387,14 +1374,53 @@ elif mod_actual == "Reportes y Exportación":
   )
 
   st.markdown("---")
+  
+  # Preparación y descarga de archivo real en lugar de simulación vacía
   if st.button("🚀 Generar y Descargar Reporte Consolidado"):
-    st.success(
-        f"Reporte '{tipo_rep}' generado en formato {formato_rep}. Descarga"
-        " iniciada automáticamente."
-    )
+    try:
+      # Generar dataframe según el tipo de reporte seleccionado
+      if "Inventario" in tipo_rep:
+        df_export = df_base.copy()
+      elif "Movilidad" in tipo_rep:
+        df_export = df_ciudades if 'df_ciudades' in locals() and not df_ciudades.empty else df_base.copy()
+      elif "Mantenimiento" in tipo_rep:
+        df_export = pd.DataFrame(st.session_state.taller_registros) if st.session_state.taller_registros else pd.DataFrame(columns=["Mensaje"])
+        if df_export.empty: df_export = pd.DataFrame([{"Mensaje": "Sin registros en bitácora de taller"}])
+      else:
+        df_export = df_base.copy()
+
+      buffer = io.BytesIO()
+      file_name_ext = ""
+      
+      if "Excel" in formato_rep:
+        file_name_ext = f"Reporte_{tipo_rep.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+          df_export.to_excel(writer, index=False, sheet_name='Reporte_IMSS')
+        buffer.seek(0)
+        
+        st.download_button(
+            label="📥 Clic aquí para descargar el archivo Excel generado",
+            data=buffer,
+            file_name=file_name_ext,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+      else:
+        file_name_ext = f"Reporte_{tipo_rep.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.csv"
+        csv_data = df_export.to_csv(index=False).encode('utf-8')
+        
+        st.download_button(
+            label="📥 Clic aquí para descargar el archivo CSV generado",
+            data=csv_data,
+            file_name=file_name_ext,
+            mime="text/csv"
+        )
+        
+      st.success(f"Reporte '{tipo_rep}' generado exitosamente. Utilice el botón de descarga superior.")
+    except Exception as e:
+      st.error(f"Error al generar el archivo de descarga: {e}")
 
 # -----------------------------------------------------------------------------
-# 9. CONCILIACIÓN FINANCIERA Y PAGOS[cite: 3]
+# 9. CONCILIACIÓN FINANCIERA Y PAGOS (ERROR CORREGIDO)
 # -----------------------------------------------------------------------------
 elif mod_actual == "Conciliación Financiera y Pagos":
   st.markdown(
@@ -1452,13 +1478,14 @@ elif mod_actual == "Conciliación Financiera y Pagos":
   if arr_sel_p != "Todas" and not df_p.empty and "Arrendadora" in df_p.columns:
     df_p = df_p[df_p["Arrendadora"] == arr_sel_p]
 
+  # Corrección del TypeError: Se cambia .size() por .sum() con conversión numérica segura para evitar errores de tipo
   monto_sub = (
       pd.to_numeric(df_p["COSTO MENSUAL SIN IVA (a)"], errors="coerce").sum()
       if "COSTO MENSUAL SIN IVA (a)" in df_p.columns
       else 0.0
   )
   monto_ded = (
-      pd.to_numeric(df_p["TOTAL DE DEDUCCIÓN"], errors="coerce").size()
+      pd.to_numeric(df_p["TOTAL DE DEDUCCIÓN"], errors="coerce").sum()
       if "TOTAL DE DEDUCCIÓN" in df_p.columns
       else 0.0
   )
