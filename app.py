@@ -43,6 +43,18 @@ COLUMNAS_OFICIALES = [
 ]
 
 # -----------------------------------------------------------------------------
+# FUNCIÓN AUXILIAR PARA CONVERSIÓN SEGURA DE NÚMEROS
+# -----------------------------------------------------------------------------
+def parse_float(val):
+    try:
+        val_str = str(val).strip()
+        if val_str.lower() in ['nan', 'none', 'n/a', '', 'null']:
+            return 0.0
+        return float(val_str.replace('$', '').replace(',', ''))
+    except (ValueError, TypeError):
+        return 0.0
+
+# -----------------------------------------------------------------------------
 # CONEXIÓN CON SUPABASE[cite: 3]
 # -----------------------------------------------------------------------------
 @st.cache_resource
@@ -911,7 +923,7 @@ elif mod_actual == "Expediente por ECO y Documental":
                             <p><b>Tipo / Línea:</b> {v_data.get('Tipo', 'N/A')} - {v_data.get('Linea', 'N/A')}</p>
                             <p><b>Ubicación / OOAD:</b> {v_data.get('UBICACIÓN', 'N/A')}</p>
                             <p><b>Último Servicio:</b> {v_data.get('Ultimo_Servicio', 'N/A')}</p>
-                            <p><b>Cuota Diaria:</b> ${float(v_data.get('CUOTA DIARIA', 0.0) or 0.0):,.2f}</p>
+                            <p><b>Cuota Diaria:</b> ${parse_float(v_data.get('CUOTA DIARIA', 0.0)):,.2f}</p>
                         </div>
                     </div>
                 </div>
