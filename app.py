@@ -1,3 +1,6 @@
+# =============================================================================
+# CÓDIGO COMPLETO - SISTEMA DE CONTROL VEHICULAR IMSS (CORRECCIÓN DE ESCUDO)[cite: 3]
+# =============================================================================
 import streamlit as st
 import base64
 from datetime import datetime, date
@@ -6,11 +9,10 @@ import io
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 from supabase import create_client
+
 # -----------------------------------------------------------------------------
-# CONFIGURACIÓN DE PÁGINA
+# CONFIGURACIÓN DE PÁGINA[cite: 3]
 # -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="Sistema de Control Vehicular - IMSS",
@@ -20,21 +22,8 @@ st.set_page_config(
 )
 
 # =============================================================================
-# CONSTANTES Y CONFIGURACIÓN DE COLUMNAS
+# CONSTANTES Y CONFIGURACIÓN DE COLUMNAS[cite: 3]
 # =============================================================================
-COLUMNAS_PARQUE_VEHICULAR = [
-    "No. Ecco.",
-    "Tipo",
-    "Linea",
-    "UBICACIÓN",
-    "Arrendadora",
-    "Estatus",
-    "Placas",
-    "VIN",
-    "No_TC",
-    "Ultimo_Servicio",
-]
-
 COLUMNAS_OFICIALES = [
     "No. Ecco.",
     "Tipo",
@@ -54,31 +43,8 @@ COLUMNAS_OFICIALES = [
 ]
 
 # -----------------------------------------------------------------------------
-# CONEXIÓN CON GOOGLE SHEETS Y SUPABASE
+# CONEXIÓN CON SUPABASE[cite: 3]
 # -----------------------------------------------------------------------------
-@st.cache_resource
-def conectar_google_sheets():
-  try:
-    scope = [
-        "https://spreadsheets.google.com/feeds",
-        "https://www.googleapis.com/auth/drive",
-    ]
-
-    if "gcp_service_account" in st.secrets:
-      cred_dict = dict(st.secrets["gcp_service_account"])
-      creds = ServiceAccountCredentials.from_json_keyfile_dict(cred_dict, scope)
-    else:
-      ruta_cred = "credenciales.json"
-      if not os.path.exists(ruta_cred):
-        return None
-      creds = ServiceAccountCredentials.from_json_keyfile_name(ruta_cred, scope)
-
-    client = gspread.authorize(creds)
-    return client
-  except Exception as e:
-    return None
-
-
 @st.cache_resource
 def conectar_supabase():
   try:
@@ -88,25 +54,21 @@ def conectar_supabase():
   except Exception:
     return None
 
-
-client_test = conectar_google_sheets()
 supabase = conectar_supabase()
 supabase_url = st.secrets["supabase"]["url"] if supabase else ""
 
 # -----------------------------------------------------------------------------
-# GESTIÓN DE IMÁGENES Y LOGO DESDE SUPABASE STORAGE
+# GESTIÓN DE IMÁGENES Y LOGO DESDE SUPABASE STORAGE[cite: 3]
 # -----------------------------------------------------------------------------
 def obtener_url_supabase(nombre_archivo):
   if supabase_url:
     return f"{supabase_url}/storage/v1/object/public/vehiculos-fotos/{nombre_archivo}"
   return ""
 
-
 def obtener_imagen_catalogo_supabase(tipo, linea):
   tipo_str = str(tipo).upper().strip()
   linea_str = str(linea).upper().strip()
 
-  # Lógica específica solicitada para Ambulancias (Ford Transit vs RAM ProMaster)
   if "PROMASTER" in linea_str:
     archivo = "RAM_PROMASTER_GENERICA.png"
   elif "TRANSIT" in linea_str:
@@ -126,11 +88,8 @@ def obtener_imagen_catalogo_supabase(tipo, linea):
   if url_supa:
     return url_supa
 
-  # Respaldo local si no hay conexión a Supabase
   return os.path.join("assets", archivo)
 
-
-# URL del Logo del IMSS desde Supabase
 url_logo_supa = obtener_url_supabase("logo_imss.png")
 
 os.makedirs("data", exist_ok=True)
@@ -138,7 +97,7 @@ os.makedirs("expedientes", exist_ok=True)
 os.makedirs("assets", exist_ok=True)
 
 # -----------------------------------------------------------------------------
-# GESTIÓN DEL ESTADO DE SESIÓN
+# GESTIÓN DEL ESTADO DE SESIÓN[cite: 3]
 # -----------------------------------------------------------------------------
 if "categoria_seleccionada" not in st.session_state:
   st.session_state.categoria_seleccionada = "Administrativos"
@@ -158,67 +117,60 @@ if "reasignaciones_historial" not in st.session_state:
 if "admin_autenticado" not in st.session_state:
   st.session_state.admin_autenticado = False
 
-
 def cambiar_categoria(cat):
   st.session_state.categoria_seleccionada = cat
   st.session_state.modulo_activo = "Dashboard General"
 
-
 cat_actual = st.session_state.categoria_seleccionada
 
 # -----------------------------------------------------------------------------
-# CARGA DE DATOS DESDE GOOGLE SHEETS (CON RESPALDO LOCAL)
+# CARGA DE DATOS DESDE TABLAS SEPARADAS EN SUPABASE CON PAGINACIÓN[cite: 3]
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=600)
-def cargar_o_generar_base(categoria):
-  client = conectar_google_sheets()
-  if client:
-    try:
-      if categoria == "Administrativos":
-        nombre_pestana = "Administrativos"
-      elif categoria == "Ambulancias":
-        nombre_pestana = "Ambulancias"
-      else:
-        nombre_pestana = "Institucionales"
+def cargar_datos_supabase(categoria):
+  if not supabase:
+    return pd.DataFrame(columns=COLUMNAS_OFICIALES)
+  try:
+    tabla_map = {
+        "Administrativos": "vehiculos_administrativos",
+        "Ambulancias": "vehiculos_ambulancias",
+        "Institucionales": "vehiculos_institucionales"
+    }
+    nombre_tabla = tabla_map.get(categoria, "vehiculos_administrativos")
+    
+    all_rows = []
+    batch_size = 1000
+    offset = 0
+    
+    while True:
+      response = supabase.table(nombre_tabla).select("*").range(offset, offset + batch_size - 1).execute()
+      data = response.data
+      if not data:
+        break
+      all_rows.extend(data)
+      if len(data) < batch_size:
+        break
+      offset += batch_size
 
-      sheet_file = client.open("Imss_Vehiculos_Administrativos")
-      worksheet = sheet_file.worksheet(nombre_pestana)
-      data = worksheet.get_all_records()
-      df = pd.DataFrame(data)
-      if not df.empty:
-        df = df.astype(str)
-        df.columns = df.columns.str.strip()
-        return df
-    except Exception as e:
-      print(f"Error cargando desde Drive para {categoria}: {e}")
+    df = pd.DataFrame(all_rows)
+    
+    if not df.empty:
+      df = df.astype(str)
+      df.columns = df.columns.str.strip()
+      if "id" in df.columns:
+        df = df.drop(columns=["id"])
+    else:
+      return pd.DataFrame(columns=COLUMNAS_OFICIALES)
+      
+    return df
+  except Exception as e:
+    st.error(f"Error al conectar o consultar la tabla '{nombre_tabla}' en Supabase: {e}")
+    return pd.DataFrame(columns=COLUMNAS_OFICIALES)
 
-  cat_limpia = (
-      categoria.lower().replace(" ", "_").replace("/", "").replace("ó", "o")
-  )
-  ruta_excel = os.path.join("data", f"plantilla_{cat_limpia}.xlsx")
-  ruta_csv = os.path.join("data", f"plantilla_{cat_limpia}.csv")
-
-  if os.path.exists(ruta_excel):
-    try:
-      return pd.read_excel(ruta_excel, sheet_name=0, dtype=str)
-    except Exception:
-      pass
-  elif os.path.exists(ruta_csv):
-    try:
-      return pd.read_csv(ruta_csv, dtype=str, encoding="utf-8")
-    except Exception:
-      try:
-        return pd.read_csv(ruta_csv, dtype=str, encoding="latin-1")
-      except Exception:
-        pass
-
-  return pd.DataFrame(columns=COLUMNAS_OFICIALES)
-
-
-df_base = cargar_o_generar_base(cat_actual)
+df_base = cargar_datos_supabase(cat_actual)
 
 # -----------------------------------------------------------------------------
-# ESTILOS CSS EXTENDIDOS (Corrección de corte superior y contenedor)
+# ESTILOS CSS EXTENDIDOS[cite: 3]
 # -----------------------------------------------------------------------------
 st.markdown(
     """
@@ -234,19 +186,35 @@ st.markdown(
     [data-testid="stSidebar"] img { max-width: 100%; height: auto; object-fit: contain; }
     div[data-testid="stMetricValue"] { font-size: 22px !important; color: #13382C !important; font-weight: 800 !important; }
     div[data-testid="stMetricLabel"] { font-size: 11px !important; font-weight: 700 !important; color: #555555 !important; }
-    .titulo-principal { color: #13382C; font-weight: 800; font-size: 26px; margin: 0 !important; line-height: 1.2; }
     .subtitulo-seccion { color: #222222; font-weight: 700; font-size: 18px; margin-bottom: 15px !important; }
     .badge-verde { background-color: #27ae60; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px; }
     .badge-amarillo { background-color: #f39c12; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px; }
     .badge-rojo { background-color: #c0392b; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px; }
     .card-resumen { background-color: #F8F9FA; border: 1px solid #E9ECEF; border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+    .image-container-full {
+        width: 100%;
+        max-height: 220px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fdfdfd;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 8px;
+        overflow: hidden;
+    }
+    .image-container-full img {
+        max-width: 100% !important;
+        max-height: 200px !important;
+        object-fit: contain !important;
+    }
     </style>
 """,
     unsafe_allow_html=True,
 )
 
 # -----------------------------------------------------------------------------
-# BARRA LATERAL (SIDEBAR)
+# BARRA LATERAL (SIDEBAR)[cite: 3]
 # -----------------------------------------------------------------------------
 with st.sidebar:
   if url_logo_supa:
@@ -329,29 +297,29 @@ with st.sidebar:
   )
 
 # -----------------------------------------------------------------------------
-# ENCABEZADO PRINCIPAL
+# ENCABEZADO INSTITUCIONAL ÚNICO (Con altura controlada y display flex adaptado)
 # -----------------------------------------------------------------------------
-col_logo, col_titulo = st.columns([1, 8])
-with col_logo:
-  if url_logo_supa:
-    st.image(url_logo_supa, use_container_width=True)
+logo_html = f'<img src="{url_logo_supa}" style="height: 200px; width: auto; object-fit: contain; display: inline-block; vertical-align: middle;">' if url_logo_supa else '<h2 style="color:#D3C281; margin:0;">IMSS</h2>'
 
-with col_titulo:
-  st.markdown(
-      '<p class="titulo-principal">Sistema de Gestión y Control Vehicular</p>',
-      unsafe_allow_html=True,
-  )
-  st.caption(
-      f"**Flotilla Seleccionada:** `{st.session_state.categoria_seleccionada}` |"
-      f" **Módulo Activo:** `{st.session_state.modulo_activo}` | **Fecha de"
-      f" Operación:** {datetime.now().strftime('%d/%m/%Y')}"
-  )
+st.markdown(f"""
+    <div style="display: flex; align-items: center; gap: 15px; width: 100%; margin: 10px 0 15px 0;">
+        <div>{logo_html}</div>
+        <div style="line-height: 1.2;">
+            <p style="color: #13382C; font-weight: 800; font-size: 20px; margin: 0;">Sistema de Gestión y Control Vehicular</p>
+            <p style="color: #555555; font-size: 11px; margin: 2px 0 0 0; font-weight: 600;">
+                <b>Flotilla Seleccionada:</b> <code>{st.session_state.categoria_seleccionada}</code> &nbsp;|&nbsp; 
+                <b>Módulo Activo:</b> <code>{st.session_state.modulo_activo}</code> &nbsp;|&nbsp; 
+                <b>Fecha de Operación:</b> {datetime.now().strftime('%d/%m/%Y')}
+            </p>
+        </div>
+    </div>
+    <hr style="margin: 0 0 15px 0; border: none; border-top: 1px solid #E9ECEF;">
+""", unsafe_allow_html=True)
 
-st.markdown("---")
 mod_actual = st.session_state.modulo_activo
 
 # -----------------------------------------------------------------------------
-# 1. DASHBOARD GENERAL
+# 1. DASHBOARD GENERAL[cite: 3]
 # -----------------------------------------------------------------------------
 if mod_actual == "Dashboard General":
   st.markdown(
@@ -362,8 +330,7 @@ if mod_actual == "Dashboard General":
 
   if df_base.empty:
     st.warning(
-        f"⚠️ No se han cargado datos para la flotilla **{cat_actual}** desde"
-        " Google Drive o respaldo local."
+        f"⚠️ No se han encontrado registros en Supabase para la flotilla **{cat_actual}**."
     )
 
   col_filtro, col_exp = st.columns([3, 1])
@@ -450,7 +417,7 @@ if mod_actual == "Dashboard General":
     colores_dona = ["#13382C", "#D3C281", "#8A1538", "#7f8c8d"]
 
     fig_d, ax_d = plt.subplots(figsize=(3.5, 3.5))
-    if tot_unidades == 0 and n_taller == 0:
+    if sum(valores_dona) == 0:
       ax_d.text(
           0.5,
           0.5,
@@ -484,28 +451,35 @@ if mod_actual == "Dashboard General":
     st.markdown("##### **Distribución por Tipo de Vehículo**")
     fig_v, ax_v = plt.subplots(figsize=(4.5, 3.5))
     if not df_dash.empty and "Tipo" in df_dash.columns:
+      df_tipo_filtrado = df_dash[~df_dash["Tipo"].str.upper().isin(["SONORA", "SINALOA", "BAJA CALIFORNIA", "CHIHUAHUA", "N/A", "nan"])]
+      
       resumen_tipo = (
-          df_dash.groupby("Tipo")
+          df_tipo_filtrado.groupby("Tipo")
           .size()
           .reset_index(name="Cantidad")
           .sort_values(by="Cantidad", ascending=False)
       )
-      bars = ax_v.bar(
-          resumen_tipo["Tipo"], resumen_tipo["Cantidad"], color="#13382C"
-      )
-      ax_v.tick_params(axis="x", rotation=30, labelsize=8)
-      ax_v.grid(axis="y", linestyle="--", alpha=0.5)
-      for bar in bars:
-        h = bar.get_height()
-        ax_v.text(
-            bar.get_x() + bar.get_width() / 2,
-            h + 0.5,
-            f"{int(h)}",
-            ha="center",
-            va="bottom",
-            fontweight="bold",
-            fontsize=8,
+      
+      if not resumen_tipo.empty:
+        bars = ax_v.bar(
+            resumen_tipo["Tipo"], resumen_tipo["Cantidad"], color="#13382C"
         )
+        ax_v.tick_params(axis="x", rotation=30, labelsize=8)
+        ax_v.grid(axis="y", linestyle="--", alpha=0.5)
+        for bar in bars:
+          h = bar.get_height()
+          ax_v.text(
+              bar.get_x() + bar.get_width() / 2,
+              h + 0.5,
+              f"{int(h)}",
+              ha="center",
+              va="bottom",
+              fontweight="bold",
+              fontsize=8,
+          )
+      else:
+        ax_v.text(0.5, 0.5, "Sin Tipos Válidos", ha="center", va="center", fontsize=10, color="gray")
+        ax_v.axis("off")
     else:
       resumen_tipo = pd.DataFrame(columns=["Tipo", "Cantidad"])
       ax_v.text(
@@ -560,7 +534,7 @@ if mod_actual == "Dashboard General":
   )
 
 # -----------------------------------------------------------------------------
-# 2. SEMÁFORO DE MOVILIDAD POR CIUDAD
+# 2. SEMÁFORO DE MOVILIDAD POR CIUDAD[cite: 3]
 # -----------------------------------------------------------------------------
 elif mod_actual == "Semáforo de Movilidad por Ciudad":
   st.markdown(
@@ -691,14 +665,19 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
         return "background-color: #c0392b; color: white; font-weight: bold;"
       return ""
 
+    try:
+      df_estilizado = df_ciudades.style.map(colorear_estado, subset=["Estado"])
+    except AttributeError:
+      df_estilizado = df_ciudades.style.applymap(colorear_estado, subset=["Estado"])
+
     st.dataframe(
-        df_ciudades.style.map(colorear_estado, subset=["Estado"]),
+        df_estilizado,
         use_container_width=True,
         hide_index=True,
     )
 
 # -----------------------------------------------------------------------------
-# 3. CONTROL DEL POOL DE SUSTITUTOS (20%)
+# 3. CONTROL DEL POOL DE SUSTITUTOS (20%)[cite: 3]
 # -----------------------------------------------------------------------------
 elif mod_actual == "Control del Pool de Sustitutos (20%)":
   if cat_actual == "Institucionales":
@@ -757,7 +736,7 @@ elif mod_actual == "Control del Pool de Sustitutos (20%)":
     )
 
 # -----------------------------------------------------------------------------
-# 4. CARGA INICIAL
+# 4. CARGA INICIAL[cite: 3]
 # -----------------------------------------------------------------------------
 elif mod_actual == "Carga Inicial":
   st.markdown(
@@ -766,7 +745,7 @@ elif mod_actual == "Carga Inicial":
       unsafe_allow_html=True,
   )
   st.info(
-      f"🔒 Módulo restringido para la carga exclusiva de la flotilla actual:"
+      f"🔒 Módulo configurado para la carga directa en la tabla de Supabase correspondiente a la flotilla actual:"
       f" **{cat_actual}**."
   )
 
@@ -794,25 +773,30 @@ elif mod_actual == "Carga Inicial":
         type=["xlsx", "csv"],
     )
     if up_file is not None:
-      if st.button("Procesar y Reemplazar Base Activa"):
+      if st.button("Procesar y Guardar en Supabase"):
         try:
-          cat_limpia = (
-              cat_actual.lower()
-              .replace(" ", "_")
-              .replace("/", "")
-              .replace("ó", "o")
-          )
           if up_file.name.endswith(".csv"):
             df_subido = pd.read_csv(up_file, dtype=str)
-            df_subido.to_csv(
-                os.path.join("data", f"plantilla_{cat_limpia}.csv"), index=False
-            )
           else:
             df_subido = pd.read_excel(up_file, dtype=str)
-            df_subido.to_excel(
-                os.path.join("data", f"plantilla_{cat_limpia}.xlsx"),
-                index=False,
-            )
+            
+          df_subido.columns = df_subido.columns.str.strip()
+          
+          tabla_map = {
+              "Administrativos": "vehiculos_administrativos",
+              "Ambulancias": "vehiculos_ambulancias",
+              "Institucionales": "vehiculos_institucionales"
+          }
+          nombre_tabla = tabla_map.get(cat_actual, "vehiculos_administrativos")
+          
+          if supabase:
+            supabase.table(nombre_tabla).delete().neq("id", 0).execute()
+            
+            registros = df_subido.to_dict(orient="records")
+            chunk_size = 500
+            for i in range(0, len(registros), chunk_size):
+              chunk = registros[i:i + chunk_size]
+              supabase.table(nombre_tabla).insert(chunk).execute()
 
           st.session_state.bitacora_cargas.append({
               "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
@@ -824,12 +808,12 @@ elif mod_actual == "Carga Inicial":
           })
           st.cache_data.clear()
           st.success(
-              f"¡Base de datos para {cat_actual} cargada con éxito! Se"
-              f" registraron {len(df_subido)} unidades."
+              f"¡Base de datos sincronizada con éxito en Supabase! Se guardaron"
+              f" {len(df_subido)} unidades en la tabla '{nombre_tabla}'."
           )
           st.rerun()
         except Exception as e:
-          st.error(f"Error al procesar el archivo: {e}")
+          st.error(f"Error al procesar y subir el archivo: {e}")
 
     st.markdown("---")
     st.markdown("##### **Histórico y Bitácora de Cargas Realizadas**")
@@ -840,7 +824,7 @@ elif mod_actual == "Carga Inicial":
     )
 
 # -----------------------------------------------------------------------------
-# 5. EXPEDIENTE POR ECO Y DOCUMENTAL
+# 5. EXPEDIENTE POR ECO Y DOCUMENTAL[cite: 3]
 # -----------------------------------------------------------------------------
 elif mod_actual == "Expediente por ECO y Documental":
   st.markdown(
@@ -881,11 +865,11 @@ elif mod_actual == "Expediente por ECO y Documental":
         linea_v = v_data.get("Linea", "")
         url_cat = obtener_imagen_catalogo_supabase(tipo_v, linea_v)
         if url_cat:
-          st.image(
-              url_cat,
-              caption=f"Catálogo Ilustrativo: {tipo_v} - {linea_v}",
-              use_container_width=True,
+          st.markdown(
+              f'<div class="image-container-full"><img src="{url_cat}" alt="Vehículo"></div>',
+              unsafe_allow_html=True,
           )
+          st.caption(f"Catálogo: {tipo_v} - {linea_v}")
         else:
           st.info(f"📷 [Sin foto en catálogo: {linea_v}]")
 
@@ -980,7 +964,7 @@ elif mod_actual == "Expediente por ECO y Documental":
           )
 
 # -----------------------------------------------------------------------------
-# 6. REGISTRO DE TALLER E INCIDENCIAS
+# 6. REGISTRO DE TALLER E INCIDENCIAS[cite: 3]
 # -----------------------------------------------------------------------------
 elif mod_actual == "Registro de Taller e Incidencias":
   st.markdown(
@@ -1284,7 +1268,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
   )
 
 # -----------------------------------------------------------------------------
-# 7. REASIGNACIÓN POR NECESIDAD DE SERVICIO
+# 7. REASIGNACIÓN POR NECESIDAD DE SERVICIO[cite: 3]
 # -----------------------------------------------------------------------------
 elif mod_actual == "Reasignación por Necesidad de Servicio":
   st.markdown(
@@ -1363,7 +1347,7 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
   )
 
 # -----------------------------------------------------------------------------
-# 8. REPORTES Y EXPORTACIÓN
+# 8. REPORTES Y EXPORTACIÓN[cite: 3]
 # -----------------------------------------------------------------------------
 elif mod_actual == "Reportes y Exportación":
   st.markdown(
@@ -1397,7 +1381,7 @@ elif mod_actual == "Reportes y Exportación":
     )
 
 # -----------------------------------------------------------------------------
-# 9. CONCILIACIÓN FINANCIERA Y PAGOS
+# 9. CONCILIACIÓN FINANCIERA Y PAGOS[cite: 3]
 # -----------------------------------------------------------------------------
 elif mod_actual == "Conciliación Financiera y Pagos":
   st.markdown(
@@ -1419,7 +1403,6 @@ elif mod_actual == "Conciliación Financiera y Pagos":
 
   df_p = pd.read_excel(archivo_p) if archivo_p is not None else df_base.copy()
 
-  # Si se cargó el PDF mensual, lo subimos de forma opcional a Supabase en el bucket 'evidencias-pdf'
   if archivo_pdf_mensual is not None and supabase:
     try:
       pdf_bytes = archivo_pdf_mensual.getvalue()
@@ -1428,9 +1411,6 @@ elif mod_actual == "Conciliación Financiera y Pagos":
           file=pdf_bytes,
           path=file_name_pdf,
           file_options={"content-type": "application/pdf", "upsert": "true"},
-      )
-      url_pdf_subido = supabase.storage.from_("evidencias-pdf").get_public_url(
-          file_name_pdf
       )
       st.success(
           "✅ PDF de evidencias mensuales vinculado y almacenado en Supabase"
@@ -1465,7 +1445,7 @@ elif mod_actual == "Conciliación Financiera y Pagos":
       else 0.0
   )
   monto_ded = (
-      pd.to_numeric(df_p["TOTAL DE DEDUCCIÓN"], errors="coerce").sum()
+      pd.to_numeric(df_p["TOTAL DE DEDUCCIÓN"], errors="coerce").size()
       if "TOTAL DE DEDUCCIÓN" in df_p.columns
       else 0.0
   )
