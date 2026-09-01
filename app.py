@@ -47,12 +47,13 @@ COLUMNAS_OFICIALES = [
 # -----------------------------------------------------------------------------
 @st.cache_resource
 def conectar_supabase():
-  try:
-    url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["key"]
-    return create_client(url, key)
-  except Exception:
-    return None
+    try:
+        url = st.secrets["supabase"]["url"]
+        key = st.secrets["supabase"]["key"]
+        return create_client(url, key)
+    except Exception as e:
+        st.error(f"Error detallado de conexión: {e}")
+        return None
 
 supabase = conectar_supabase()
 supabase_url = st.secrets["supabase"]["url"] if supabase else ""
