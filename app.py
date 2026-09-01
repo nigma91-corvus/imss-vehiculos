@@ -1,5 +1,6 @@
 # =============================================================================
-# CÓDIGO COMPLETO - SISTEMA DE CONTROL VEHICULAR IMSS (CORRECCIONES APLICADAS)
+# CÓDIGO COMPLETO - SISTEMA DE CONTROL VEHICULAR IMSS (CORRECCIONES FINALES)
+# Desarrollado por: eduardo.casas@imss.gob.mx
 # =============================================================================
 import streamlit as st
 import base64
@@ -233,6 +234,15 @@ st.markdown(
         max-height: 200px !important;
         object-fit: contain !important;
     }}
+    .footer-firma {{
+        margin-top: 30px;
+        padding: 10px;
+        text-align: center;
+        border-top: 1px solid #E9ECEF;
+        font-size: 11px;
+        color: #555555;
+        font-weight: 600;
+    }}
     </style>
 """,
     unsafe_allow_html=True,
@@ -319,6 +329,12 @@ with st.sidebar:
       "Módulos del Sistema:",
       modulos,
       index=modulos.index(st.session_state.modulo_activo),
+  )
+
+  st.markdown("---")
+  st.markdown(
+      "<div style='text-align: center; font-size: 10px; color: #CCCCCC;'>Desarrollado por:<br><b>eduardo.casas@imss.gob.mx</b></div>",
+      unsafe_allow_html=True,
   )
 
 # -----------------------------------------------------------------------------
@@ -439,7 +455,6 @@ if mod_actual == "Dashboard General":
         "En Taller",
         "Baja / Inoperativos",
     ]
-    # Aplicando Pantones institucionales 627, 468, 7420, 490
     colores_dona = [COLORES_PANTONE["627"], COLORES_PANTONE["468"], COLORES_PANTONE["7420"], COLORES_PANTONE["490"]]
 
     fig_d, ax_d = plt.subplots(figsize=(3.5, 3.5))
@@ -487,9 +502,19 @@ if mod_actual == "Dashboard General":
       )
       
       if not resumen_tipo.empty:
-        # Usando Pantone 626 para barras principales
+        # Paleta variada de colores institucionales para cada barra de la gráfica
+        paleta_barras = [
+            COLORES_PANTONE["627"],
+            COLORES_PANTONE["626"],
+            COLORES_PANTONE["561"],
+            COLORES_PANTONE["490"],
+            COLORES_PANTONE["7420"],
+            COLORES_PANTONE["465"]
+        ]
+        colores_asignados = [paleta_barras[i % len(paleta_barras)] for i in range(len(resumen_tipo))]
+        
         bars = ax_v.bar(
-            resumen_tipo["Tipo"], resumen_tipo["Cantidad"], color=COLORES_PANTONE["626"]
+            resumen_tipo["Tipo"], resumen_tipo["Cantidad"], color=colores_asignados
         )
         ax_v.tick_params(axis="x", rotation=30, labelsize=8)
         ax_v.grid(axis="y", linestyle="--", alpha=0.5)
@@ -561,7 +586,7 @@ if mod_actual == "Dashboard General":
   )
 
 # -----------------------------------------------------------------------------
-# 2. SEMÁFORO DE MOVILIDAD POR CIUDAD (GRÁFICA ILEGIBLE REMOVIDA)
+# 2. SEMÁFORO DE MOVILIDAD POR CIUDAD
 # -----------------------------------------------------------------------------
 elif mod_actual == "Semáforo de Movilidad por Ciudad":
   st.markdown(
@@ -654,7 +679,7 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
       m2.metric("Porcentaje Movilidad Real", f"{info_c['Movilidad (%)']}%")
       m3.metric("Estatus del Semáforo", info_c["Estado"])
     else:
-      st.info("ℹ️ Nota: La gráfica de barras de movilidad general ha sido retirada por cuestiones de legibilidad, priorizando el reporte métrico consolidado y tabla ejecutiva inferior.")
+      st.info("ℹ️ Nota: Reporte métrico consolidado y tabla ejecutiva de cumplimiento por OOAD.")
 
     def colorear_estado(val):
       if val == "VERDE":
@@ -1286,6 +1311,13 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
       if not df_base.empty and "No. Ecco." in df_base.columns
       else []
   )
+  
+  # Extracción dinámica y completa de todas las ubicaciones/ciudades desde la base de datos de Supabase
+  lista_ciudades_dinamica = (
+      sorted(list(df_base["UBICACIÓN"].dropna().unique()))
+      if not df_base.empty and "UBICACIÓN" in df_base.columns
+      else ["Aguascalientes", "Colima", "Manzanillo", "Tepic", "Mazatlán", "Zacatecas"]
+  )
 
   with st.form(key="form_reasignacion"):
     st.markdown("##### **Formulario Oficial de Reasignación**")
@@ -1307,15 +1339,10 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
     col_r2.text_input("Sede de Origen Actual:", value=sede_origen, disabled=True)
 
     col_r3, col_r4 = st.columns(2)
-    sedes_opt = [
-        "Aguascalientes",
-        "Colima",
-        "Manzanillo",
-        "Tepic",
-        "Mazatlán",
-        "Zacatecas",
-    ]
-    sedes_dest = [s for s in sedes_opt if s != sede_origen]
+    sedes_dest = [s for s in lista_ciudades_dinamica if s != sede_origen]
+    if not sedes_dest:
+      sedes_dest = lista_ciudades_dinamica
+      
     sede_destino = col_r3.selectbox("Sede de Destino / Nueva OOAD:", sedes_dest)
     oficio = col_r4.text_input("Número de Oficio de Autorización:", value="")
 
@@ -1347,7 +1374,7 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
   )
 
 # -----------------------------------------------------------------------------
-# 8. REPORTES Y EXPORTACIÓN (GENERA ARCHIVOS REALES DESCARGABLES)
+# 8. REPORTES Y EXPORTACIÓN (ROBUSTO CONTRA DEPENDENCIAS FALTANTES)
 # -----------------------------------------------------------------------------
 elif mod_actual == "Reportes y Exportación":
   st.markdown(
@@ -1375,10 +1402,8 @@ elif mod_actual == "Reportes y Exportación":
 
   st.markdown("---")
   
-  # Preparación y descarga de archivo real en lugar de simulación vacía
   if st.button("🚀 Generar y Descargar Reporte Consolidado"):
     try:
-      # Generar dataframe según el tipo de reporte seleccionado
       if "Inventario" in tipo_rep:
         df_export = df_base.copy()
       elif "Movilidad" in tipo_rep:
@@ -1390,24 +1415,34 @@ elif mod_actual == "Reportes y Exportación":
         df_export = df_base.copy()
 
       buffer = io.BytesIO()
-      file_name_ext = ""
       
       if "Excel" in formato_rep:
         file_name_ext = f"Reporte_{tipo_rep.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.xlsx"
-        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-          df_export.to_excel(writer, index=False, sheet_name='Reporte_IMSS')
-        buffer.seek(0)
-        
-        st.download_button(
-            label="📥 Clic aquí para descargar el archivo Excel generado",
-            data=buffer,
-            file_name=file_name_ext,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        # Intento seguro con openpyxl; respaldo automático a CSV si no está instalado
+        try:
+          with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+            df_export.to_excel(writer, index=False, sheet_name='Reporte_IMSS')
+          buffer.seek(0)
+          st.download_button(
+              label="📥 Clic aquí para descargar el archivo Excel generado",
+              data=buffer,
+              file_name=file_name_ext,
+              mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          )
+        except ImportError:
+          # Respaldo automático a CSV para prevenir errores de librerías faltantes
+          file_name_ext = f"Reporte_{tipo_rep.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.csv"
+          csv_data = df_export.to_csv(index=False).encode('utf-8')
+          st.warning("⚠️ Librería 'openpyxl' no disponible en el entorno; el reporte se generó y entregó en formato CSV compatible.")
+          st.download_button(
+              label="📥 Clic aquí para descargar el archivo CSV generado",
+              data=csv_data,
+              file_name=file_name_ext,
+              mime="text/csv"
+          )
       else:
         file_name_ext = f"Reporte_{tipo_rep.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.csv"
         csv_data = df_export.to_csv(index=False).encode('utf-8')
-        
         st.download_button(
             label="📥 Clic aquí para descargar el archivo CSV generado",
             data=csv_data,
@@ -1415,12 +1450,12 @@ elif mod_actual == "Reportes y Exportación":
             mime="text/csv"
         )
         
-      st.success(f"Reporte '{tipo_rep}' generado exitosamente. Utilice el botón de descarga superior.")
+      st.success(f"Reporte '{tipo_rep}' generado exitosamente.")
     except Exception as e:
       st.error(f"Error al generar el archivo de descarga: {e}")
 
 # -----------------------------------------------------------------------------
-# 9. CONCILIACIÓN FINANCIERA Y PAGOS (ERROR CORREGIDO)
+# 9. CONCILIACIÓN FINANCIERA Y PAGOS
 # -----------------------------------------------------------------------------
 elif mod_actual == "Conciliación Financiera y Pagos":
   st.markdown(
@@ -1478,7 +1513,6 @@ elif mod_actual == "Conciliación Financiera y Pagos":
   if arr_sel_p != "Todas" and not df_p.empty and "Arrendadora" in df_p.columns:
     df_p = df_p[df_p["Arrendadora"] == arr_sel_p]
 
-  # Corrección del TypeError: Se cambia .size() por .sum() con conversión numérica segura para evitar errores de tipo
   monto_sub = (
       pd.to_numeric(df_p["COSTO MENSUAL SIN IVA (a)"], errors="coerce").sum()
       if "COSTO MENSUAL SIN IVA (a)" in df_p.columns
@@ -1524,3 +1558,12 @@ elif mod_actual == "Conciliación Financiera y Pagos":
       use_container_width=True,
       hide_index=True,
   )
+
+# -----------------------------------------------------------------------------
+# FIRMA INSTITUCIONAL FINAL OBLIGATORIA
+# -----------------------------------------------------------------------------
+st.markdown("""
+    <div class="footer-firma">
+        Sistema de Control Vehicular IMSS &nbsp;|&nbsp; Creado y desarrollado por: <b>eduardo.casas@imss.gob.mx</b>
+    </div>
+""", unsafe_allow_html=True)
