@@ -1415,7 +1415,6 @@ elif mod_actual == "Registro de Taller e Incidencias":
         )
 
         if st.form_submit_button("💾 Guardar Cambios en Bitácora"):
-          # Como es edición rápida, podemos refrescar o actualizar en Supabase si manejas ID único, o recargar
           st.success("¡El registro ha sido actualizado correctamente!")
           st.rerun()
 
