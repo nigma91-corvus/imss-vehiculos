@@ -152,6 +152,17 @@ def cargar_datos_supabase(categoria):
       df.columns = df.columns.str.strip()
       if "id" in df.columns:
         df = df.drop(columns=["id"])
+      
+      # Mapeo flexible para estandarizar columnas de identificación (eco, No. Ecco., etc.)
+      columnas_mapeo = {}
+      for col in df.columns:
+        c_clean = col.lower().replace(".", "").replace("_", " ").strip()
+        if c_clean in ["eco", "no eco", "noecco", "no_ecco"]:
+          columnas_mapeo[col] = "No. Ecco."
+        elif c_clean in ["ubicacion", "ubicación"]:
+          columnas_mapeo[col] = "UBICACIÓN"
+      if columnas_mapeo:
+        df = df.rename(columns=columnas_mapeo)
     else:
       return pd.DataFrame(columns=COLUMNAS_OFICIALES)
     return df
