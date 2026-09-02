@@ -424,7 +424,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
   st.markdown(f'<p class="subtitulo-seccion">Registro de Taller, Incidencias y Siniestros - Flotilla {cat_actual}</p>', unsafe_allow_html=True)
   lista_ecos_taller = list(df_base["No. Ecco."].unique()) if not df_base.empty and "No. Ecco." in df_base.columns else []
 
-  with st.form(key="form_ingreso_taller_pers":):
+  with st.form(key="form_ingreso_taller_pers"):
     st.markdown("##### **Nuevo Registro de Ingreso a Taller / Siniestro**")
     c1, c2 = st.columns(2)
     eco_t = c1.selectbox("Número Económico (ECO):", lista_ecos_taller if lista_ecos_taller else ["Sin ECCOS"])
