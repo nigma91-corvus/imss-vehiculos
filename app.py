@@ -72,12 +72,9 @@ def parse_float(val):
 # -----------------------------------------------------------------------------
 @st.cache_resource
 def conectar_supabase():
-    try:
-        url = st.secrets["supabase"]["url"]
-        key = st.secrets["supabase"]["key"]
-        return create_client(url, key)
-    except Exception as e:
-        return None
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    return create_client(url, key)
 
 supabase = conectar_supabase()
 supabase_url = st.secrets["supabase"]["url"] if supabase else ""
