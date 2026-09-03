@@ -37,7 +37,7 @@ st.markdown(
             margin-bottom: 2px !important;
         }
         .logo-box img {
-            max-height: 50px !important;
+            max-height: 100px !important;
             width: auto !important;
             display: inline-block !important;
             object-fit: contain !important;
