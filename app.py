@@ -1268,7 +1268,7 @@ elif mod_actual == "Expediente por ECO y Documental":
                     supabase.table(nombre_tabla_vehiculos).update(
                         {campo_key: url_final}
                     ).eq(
-                        "No_Ecco", eco_search
+                        "eco", eco_search
                     ).execute()
 
                     st.success(
