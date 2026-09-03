@@ -332,7 +332,10 @@ st.markdown(
 # -----------------------------------------------------------------------------
 with st.sidebar:
   if url_logo_supa:
-    st.image(url_logo_supa, use_container_width=True)
+    st.image(
+        url_logo_supa, width=100
+    )
+      
   else:
     st.markdown(
         f"<h2 style='color:{COLORES_PANTONE['468']}; text-align:center;'>IMSS</h2>",
