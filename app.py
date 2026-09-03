@@ -327,7 +327,54 @@ st.markdown(
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
-# BARRA LATERAL (SIDEBAR) - OPTIMIZADA PARA ALTURA DE PANTALLA Y SIN SCROLL
+import json
+import unicodedata
+from datetime import datetime
+import pandas as pd
+import streamlit as st
+
+# -----------------------------------------------------------------------------
+# CSS DEFINITIVO: BLOQUEO DE SCROLL Y AJUSTE DE BARRA LATERAL
+# -----------------------------------------------------------------------------
+st.markdown(
+    """
+    <style>
+        [data-testid="stSidebar"] {
+            overflow: hidden !important;
+            max-height: 100vh !important;
+        }
+        [data-testid="stSidebar"] > div:first-child {
+            overflow-y: hidden !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding-top: 0.5rem !important;
+            padding-bottom: 0.5rem !important;
+        }
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
+            gap: 4px !important; 
+        }
+        [data-testid="stSidebar"] .stRadio label {
+            display: flex !important;
+            align-items: center !important;
+            margin-bottom: 1px !important;
+            min-height: 24px !important;
+        }
+        [data-testid="stSidebar"] .stRadio label p {
+            font-size: 12.5px !important;
+            line-height: 1.1 !important;
+            margin: 0 !important;
+            padding-left: 4px !important;
+        }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
+
+# -----------------------------------------------------------------------------
+# BARRA LATERAL (SIDEBAR)
 # -----------------------------------------------------------------------------
 with st.sidebar:
   if url_logo_supa:
@@ -357,7 +404,6 @@ with st.sidebar:
       unsafe_allow_html=True,
   )
 
-  # Botones de flotilla más compactos en altura
   st.button(
       "ADMINISTRATIVOS",
       use_container_width=True,
