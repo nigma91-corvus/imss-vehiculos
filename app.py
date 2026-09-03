@@ -343,9 +343,8 @@ with st.sidebar:
       f" style='font-size:9px; color:{COLORES_PANTONE['468']};'>Coordinación Técnica de Servicios"
       " Generales</span></div>",
       unsafe_allow_html=True,
-qiuero cambiar este extodebe de ir de la siguiente manera:
-Coordinacion Técnica de servicios Generales
-División de Transportes y Operación.
+      )
+
   st.markdown("---")
   st.markdown(
       "<p style='font-size: 12px; margin-bottom: 8px;'><b>SELECCIONAR"
