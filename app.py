@@ -451,7 +451,8 @@ st.markdown(
     <hr style="margin: 0 0 15px 0; border: none; border-top: 1px solid #E9ECEF;">
 """,
     unsafe_allow_html=True,
-)st.markdown(
+)
+st.markdown(
     f"""
     <div style="display: flex; align-items: flex-end; gap: 15px; width: 100%; margin: 10px 0 15px 0;">
         <div style="max-width: 65px; flex-shrink: 0;">
