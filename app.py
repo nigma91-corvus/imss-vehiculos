@@ -123,9 +123,10 @@ def parse_float(val):
 # -----------------------------------------------------------------------------
 @st.cache_resource
 def conectar_supabase():
-    url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["key"]
-    return create_client(url, key)
+  url = st.secrets["supabase"]["url"]
+  key = st.secrets["supabase"]["key"]
+  return create_client(url, key)
+
 
 supabase = conectar_supabase()
 supabase_url = st.secrets["supabase"]["url"] if supabase else ""
