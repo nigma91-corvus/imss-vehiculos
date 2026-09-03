@@ -21,36 +21,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-# --- AJUSTE ESTÉTICO Y FIJACIÓN DE LA BARRA LATERAL ---
-st.markdown(
-    """
-    <style>
-        /* 1. Fijar barra lateral y asegurar que abarque toda la altura */
-        [data-testid="stSidebar"] {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            height: 100vh !important;
-            overflow-y: auto !important;
-            z-index: 999;
-        }
 
-        /* 2. Mejorar lectura y espaciado de los textos del menú lateral */
-        [data-testid="stSidebar"] .stRadio label {
-            white-space: normal !important;
-            font-size: 13px !important;
-            line-height: 1.25 !important;
-            padding: 3px 0px !important;
-        }
-
-        /* Reducir espacio excesivo entre las opciones del radio */
-        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
-            gap: 4px !important;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
 # =============================================================================
 # CONSTANTES Y CONFIGURACIÓN DE COLUMNAS Y PALETA INSTITUCIONAL (PANTONES)
 # =============================================================================
