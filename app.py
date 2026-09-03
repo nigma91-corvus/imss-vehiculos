@@ -954,8 +954,8 @@ elif mod_actual == "Carga Inicial":
       unsafe_allow_html=True,
   )
   st.info(
-      f"🔒 Módulo configurado para la carga directa en la tabla de Supabase correspondiente a la flotilla actual:"
-      f" **{cat_actual}**."
+      f"🔒 Módulo configurado para la carga directa en la tabla de Supabase"
+      f" correspondiente a la flotilla actual: **{cat_actual}**."
   )
 
   with st.expander(
@@ -973,8 +973,40 @@ elif mod_actual == "Carga Inicial":
         st.error("Credenciales incorrectas.")
 
   if st.session_state.admin_autenticado:
+    # --- SECCIÓN DE DESCARGA DE PLANTILLA ---
+    st.markdown("##### **1. Descargar Plantilla Oficial**")
     st.markdown(
-        f"##### **Subir Archivo de Plantilla para: {cat_actual} (.xlsx o"
+        "Utiliza esta plantilla para asegurarte de que los encabezados y el"
+        " formato coincidan exactamente con lo que espera Supabase."
+    )
+
+    # Definimos las columnas oficiales estándar requeridas para la carga
+    columnas_plantilla = [
+        "eco",
+        "placas",
+        "modelo",
+        "unidad",
+        "estatus",
+    ]  # Ajusta o añade nombres según tu esquema exacto
+    df_plantilla = pd.DataFrame(columns=columnas_plantilla)
+    csv_plantilla = df_plantilla.to_csv(index=False).encode("utf-8")
+
+    st.download_button(
+        label="📥 Descargar Plantilla CSV Oficial",
+        data=csv_plantilla,
+        file_name=f"plantilla_carga_{cat_actual.lower()}.csv",
+        mime="text/csv",
+        help=(
+            "Descarga el archivo modelo con los encabezados listos para"
+            " rellenar."
+        ),
+    )
+
+    st.markdown("---")
+
+    # --- SECCIÓN DE SUBIDA DE ARCHIVO ---
+    st.markdown(
+        f"##### **2. Subir Archivo de Plantilla para: {cat_actual} (.xlsx o"
         " .csv)**"
     )
     up_file = st.file_uploader(
@@ -988,22 +1020,24 @@ elif mod_actual == "Carga Inicial":
             df_subido = pd.read_csv(up_file, dtype=str)
           else:
             df_subido = pd.read_excel(up_file, dtype=str)
-            
+
           df_subido.columns = df_subido.columns.str.strip()
-          
+
           tabla_map = {
               "Administrativos": "vehiculos_administrativos",
               "Ambulancias": "vehiculos_ambulancias",
-              "Institucionales": "vehiculos_institucionales"
+              "Institucionales": "vehiculos_institucionales",
           }
-          nombre_tabla = tabla_map.get(cat_actual, "vehiculos_administrativos")
-          
+          nombre_tabla = tabla_map.get(
+              cat_actual, "vehiculos_administrativos"
+          )
+
           if supabase:
             supabase.table(nombre_tabla).delete().neq("id", 0).execute()
             registros = df_subido.to_dict(orient="records")
             chunk_size = 500
             for i in range(0, len(registros), chunk_size):
-              chunk = registros[i:i + chunk_size]
+              chunk = registros[i : i + chunk_size]
               supabase.table(nombre_tabla).insert(chunk).execute()
 
             # Guardar bitácora en Supabase
@@ -1013,15 +1047,16 @@ elif mod_actual == "Carga Inicial":
                 "base": cat_actual,
                 "archivo": up_file.name,
                 "registros": len(df_subido),
-                "estado": "Exitoso"
+                "estado": "Exitoso",
             }
             supabase.table("bitacora_cargas").insert(nueva_bitacora).execute()
 
           st.session_state.bitacora_cargas = cargar_bitacora_cargas_supabase()
           st.cache_data.clear()
           st.success(
-              f"¡Base de datos sincronizada con éxito en Supabase! Se guardaron"
-              f" {len(df_subido)} unidades en la tabla '{nombre_tabla}'."
+              f"¡Base de datos sincronizada con éxito en Supabase! Se"
+              f" guardaron {len(df_subido)} unidades en la tabla"
+              f" '{nombre_tabla}'."
           )
           st.rerun()
         except Exception as e:
@@ -1034,7 +1069,6 @@ elif mod_actual == "Carga Inicial":
         use_container_width=True,
         hide_index=True,
     )
-
 # -----------------------------------------------------------------------------
 # 5. EXPEDIENTE POR ECO Y DOCUMENTAL (CON CARGA REAL DE FOTOS Y DOCUMENTOS)
 # -----------------------------------------------------------------------------
