@@ -1074,6 +1074,14 @@ elif mod_actual == "Carga Inicial":
     )
 # 5. EXPEDIENTE POR ECO Y DOCUMENTAL (CON CARGA REAL DE FOTOS Y DOCUMENTOS)
 # -----------------------------------------------------------------------------
+import json
+import unicodedata
+from datetime import datetime
+import pandas as pd
+import streamlit as st
+
+# 5. EXPEDIENTE POR ECO Y DOCUMENTAL (CON CARGA REAL DE FOTOS Y DOCUMENTOS)
+# -----------------------------------------------------------------------------
 if mod_actual == "Expediente por ECO y Documental":
     st.markdown(
         f'<p class="subtitulo-seccion">Expediente Técnico y Documental por ECO - {cat_actual}</p>',
@@ -1304,7 +1312,7 @@ if mod_actual == "Expediente por ECO y Documental":
                                         ).update(
                                             {campo_key: url_final}
                                         ).eq(
-                                            "eco", eco_search
+                                            "No. Ecco.", eco_search
                                         ).execute()
 
                                         st.success(
@@ -1329,6 +1337,25 @@ if mod_actual == "Expediente por ECO y Documental":
 
                 if "expedientes_docs" not in st.session_state:
                     st.session_state.expedientes_docs = {}
+
+                if eco_search not in st.session_state.expedientes_docs:
+                    docs_bd = v_data.get("documentos", None)
+                    if docs_bd:
+                        if isinstance(docs_bd, str):
+                            try:
+                                st.session_state.expedientes_docs[eco_search] = (
+                                    json.loads(docs_bd)
+                                )
+                            except:
+                                st.session_state.expedientes_docs[eco_search] = (
+                                    []
+                                )
+                        elif isinstance(docs_bd, list):
+                            st.session_state.expedientes_docs[eco_search] = (
+                                docs_bd
+                            )
+                    else:
+                        st.session_state.expedientes_docs[eco_search] = []
 
                 col_d1, col_d2 = st.columns(2)
                 with col_d1:
@@ -1356,7 +1383,6 @@ if mod_actual == "Expediente por ECO y Documental":
                         ):
                             if supabase:
                                 try:
-                                    import unicodedata
 
                                     def limpiar_nombre_archivo(texto):
                                         nfkd_form = unicodedata.normalize(
@@ -1417,30 +1443,63 @@ if mod_actual == "Expediente por ECO y Documental":
                                             eco_search
                                         ] = []
 
-                                    st.session_state.expedientes_docs[
-                                        eco_search
-                                    ].append({
+                                    nuevo_doc = {
                                         "Tipo": tipo_doc_sel,
                                         "Nombre": doc_subido.name,
                                         "URL": url_doc,
                                         "Fecha": datetime.now().strftime(
                                             "%Y-%m-%d %H:%M"
                                         ),
-                                    })
+                                    }
+                                    st.session_state.expedientes_docs[
+                                        eco_search
+                                    ].append(nuevo_doc)
+
+                                    tabla_map = {
+                                        "Administrativos": (
+                                            "vehiculos_administrativos"
+                                        ),
+                                        "Ambulancias": "vehiculos_ambulancias",
+                                        "Institucionales": (
+                                            "vehiculos_institucionales"
+                                        ),
+                                    }
+                                    nombre_tabla_vehiculos = tabla_map.get(
+                                        cat_actual,
+                                        "vehiculos_administrativos",
+                                    )
+
+                                    docs_json_str = json.dumps(
+                                        st.session_state.expedientes_docs[
+                                            eco_search
+                                        ]
+                                    )
+
+                                    supabase.table(
+                                        nombre_tabla_vehiculos
+                                    ).update(
+                                        {"documentos": docs_json_str}
+                                    ).eq(
+                                        "No. Ecco.", eco_search
+                                    ).execute()
 
                                     st.success(
                                         "✅ Documento PDF subido y guardado"
-                                        " permanentemente en la nube."
+                                        " permanentemente en la base de datos."
                                     )
+
+                                    st.cache_data.clear()
+                                    if "df_base" in st.session_state:
+                                        del st.session_state["df_base"]
                                     st.rerun()
+
                                 except Exception as e:
                                     st.error(
                                         f"Error al subir el documento: {e}"
                                     )
                             else:
                                 st.warning(
-                                    "Conexión a Supabase no disponible para"
-                                    " almacenamiento permanente."
+                                    "Conexión a Supabase no disponible."
                                 )
 
                 with col_d2:
@@ -1452,6 +1511,12 @@ if mod_actual == "Expediente por ECO y Documental":
                         st.dataframe(
                             df_docs, use_container_width=True, hide_index=True
                         )
+
+                        for idx, doc in enumerate(docs_guardados):
+                            st.markdown(
+                                f"📄 [{doc['Tipo']} - {doc['Nombre']}]({doc['URL']})"
+                                f" (Agregado: {doc['Fecha']})"
+                            )
                     else:
                         st.info(
                             "Sin documentos registrados para este vehículo."
@@ -1475,7 +1540,7 @@ if mod_actual == "Expediente por ECO y Documental":
                         "No se registran mantenimientos o siniestros previos"
                         " para este ECO."
                     )
-                    # 6. REGISTRO DE TALLER E INCIDENCIAS (PERSISTIDO EN SUPABASE)
+# 6. REGISTRO DE TALLER E INCIDENCIAS (PERSISTIDO EN SUPABASE)
 # -----------------------------------------------------------------------------
 elif mod_actual == "Registro de Taller e Incidencias":
   st.markdown(
