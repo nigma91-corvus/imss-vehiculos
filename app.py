@@ -532,7 +532,7 @@ if mod_actual == "Dashboard General":
         "En Taller",
         "Baja / Inoperativos",
     ]
-    colores_dona = [COLORES_PANTONE["627"], COLORES_PANTONE["468"], COLORES_PANTONE["7420"], COLORES_PANTONE["490"]]
+    colores_dona = [COLORES_PANTONE["7421"], COLORES_PANTONE["627"], COLORES_PANTONE["465"], COLORES_PANTONE["7420"]]
 
     fig_d, ax_d = plt.subplots(figsize=(3.5, 3.5))
     if sum(valores_dona) == 0:
