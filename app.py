@@ -1180,8 +1180,8 @@ elif mod_actual == "Expediente por ECO y Documental":
         )
         st.info(
             "Sube o actualiza de manera independiente cada una de las 4 vistas"
-            " requeridas. El sistema renombrará automáticamente los archivos en"
-            " el servidor."
+            " requeridas. Las imágenes se guardan de forma permanente"
+            " vinculadas al ECO en la base de datos."
         )
 
         eco_limpio = str(eco_search).replace(" ", "_").replace("/", "-")
@@ -1191,11 +1191,6 @@ elif mod_actual == "Expediente por ECO y Documental":
             "Foto Lateral Derecho": "foto_lateral_der",
             "Foto Lateral Izquierdo": "foto_lateral_izq",
         }
-
-        if "expedientes_fotos_vistas" not in st.session_state:
-          st.session_state.expedientes_fotos_vistas = {}
-        if eco_search not in st.session_state.expedientes_fotos_vistas:
-          st.session_state.expedientes_fotos_vistas[eco_search] = {}
 
         grid_cols = st.columns(2)
 
@@ -1207,11 +1202,10 @@ elif mod_actual == "Expediente por ECO y Documental":
           with col_actual:
             st.markdown(f"**{nombre_vista}**")
 
-            foto_guardada_url = st.session_state.expedientes_fotos_vistas[
-                eco_search
-            ].get(campo_key)
+            # LEER DIRECTAMENTE DE LA BASE DE DATOS DEL VEHÍCULO ACTUAL
+            foto_guardada_url = v_data.get(campo_key)
 
-            if foto_guardada_url:
+            if foto_guardada_url and str(foto_guardada_url).startswith("http"):
               st.image(
                   foto_guardada_url,
                   caption=f"{nombre_vista} - ECO {eco_search}",
@@ -1240,6 +1234,7 @@ elif mod_actual == "Expediente por ECO y Documental":
                   bytes_f = foto_subida.getvalue()
 
                   if supabase:
+                    # 1. Subir al Storage
                     supabase.storage.from_("vehiculos-fotos").upload(
                         file=bytes_f,
                         path=nombre_archivo_nube,
@@ -1249,6 +1244,7 @@ elif mod_actual == "Expediente por ECO y Documental":
                         },
                     )
 
+                    # 2. Obtener URL pública
                     pub_res = supabase.storage.from_("vehiculos-fotos").get_public_url(
                         nombre_archivo_nube
                     )
@@ -1258,10 +1254,25 @@ elif mod_actual == "Expediente por ECO y Documental":
                         else pub_res.get("publicUrl")
                     )
 
-                    st.session_state.expedientes_fotos_vistas[eco_search][
-                        campo_key
-                    ] = url_final
-                    st.success(f"✅ {nombre_vista} guardada con éxito.")
+                    # 3. ACTUALIZAR DIRECTAMENTE EN LA TABLA DE SUPABASE
+                    tabla_map = {
+                        "Administrativos": "vehiculos_administrativos",
+                        "Ambulancias": "vehiculos_ambulancias",
+                        "Institucionales": "vehiculos_institucionales",
+                    }
+                    nombre_tabla_vehiculos = tabla_map.get(
+                        cat_actual, "vehiculos_administrativos"
+                    )
+
+                    supabase.table(nombre_tabla_vehiculos).update(
+                        {campo_key: url_final}
+                    ).eq("No. Ecco.", eco_search).execute()
+
+                    st.success(
+                        f"✅ {nombre_vista} guardada y vinculada"
+                        " permanentemente."
+                    )
+                    st.cache_data.clear()
                     st.rerun()
                 except Exception as e:
                   st.error(f"Error al subir la imagen: {e}")
@@ -1307,9 +1318,7 @@ elif mod_actual == "Expediente por ECO y Documental":
                         "upsert": "true",
                     },
                 )
-                st.success(
-                    "✅ Documento PDF guardado en Supabase Storage."
-                )
+                st.success("✅ Documento PDF guardado en Supabase Storage.")
               except Exception as e:
                 pass
 
@@ -1326,9 +1335,7 @@ elif mod_actual == "Expediente por ECO y Documental":
       with t3:
         st.markdown("##### **Bitácora de Servicios e Intervenciones**")
         hist_taller = [
-            r
-            for r in st.session_state.taller_registros
-            if r["ECO"] == eco_search
+            r for r in st.session_state.taller_registros if r["ECO"] == eco_search
         ]
         if hist_taller:
           st.dataframe(
