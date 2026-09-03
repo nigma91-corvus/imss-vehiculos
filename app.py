@@ -376,7 +376,7 @@ st.button(
       on_click=cambiar_categoria,
       args=("Ambulancias",),
   )
-  st.button(
+st.button(
       "INSTITUCIONALES",
       use_container_width=True,
       type=(
@@ -388,7 +388,7 @@ st.button(
       args=("Institucionales",),
   )
 
-  st.markdown("---")
+st.markdown("---")
 
   modulos = [
       "Dashboard General",
