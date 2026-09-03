@@ -338,13 +338,12 @@ with st.sidebar:
     )
 
     st.markdown(
-      "<div style='text-align: center; font-size: 11px; margin-bottom:"
-      " 10px;'><b>División de Transportes</b><br><span"
-      f" style='font-size:9px; color:{COLORES_PANTONE['468']};'>Coordinación Técnica de Servicios"
-      " Generales</span></div>",
-      unsafe_allow_html=True,
-      )
-
+      "<div style='text-align: center; font-size: 11px; margin-bottom:"
+      " 10px;'><b>DIRECCIÓN DE ADMINISTRACIÓN</b><br><span"
+      f" style='font-size:9px; color:{COLORES_PANTONE['468']};'>Coordinación Técnica de Servicios"
+      " Generales</span></div>",
+      unsafe_allow_html=True,
+  )
   st.markdown("---")
   st.markdown(
       "<p style='font-size: 12px; margin-bottom: 8px;'><b>SELECCIONAR"
