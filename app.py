@@ -420,7 +420,18 @@ with st.sidebar:
 # ENCABEZADO INSTITUCIONAL ÚNICO
 # -----------------------------------------------------------------------------
 logo_html = f'<img src="{url_logo_supa}" style="height: 200px; width: auto; object-fit: contain; display: inline-block; vertical-align: middle;">' if url_logo_supa else f'<h2 style="color:{COLORES_PANTONE["468"]}; margin:0;">IMSS</h2>'
-
+st.markdown(
+    """
+    <style>
+        /* Reduce el espacio superior de la página de Streamlit */
+        .block-container {
+            padding-top: 1.5rem !important; /* Puedes bajarlo a 1rem si lo quieres aún más pegado */
+            padding-bottom: 1rem !important;
+        }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
 st.markdown(
     f"""
     <div style="display: flex; align-items: flex-end; gap: 15px; width: 100%; margin: 10px 0 15px 0;">
