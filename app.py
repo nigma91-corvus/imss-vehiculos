@@ -551,6 +551,12 @@ if mod_actual == "Dashboard General":
           valores_dona,
           startangle=140,
           colors=colores_dona,
+          explode=(
+              0,
+              0,
+              0.4,
+              0,
+          ),  # Saca ligeramente la rebanada de "En Taller" (índice 2)
           wedgeprops=dict(width=0.4, edgecolor="white", linewidth=2),
       )
       ax_d.legend(
