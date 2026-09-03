@@ -1316,10 +1316,13 @@ if mod_actual == "Expediente por ECO y Documental":
         col_img_cat, col_info_cat = st.columns([1, 2.2], gap="small")
 
         with col_img_cat:
-          tipo_v = v_data.get("Tipo", "")
-          linea_v = v_data.get("Linea", "")
-          url_cat = obtener_imagen_catalogo_supabase(tipo_v, linea_v)
-          if url_cat:
+  tipo_v = v_data.get("Tipo", "")
+  linea_v = v_data.get("Linea", "")
+
+  # LÍNEA DE PRUEBA: Esto te mostrará en pantalla exactamente qué texto está leyendo
+  st.write(f"Debug -> Tipo: '{tipo_v}' | Línea: '{linea_v}'")
+
+  url_cat = obtener_imagen_catalogo_supabase(tipo_v, linea_v)
             st.markdown(
                 f'<div class="image-container-full"><img src="{url_cat}"'
                 ' alt="Vehículo"></div>',
