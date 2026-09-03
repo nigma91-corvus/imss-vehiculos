@@ -333,28 +333,25 @@ with st.sidebar:
     st.image(url_logo_supa, use_container_width=True)
   else:
     st.markdown(
-        f"<h2 style='color:{COLORES_PANTONE['465']}; text-align:center;'>IMSS</h2>",
+        f"<h2 style='color:{COLORES_PANTONE['468']}; text-align:center;'>IMSS</h2>",
         unsafe_allow_html=True,
     )
 
-color_468 = COLORES_PANTONE["468"]
-
-st.markdown(
-    "<div style='text-align: center; font-size: 11px; margin-bottom: 10px;'>"
-    "<b>Coordinación Técnica de Servicios Generales</b><br>"
-    f"<span style='font-size:9px; color:{color_468};'>"
-    "División de Transportes y Operación</span></div>",
-    unsafe_allow_html=True,
-)
-
-st.markdown("---")
-st.markdown(
+  st.markdown(
+      "<div style='text-align: center; font-size: 11px; margin-bottom:"
+      " 10px;'><b>DIRECCIÓN DE ADMINISTRACIÓN</b><br><span"
+      f" style='font-size:9px; color:{COLORES_PANTONE['468']};'>Coordinación Técnica de Servicios"
+      " Generales</span></div>",
+      unsafe_allow_html=True,
+  )
+  st.markdown("---")
+  st.markdown(
       "<p style='font-size: 12px; margin-bottom: 8px;'><b>SELECCIONAR"
       " FLOTILLA:</b></p>",
       unsafe_allow_html=True,
   )
 
-st.button(
+  st.button(
       "ADMINISTRATIVOS",
       use_container_width=True,
       type=(
@@ -365,7 +362,7 @@ st.button(
       on_click=cambiar_categoria,
       args=("Administrativos",),
   )
-st.button(
+  st.button(
       "AMBULANCIAS",
       use_container_width=True,
       type=(
@@ -376,7 +373,7 @@ st.button(
       on_click=cambiar_categoria,
       args=("Ambulancias",),
   )
-st.button(
+  st.button(
       "INSTITUCIONALES",
       use_container_width=True,
       type=(
@@ -388,9 +385,9 @@ st.button(
       args=("Institucionales",),
   )
 
-st.markdown("---")
+  st.markdown("---")
 
-modulos = [
+  modulos = [
       "Dashboard General",
       "Semáforo de Movilidad por Ciudad",
       "Control del Pool de Sustitutos (20%)",
@@ -402,17 +399,17 @@ modulos = [
       "Conciliación Financiera y Pagos",
   ]
 
-if st.session_state.modulo_activo not in modulos:
+  if st.session_state.modulo_activo not in modulos:
     st.session_state.modulo_activo = "Dashboard General"
 
-st.session_state.modulo_activo = st.radio(
-    "Módulos del Sistema:",
-    modulos,
-    index=modulos.index(st.session_state.modulo_activo),
-)
+  st.session_state.modulo_activo = st.radio(
+      "Módulos del Sistema:",
+      modulos,
+      index=modulos.index(st.session_state.modulo_activo),
+  )
 
-st.markdown("---")
-st.markdown(
+  st.markdown("---")
+  st.markdown(
       "<div style='text-align: center; font-size: 10px; color: #CCCCCC;'>Desarrollado por:<br><b>eduardo.casas@imss.gob.mx</b></div>",
       unsafe_allow_html=True,
   )
@@ -554,12 +551,6 @@ if mod_actual == "Dashboard General":
           valores_dona,
           startangle=140,
           colors=colores_dona,
-          explode=(
-              0,
-              0,
-              0.4,
-              0,
-          ),  # Saca ligeramente la rebanada de "En Taller" (índice 2)
           wedgeprops=dict(width=0.4, edgecolor="white", linewidth=2),
       )
       ax_d.legend(
@@ -590,10 +581,10 @@ if mod_actual == "Dashboard General":
       if not resumen_tipo.empty:
         paleta_barras = [
             COLORES_PANTONE["7421"],
-            COLORES_PANTONE["627"],
+            COLORES_PANTONE["561"],
             COLORES_PANTONE["465"],
             COLORES_PANTONE["7420"],
-            COLORES_PANTONE["626"],
+            COLORES_PANTONE["656"],
             COLORES_PANTONE["468"]
         ]
         colores_asignados = [paleta_barras[i % len(paleta_barras)] for i in range(len(resumen_tipo))]
