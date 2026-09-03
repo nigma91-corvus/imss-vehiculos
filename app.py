@@ -982,11 +982,21 @@ elif mod_actual == "Carga Inicial":
 
     # Definimos las columnas oficiales estándar requeridas para la carga
     columnas_plantilla = [
-        "eco",
-        "placas",
-        "modelo",
-        "unidad",
-        "estatus",
+       "No. Ecco.",
+        "Tipo",
+        "Linea",
+        "UBICACIÓN",
+        "Arrendadora",
+        "Estatus",
+        "Placas",
+        "VIN",
+        "No_TC",
+        "Ultimo_Servicio",
+        "CUOTA DIARIA",
+        "TOTAL DÍAS DE SERVICIO",
+        "COSTO MENSUAL SIN IVA (a)",
+        "TOTAL DE DEDUCCIÓN",
+        "TOTAL A PAGAR (b)",
     ]  # Ajusta o añade nombres según tu esquema exacto
     df_plantilla = pd.DataFrame(columns=columnas_plantilla)
     csv_plantilla = df_plantilla.to_csv(index=False).encode("utf-8")
