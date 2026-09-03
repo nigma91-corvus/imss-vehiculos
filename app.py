@@ -1264,9 +1264,12 @@ elif mod_actual == "Expediente por ECO y Documental":
                         cat_actual, "vehiculos_administrativos"
                     )
 
+                    # AQUÍ SE CORRIGIÓ EL FILTRO USANDO LA COLUMNA SIN ESPACIOS (ej. "No_Ecco" o "eco")
                     supabase.table(nombre_tabla_vehiculos).update(
                         {campo_key: url_final}
-                    ).eq("No. Ecco.", eco_search).execute()
+                    ).eq(
+                        "No_Ecco", eco_search
+                    ).execute()
 
                     st.success(
                         f"✅ {nombre_vista} guardada y vinculada"
