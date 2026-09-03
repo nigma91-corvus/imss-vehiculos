@@ -1169,7 +1169,7 @@ with t2:
           else:
             st.info("Sin documentos registrados para este vehículo.")
 
-     with t3:
+with t3:
           st.markdown("##### **Bitácora de Servicios e Intervenciones**")
           hist_taller = [
               r for r in st.session_state.taller_registros if r["ECO"] == eco_search
@@ -1184,7 +1184,6 @@ with t2:
               st.caption(
                   "No se registran mantenimientos o siniestros previos para este ECO."
               )
-
 # Siguiente bloque (para verificar que la indentación y cierre coincidan):
 elif mod_actual == "Registro de Taller e Incidencias":
     # ...
