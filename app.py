@@ -973,16 +973,10 @@ elif mod_actual == "Carga Inicial":
         st.error("Credenciales incorrectas.")
 
   if st.session_state.admin_autenticado:
-    # --- SECCIÓN DE DESCARGA DE PLANTILLA ---
+    # --- PEGALO AQUÍ: Botón de Descarga de Plantilla ---
     st.markdown("##### **1. Descargar Plantilla Oficial**")
-    st.markdown(
-        "Utiliza esta plantilla para asegurarte de que los encabezados y el"
-        " formato coincidan exactamente con lo que espera Supabase."
-    )
-
-    # Definimos las columnas oficiales estándar requeridas para la carga
     columnas_plantilla = [
-       "No. Ecco.",
+        "No. Ecco.",
         "Tipo",
         "Linea",
         "UBICACIÓN",
@@ -997,7 +991,7 @@ elif mod_actual == "Carga Inicial":
         "COSTO MENSUAL SIN IVA (a)",
         "TOTAL DE DEDUCCIÓN",
         "TOTAL A PAGAR (b)",
-    ]  # Ajusta o añade nombres según tu esquema exacto
+    ]
     df_plantilla = pd.DataFrame(columns=columnas_plantilla)
     csv_plantilla = df_plantilla.to_csv(index=False).encode("utf-8")
 
@@ -1007,14 +1001,13 @@ elif mod_actual == "Carga Inicial":
         file_name=f"plantilla_carga_{cat_actual.lower()}.csv",
         mime="text/csv",
         help=(
-            "Descarga el archivo modelo con los encabezados listos para"
-            " rellenar."
+            "Descarga el archivo modelo con los encabezados exactos requeridos."
         ),
     )
 
     st.markdown("---")
+    # ---------------------------------------------------
 
-    # --- SECCIÓN DE SUBIDA DE ARCHIVO ---
     st.markdown(
         f"##### **2. Subir Archivo de Plantilla para: {cat_actual} (.xlsx o"
         " .csv)**"
