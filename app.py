@@ -308,7 +308,7 @@ st.markdown(
     }}
     .image-container-full img {{
         max-width: 100% !important;
-        max-height: 200px !important;
+        max-height: 80px !important;
         object-fit: contain !important;
     }}
     .footer-firma {{
