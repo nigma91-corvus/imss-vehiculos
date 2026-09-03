@@ -337,7 +337,7 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-  color_468 = COLORES_PANTONE["468"]
+color_468 = COLORES_PANTONE["468"]
 
 st.markdown(
     "<div style='text-align: center; font-size: 11px; margin-bottom: 10px;'>"
@@ -346,6 +346,7 @@ st.markdown(
     "División de Transportes y Operación</span></div>",
     unsafe_allow_html=True,
 )
+st.markdown("---")
   st.markdown("---")
   st.markdown(
       "<p style='font-size: 12px; margin-bottom: 8px;'><b>SELECCIONAR"
