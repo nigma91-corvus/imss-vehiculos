@@ -307,7 +307,7 @@ st.markdown(
         overflow: hidden;
     }}
     .image-container-full img {{
-        max-width: 100% !important;
+        max-width: 50% !important;
         max-height: 80px !important;
         object-fit: contain !important;
     }}
