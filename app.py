@@ -437,6 +437,30 @@ st.markdown(f"""
 mod_actual = st.session_state.modulo_activo
 
 # -----------------------------------------------------------------------------
+# # -----------------------------------------------------------------------------
+# 1. FUNCIÓN AUXILIAR DE ESTILIZACIÓN (Colócala arriba en tu app o antes del dashboard)
+# -----------------------------------------------------------------------------
+def aplicar_estilo_tabla(df):
+  def estilo_filas(row):
+    if df.empty:
+      return []
+    # Destaca la última fila si coincide con un indicador de total
+    if row.name == len(df) - 1 and (
+        "TOTAL" in str(row.iloc[0]).upper()
+        or "TOTALES" in str(row.iloc[0]).upper()
+    ):
+      return ["background-color: #e6e6e6; font-weight: bold;" for _ in row.index]
+
+    # Alterna colores cebra entre filas pares e impares
+    if row.name % 2 == 0:
+      return ["background-color: #ffffff" for _ in row.index]
+    else:
+      return ["background-color: #f2f4f7" for _ in row.index]
+
+  return df.style.apply(estilo_filas, axis=1)
+
+
+# -----------------------------------------------------------------------------
 # 1. DASHBOARD GENERAL
 # -----------------------------------------------------------------------------
 if mod_actual == "Dashboard General":
@@ -532,7 +556,12 @@ if mod_actual == "Dashboard General":
         "En Taller",
         "Baja / Inoperativos",
     ]
-    colores_dona = [COLORES_PANTONE["561"], COLORES_PANTONE["465"], COLORES_PANTONE["7420"], COLORES_PANTONE["504"]]
+    colores_dona = [
+        COLORES_PANTONE["561"],
+        COLORES_PANTONE["465"],
+        COLORES_PANTONE["7420"],
+        COLORES_PANTONE["504"],
+    ]
 
     fig_d, ax_d = plt.subplots(figsize=(3.5, 3.5))
     if sum(valores_dona) == 0:
@@ -569,26 +598,32 @@ if mod_actual == "Dashboard General":
     st.markdown("##### **Distribución por Tipo de Vehículo**")
     fig_v, ax_v = plt.subplots(figsize=(4.5, 3.5))
     if not df_dash.empty and "Tipo" in df_dash.columns:
-      df_tipo_filtrado = df_dash[~df_dash["Tipo"].str.upper().isin(["SONORA", "SINALOA", "BAJA CALIFORNIA", "CHIHUAHUA", "N/A", "nan"])]
-      
+      df_tipo_filtrado = df_dash[
+          ~df_dash["Tipo"]
+          .str.upper()
+          .isin(["SONORA", "SINALOA", "BAJA CALIFORNIA", "CHIHUAHUA", "N/A", "nan"])
+      ]
+
       resumen_tipo = (
           df_tipo_filtrado.groupby("Tipo")
           .size()
           .reset_index(name="Cantidad")
           .sort_values(by="Cantidad", ascending=False)
       )
-      
+
       if not resumen_tipo.empty:
         paleta_barras = [
             COLORES_PANTONE["7421"],
             COLORES_PANTONE["561"],
             COLORES_PANTONE["465"],
             COLORES_PANTONE["7420"],
-            COLORES_PANTONE["626"],
-            COLORES_PANTONE["468"]
+            COLORES_PANTONE["656"],
+            COLORES_PANTONE["468"],
         ]
-        colores_asignados = [paleta_barras[i % len(paleta_barras)] for i in range(len(resumen_tipo))]
-        
+        colores_asignados = [
+            paleta_barras[i % len(paleta_barras)] for i in range(len(resumen_tipo))
+        ]
+
         bars = ax_v.bar(
             resumen_tipo["Tipo"], resumen_tipo["Cantidad"], color=colores_asignados
         )
@@ -606,23 +641,39 @@ if mod_actual == "Dashboard General":
               fontsize=8,
           )
       else:
-        ax_v.text(0.5, 0.5, "Sin Tipos Válidos", ha="center", va="center", fontsize=10, color="gray")
+        ax_v.text(
+            0.5,
+            0.5,
+            "Sin Tipos Válidos",
+            ha="center",
+            va="center",
+            fontsize=10,
+            color="gray",
+        )
         ax_v.axis("off")
     else:
       resumen_tipo = pd.DataFrame(columns=["Tipo", "Cantidad"])
-      ax_v.text(0.5, 0.5, "Sin Datos", ha="center", va="center", fontsize=12, color="gray")
+      ax_v.text(
+          0.5, 0.5, "Sin Datos", ha="center", va="center", fontsize=12, color="gray"
+      )
       ax_v.axis("off")
     fig_v.tight_layout()
     st.pyplot(fig_v)
 
   with col_tabla:
     st.markdown("##### **Resumen Cantidades Detalladas**")
-    if 'resumen_tipo' in locals() and not resumen_tipo.empty:
+    if "resumen_tipo" in locals() and not resumen_tipo.empty:
       df_totales = pd.DataFrame(
           [{"Tipo": "TOTAL UNIDADES", "Cantidad": resumen_tipo["Cantidad"].sum()}]
       )
       df_mostrar_res = pd.concat([resumen_tipo, df_totales], ignore_index=True)
-      st.dataframe(df_mostrar_res, hide_index=True, use_container_width=True)
+
+      # --- APLICAMOS EL ESTILO DE FILAS CEBRA A LA TABLA DE RESUMEN ---
+      st.dataframe(
+          aplicar_estilo_tabla(df_mostrar_res),
+          hide_index=True,
+          use_container_width=True,
+      )
     else:
       st.dataframe(
           pd.DataFrame(columns=["Tipo", "Cantidad"]),
@@ -645,14 +696,19 @@ if mod_actual == "Dashboard General":
       "TOTAL A PAGAR (b)",
   ]
   cols_existentes = [c for c in cols_mostrar if c in df_dash.columns]
-  st.dataframe(
+
+  df_detallado = (
       df_dash[cols_existentes]
       if not df_dash.empty
-      else pd.DataFrame(columns=cols_mostrar),
+      else pd.DataFrame(columns=cols_mostrar)
+  )
+
+  # --- APLICAMOS EL ESTILO DE FILAS CEBRA A LA TABLA DETALLADA ---
+  st.dataframe(
+      aplicar_estilo_tabla(df_detallado),
       use_container_width=True,
       hide_index=True,
   )
-
 # -----------------------------------------------------------------------------
 # 2. SEMÁFORO DE MOVILIDAD POR CIUDAD
 # -----------------------------------------------------------------------------
