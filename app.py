@@ -333,15 +333,14 @@ with st.sidebar:
     st.image(url_logo_supa, use_container_width=True)
   else:
     st.markdown(
-        f"<h2 style='color:{COLORES_PANTONE['468']}; text-align:center;'>IMSS</h2>",
+        f"<h2 style='color:{COLORES_PANTONE['461']}; text-align:center;'>IMSS</h2>",
         unsafe_allow_html=True,
     )
 
   st.markdown(
       "<div style='text-align: center; font-size: 11px; margin-bottom:"
-      " 10px;'><b>DIRECCIÓN DE ADMINISTRACIÓN</b><br><span"
-      f" style='font-size:9px; color:{COLORES_PANTONE['468']};'>Coordinación Técnica de Servicios"
-      " Generales</span></div>",
+      " 10px;'><b>Coordinacion Técnica de servicios Generales</b><br><span"
+      f" style='font-size:9px; color:{COLORES_PANTONE['468']};'>Division de Transportes y Operación"</span></div>",
       unsafe_allow_html=True,
   )
   st.markdown("---")
