@@ -1169,63 +1169,154 @@ elif mod_actual == "Expediente por ECO y Documental":
 
       st.markdown("---")
       t1, t2, t3 = st.tabs([
-          "Galería de Inspección Física (Fotos)",
+          "Galería de Inspección Física (4 Vistas)",
           "Expediente Documental (PDF/Visor)",
           "Historial de Mantenimientos",
       ])
 
       with t1:
-        st.markdown("##### **Evidencia Fotográfica y Carga de Imágenes**")
-        col_f1, col_f2 = st.columns(2)
-        with col_f1:
-          foto_subida = st.file_uploader(f"Subir Fotografía para ECO {eco_search}:", type=["jpg", "png", "jpeg"], key=f"foto_{eco_search}")
-          if foto_subida is not None:
-            if eco_search not in st.session_state.expedientes_fotos:
-              st.session_state.expedientes_fotos[eco_search] = []
-            st.session_state.expedientes_fotos[eco_search].append(foto_subida)
-            if supabase:
-              try:
-                bytes_f = foto_subida.getvalue()
-                nombre_f = f"{eco_search}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
-                supabase.storage.from_("vehiculos-fotos").upload(file=bytes_f, path=nombre_f, file_options={"content-type": "image/jpeg", "upsert": "true"})
-                st.success("✅ Fotografía guardada exitosamente en Supabase Storage.")
-              except Exception as e:
-                st.warning(f"Guardado localmente en sesión (Error en nube: {e})")
+        st.markdown(
+            "##### **Galería de Inspección Física (Vistas Reglamentarias)**"
+        )
+        st.info(
+            "Sube o actualiza de manera independiente cada una de las 4 vistas"
+            " requeridas. El sistema renombrará automáticamente los archivos en"
+            " el servidor."
+        )
 
-        with col_f2:
-          st.markdown("###### **Fotos Almacenadas / Adjuntas:**")
-          fotos_guardadas = st.session_state.expedientes_fotos.get(eco_search, [])
-          if fotos_guardadas:
-            for idx_f, f_item in enumerate(fotos_guardadas):
-              st.image(f_item, caption=f"Foto {idx_f+1} - ECO {eco_search}", width=200)
-          else:
-            st.info("No hay fotografías adicionales cargadas para este ECO.")
+        eco_limpio = str(eco_search).replace(" ", "_").replace("/", "-")
+        vistas_inspeccion = {
+            "Foto Frontal": "foto_frontal",
+            "Foto Trasera": "foto_trasera",
+            "Foto Lateral Derecho": "foto_lateral_der",
+            "Foto Lateral Izquierdo": "foto_lateral_izq",
+        }
+
+        if "expedientes_fotos_vistas" not in st.session_state:
+          st.session_state.expedientes_fotos_vistas = {}
+        if eco_search not in st.session_state.expedientes_fotos_vistas:
+          st.session_state.expedientes_fotos_vistas[eco_search] = {}
+
+        grid_cols = st.columns(2)
+
+        for idx, (nombre_vista, campo_key) in enumerate(
+            vistas_inspeccion.items()
+        ):
+          col_actual = grid_cols[idx % 2]
+
+          with col_actual:
+            st.markdown(f"**{nombre_vista}**")
+
+            foto_guardada_url = st.session_state.expedientes_fotos_vistas[
+                eco_search
+            ].get(campo_key)
+
+            if foto_guardada_url:
+              st.image(
+                  foto_guardada_url,
+                  caption=f"{nombre_vista} - ECO {eco_search}",
+                  use_container_width=True,
+              )
+              st.success("✔ Imagen cargada en servidor")
+            else:
+              st.warning("⚠ Sin fotografía registrada")
+
+            foto_subida = st.file_uploader(
+                f"Cargar {nombre_vista}",
+                type=["jpg", "jpeg", "png"],
+                key=f"upl_{campo_key}_{eco_search}",
+            )
+
+            if foto_subida is not None:
+              if st.button(
+                  f"Guardar {nombre_vista}",
+                  key=f"btn_save_{campo_key}_{eco_search}",
+              ):
+                try:
+                  extension = foto_subida.name.split(".")[-1]
+                  nombre_archivo_nube = (
+                      f"{eco_limpio}_{campo_key}.{extension}"
+                  )
+                  bytes_f = foto_subida.getvalue()
+
+                  if supabase:
+                    supabase.storage.from_("vehiculos-fotos").upload(
+                        file=bytes_f,
+                        path=nombre_archivo_nube,
+                        file_options={
+                            "content-type": f"image/{extension}",
+                            "upsert": "true",
+                        },
+                    )
+
+                    pub_res = supabase.storage.from_("vehiculos-fotos").get_public_url(
+                        nombre_archivo_nube
+                    )
+                    url_final = (
+                        pub_res
+                        if isinstance(pub_res, str)
+                        else pub_res.get("publicUrl")
+                    )
+
+                    st.session_state.expedientes_fotos_vistas[eco_search][
+                        campo_key
+                    ] = url_final
+                    st.success(f"✅ {nombre_vista} guardada con éxito.")
+                    st.rerun()
+                except Exception as e:
+                  st.error(f"Error al subir la imagen: {e}")
+
+            st.markdown("---")
 
       with t2:
         st.markdown("##### **Documentos Oficiales Registrados y Carga**")
         col_d1, col_d2 = st.columns(2)
         with col_d1:
-          tipo_doc_sel = st.selectbox("Tipo de Documento:", ["Póliza de Seguro", "Tarjeta de Circulación", "Factura / Contrato", "Dictamen Taller", "Otro"])
-          doc_subido = st.file_uploader(f"Adjuntar Archivo PDF para ECO {eco_search}:", type=["pdf"], key=f"doc_{eco_search}")
+          tipo_doc_sel = st.selectbox(
+              "Tipo de Documento:",
+              [
+                  "Póliza de Seguro",
+                  "Tarjeta de Circulación",
+                  "Factura / Contrato",
+                  "Dictamen Taller",
+                  "Otro",
+              ],
+          )
+          doc_subido = st.file_uploader(
+              f"Adjuntar Archivo PDF para ECO {eco_search}:",
+              type=["pdf"],
+              key=f"doc_{eco_search}",
+          )
           if doc_subido is not None:
             if eco_search not in st.session_state.expedientes_docs:
               st.session_state.expedientes_docs[eco_search] = []
             st.session_state.expedientes_docs[eco_search].append({
                 "Tipo": tipo_doc_sel,
                 "Nombre": doc_subido.name,
-                "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M")
+                "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
             })
             if supabase:
               try:
                 bytes_d = doc_subido.getvalue()
                 nombre_d = f"{eco_search}_{tipo_doc_sel}_{datetime.now().strftime('%Y%m%d')}.pdf"
-                supabase.storage.from_("evidencias-pdf").upload(file=bytes_d, path=nombre_d, file_options={"content-type": "application/pdf", "upsert": "true"})
-                st.success("✅ Documento PDF guardado en Supabase Storage.")
+                supabase.storage.from_("evidencias-pdf").upload(
+                    file=bytes_d,
+                    path=nombre_d,
+                    file_options={
+                        "content-type": "application/pdf",
+                        "upsert": "true",
+                    },
+                )
+                st.success(
+                    "✅ Documento PDF guardado en Supabase Storage."
+                )
               except Exception as e:
                 pass
 
         with col_d2:
-          docs_guardados = st.session_state.expedientes_docs.get(eco_search, [])
+          docs_guardados = st.session_state.expedientes_docs.get(
+              eco_search, []
+          )
           if docs_guardados:
             df_docs = pd.DataFrame(docs_guardados)
             st.dataframe(df_docs, use_container_width=True, hide_index=True)
@@ -1235,7 +1326,9 @@ elif mod_actual == "Expediente por ECO y Documental":
       with t3:
         st.markdown("##### **Bitácora de Servicios e Intervenciones**")
         hist_taller = [
-            r for r in st.session_state.taller_registros if r["ECO"] == eco_search
+            r
+            for r in st.session_state.taller_registros
+            if r["ECO"] == eco_search
         ]
         if hist_taller:
           st.dataframe(
@@ -1245,9 +1338,9 @@ elif mod_actual == "Expediente por ECO y Documental":
           )
         else:
           st.caption(
-              "No se registran mantenimientos o siniestros previos para este ECO."
+              "No se registran mantenimientos o siniestros previos para este"
+              " ECO."
           )
-
 # -----------------------------------------------------------------------------
 # 6. REGISTRO DE TALLER E INCIDENCIAS (PERSISTIDO EN SUPABASE)
 # -----------------------------------------------------------------------------
