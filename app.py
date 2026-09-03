@@ -1072,6 +1072,62 @@ elif mod_actual == "Carga Inicial":
         use_container_width=True,
         hide_index=True,
     )
+from datetime import datetime
+import json
+import unicodedata  # <--- ¡Importación requerida añadida aquí!
+import pandas as pd
+import streamlit as st
+
+# -----------------------------------------------------------------------------
+# ESTILOS CSS REQUERIDOS PARA LA BARRA LATERAL (ALINEACIÓN Y ESPACIADO)
+# -----------------------------------------------------------------------------
+st.markdown(
+    """
+    <style>
+        /* Ajuste y alineación perfecta para los radio buttons de la barra lateral */
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
+            gap: 12px; /* Espaciado limpio entre opciones */
+        }
+        [data-testid="stSidebar"] .stRadio label {
+            display: flex !important;
+            align-items: center !important;
+            margin-bottom: 4px !important;
+        }
+        [data-testid="stSidebar"] .stRadio label p {
+            font-size: 13.5px !important;
+            line-height: 1.25 !important;
+            margin: 0 !important;
+            padding-left: 4px !important;
+        }
+        /* Contenedor general de la barra lateral adaptado a la altura */
+        [data-testid="stSidebar"] > div:first-child {
+            padding-top: 1.5rem;
+            padding-bottom: 2rem;
+        }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
+
+# Simulación de variables de estado global si no están inicializadas
+if "taller_registros" not in st.session_state:
+  st.session_state.taller_registros = []
+
+if "expedientes_docs" not in st.session_state:
+  st.session_state.expedientes_docs = {}
+
+
+def parse_float(valor):
+  try:
+    return float(valor)
+  except:
+    return 0.0
+
+
+def obtener_imagen_catalogo_supabase(tipo, linea):
+  return None
+
+
 # -----------------------------------------------------------------------------
 # 5. EXPEDIENTE POR ECO Y DOCUMENTAL (BÚSQUEDA POR TEXTO LIBRE Y DISEÑO MEJORADO)
 # -----------------------------------------------------------------------------
@@ -1094,7 +1150,7 @@ if mod_actual == "Expediente por ECO y Documental":
         f" **{cat_actual}**."
     )
   else:
-    # Cambio solicitado: De selectbox a input de texto libre para búsqueda rápida
+    # Búsqueda por texto libre en lugar de selectbox
     col_b1, col_b2 = st.columns([2, 3])
     with col_b1:
       eco_input = st.text_input(
@@ -1107,11 +1163,9 @@ if mod_actual == "Expediente por ECO y Documental":
           "💡 Por favor, escriba el número de ECO en el campo de texto superior"
           " para consultar su expediente."
       )
-      # Muestra opcional de ayuda con algunos ejemplos disponibles
       with st.expander("Ver algunos ECOs disponibles en esta flotilla"):
         st.write(", ".join([str(e) for e in lista_ecos[:25]]))
     else:
-      # Búsqueda flexible (coincidencia exacta o parcial ignorando mayúsculas)
       eco_busqueda_limpio = eco_input.strip().upper()
       vehiculo_sel = df_base[
           df_base["No. Ecco."]
