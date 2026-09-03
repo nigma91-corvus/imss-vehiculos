@@ -133,26 +133,29 @@ supabase_url = st.secrets["supabase"]["url"] if supabase else ""
 # -----------------------------------------------------------------------------
 # GESTIÓN DE IMÁGENES Y DOCUMENTOS DESDE SUPABASE STORAGE
 # -----------------------------------------------------------------------------
-def obtener_url_supabase(nombre_archivo, bucket="vehiculos-fotos"):
-  if supabase_url:
-    return f"{supabase_url}/storage/v1/object/public/{bucket}/{nombre_archivo}"
-  return ""
-
 def obtener_imagen_catalogo_supabase(tipo, linea):
   tipo_str = str(tipo).upper().strip()
   linea_str = str(linea).upper().strip()
+  combinado = f"{tipo_str} {linea_str}"
 
-  if "PROMASTER" in linea_str:
+  if "PROMASTER" in combinado:
     archivo = "RAM_PROMASTER_GENERICA.png"
-  elif "TRANSIT" in linea_str:
+  elif "TRANSIT" in combinado:
     archivo = "FORD_TRANSIT_GENERICA.png"
-  elif "CRETA" in linea_str or "SUV" in linea_str:
+  elif "CRETA" in combinado or "SUV" in combinado:
     archivo = "creta-1-5l-gls-ivt.png"
-  elif "F-150" in linea_str or "PICK UP" in linea_str:
+  elif (
+      "F-150" in combinado or "PICK UP" in combinado or "PICKUP" in combinado
+  ):
     archivo = "f-150-xl.png"
-  elif "URVAN" in linea_str or "VAN" in linea_str:
+  elif "URVAN" in combinado or "VAN" in combinado:
     archivo = "urvan-panel.png"
-  elif "V-DRIVE" in linea_str or "SEDÁN" in linea_str or "SEDAN" in linea_str:
+  elif (
+      "V-DRIVE" in combinado
+      or "SEDÁN" in combinado
+      or "SEDAN" in combinado
+      or "AUTO" in combinado
+    ):
     archivo = "v-drive-tm-ac.png"
   else:
     archivo = "v-drive-tm-ac.png"
@@ -161,12 +164,6 @@ def obtener_imagen_catalogo_supabase(tipo, linea):
   if url_supa:
     return url_supa
   return os.path.join("assets", archivo)
-
-url_logo_supa = obtener_url_supabase("logo_imss.png", "vehiculos-fotos")
-
-os.makedirs("data", exist_ok=True)
-os.makedirs("expedientes", exist_ok=True)
-os.makedirs("assets", exist_ok=True)
 
 # -----------------------------------------------------------------------------
 # CARGA DE DATOS DESDE SUPABASE (FLOTILLAS, TALLER, BITÁCORAS, REASIGNACIONES)
