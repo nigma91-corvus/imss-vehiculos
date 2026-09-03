@@ -411,8 +411,8 @@ st.session_state.modulo_activo = st.radio(
     index=modulos.index(st.session_state.modulo_activo),
 )
 
-  st.markdown("---")
-  st.markdown(
+st.markdown("---")
+st.markdown(
       "<div style='text-align: center; font-size: 10px; color: #CCCCCC;'>Desarrollado por:<br><b>eduardo.casas@imss.gob.mx</b></div>",
       unsafe_allow_html=True,
   )
