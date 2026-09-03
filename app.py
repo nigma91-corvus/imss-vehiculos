@@ -29,13 +29,21 @@ st.markdown(
             padding-top: 0.3rem !important;
             padding-bottom: 0.3rem !important;
         }
+        
+        /* CONTENEDOR DEL LOGO: Centrado perfecto y limpio */
+        .logo-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            margin-bottom: 2px;
+        }
         [data-testid="stSidebar"] img {
-            max-height: 60px !important;
+            max-height: 55px !important;
             width: auto !important;
-            margin: 0 auto !important;
-            display: block !important;
             object-fit: contain !important;
         }
+
         [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
             gap: 2px !important; 
         }
