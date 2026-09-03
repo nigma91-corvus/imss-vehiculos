@@ -1389,9 +1389,8 @@ if mod_actual == "Expediente por ECO y Documental":
                             st.markdown("---")
 
                 with t2:
-                    st.markdown(
-                        "##### **Documentos Oficiales Registrados y Carga**"
-                    )
+                    st.markdown("##### **Documentos Oficiales Registrados y Carga**")
+                    st.info("Sube un archivo PDF o captura una fotografía directa del documento físico.")
 
                     if "expedientes_docs" not in st.session_state:
                         st.session_state.expedientes_docs = {}
@@ -1401,17 +1400,11 @@ if mod_actual == "Expediente por ECO y Documental":
                         if docs_bd:
                             if isinstance(docs_bd, str):
                                 try:
-                                    st.session_state.expedientes_docs[
-                                        eco_search
-                                    ] = json.loads(docs_bd)
+                                    st.session_state.expedientes_docs[eco_search] = json.loads(docs_bd)
                                 except:
-                                    st.session_state.expedientes_docs[
-                                        eco_search
-                                    ] = []
+                                    st.session_state.expedientes_docs[eco_search] = []
                             elif isinstance(docs_bd, list):
-                                st.session_state.expedientes_docs[
-                                    eco_search
-                                ] = docs_bd
+                                st.session_state.expedientes_docs[eco_search] = docs_bd
                         else:
                             st.session_state.expedientes_docs[eco_search] = []
 
@@ -1428,33 +1421,34 @@ if mod_actual == "Expediente por ECO y Documental":
                             ],
                             key=f"tipo_doc_sel_{eco_search}",
                         )
-                        doc_subido = st.file_uploader(
-                            f"Adjuntar Archivo PDF para ECO {eco_search}:",
-                            type=["pdf"],
-                            key=f"doc_uploader_{eco_search}",
+
+                        metodo_captura_doc = st.radio(
+                            "Método para adjuntar documento:",
+                            ["Subir Archivo (PDF/Imagen)", "Tomar Foto con Cámara"],
+                            key=f"radio_doc_{eco_search}",
+                            horizontal=True,
                         )
 
-                        if doc_subido is not None:
-                            if st.button(
-                                "Guardar Documento PDF",
-                                key=f"btn_save_doc_{eco_search}",
-                            ):
+                        doc_a_guardar = None
+                        if metodo_captura_doc == "Subir Archivo (PDF/Imagen)":
+                            doc_a_guardar = st.file_uploader(
+                                f"Cargar archivo para ECO {eco_search}:",
+                                type=["pdf", "jpg", "jpeg", "png"],
+                                key=f"doc_uploader_{eco_search}",
+                            )
+                        else:
+                            doc_a_guardar = st.camera_input(
+                                f"Tomar foto del documento",
+                                key=f"doc_camera_{eco_search}",
+                            )
+
+                        if doc_a_guardar is not None:
+                            if st.button("Guardar Documento", key=f"btn_save_doc_{eco_search}"):
                                 if supabase:
                                     try:
-
                                         def limpiar_nombre_archivo(texto):
-                                            nfkd_form = unicodedata.normalize(
-                                                "NFKD", str(texto)
-                                            )
-                                            solo_ascii = "".join(
-                                                [
-                                                    c
-                                                    for c in nfkd_form
-                                                    if not unicodedata.combining(
-                                                        c
-                                                    )
-                                                ]
-                                            )
+                                            nfkd_form = unicodedata.normalize("NFKD", str(texto))
+                                            solo_ascii = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
                                             return (
                                                 solo_ascii.replace(" ", "_")
                                                 .replace("/", "_")
@@ -1462,104 +1456,69 @@ if mod_actual == "Expediente por ECO y Documental":
                                                 .replace(".", "_")
                                             )
 
-                                        bytes_d = doc_subido.getvalue()
-                                        eco_limpio_str = (
-                                            limpiar_nombre_archivo(
-                                                str(eco_search)
-                                            )
+                                        bytes_d = doc_a_guardar.getvalue()
+                                        nombre_original = getattr(doc_a_guardar, "name", "captura_doc.jpg")
+                                        
+                                        extension = (
+                                            nombre_original.split(".")[-1].lower()
+                                            if "." in nombre_original
+                                            else "jpg"
                                         )
-                                        tipo_limpio_str = (
-                                            limpiar_nombre_archivo(
-                                                tipo_doc_sel
-                                            )
-                                        )
-                                        timestamp_str = (
-                                            datetime.now().strftime(
-                                                "%Y%m%d_%H%M%S"
-                                            )
-                                        )
+                                        
+                                        if extension == "pdf":
+                                            content_type = "application/pdf"
+                                        elif extension in ["png", "jpg", "jpeg"]:
+                                            content_type = f"image/{extension if extension != 'jpg' else 'jpeg'}"
+                                        else:
+                                            content_type = "application/octet-stream"
 
-                                        nombre_d = f"{eco_limpio_str}_{tipo_limpio_str}_{timestamp_str}.pdf"
+                                        eco_limpio_str = limpiar_nombre_archivo(str(eco_search))
+                                        tipo_limpio_str = limpiar_nombre_archivo(tipo_doc_sel)
+                                        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-                                        supabase.storage.from_(
-                                            "evidencias-pdf"
-                                        ).upload(
+                                        nombre_d = f"{eco_limpio_str}_{tipo_limpio_str}_{timestamp_str}.{extension}"
+
+                                        supabase.storage.from_("evidencias-pdf").upload(
                                             file=bytes_d,
                                             path=nombre_d,
                                             file_options={
-                                                "content-type": (
-                                                    "application/pdf"
-                                                ),
+                                                "content-type": content_type,
                                                 "upsert": "true",
                                             },
                                         )
 
-                                        pub_res_doc = supabase.storage.from_(
-                                            "evidencias-pdf"
-                                        ).get_public_url(nombre_d)
+                                        pub_res_doc = supabase.storage.from_("evidencias-pdf").get_public_url(nombre_d)
                                         url_doc = (
                                             pub_res_doc
                                             if isinstance(pub_res_doc, str)
                                             else pub_res_doc.get("publicUrl")
                                         )
 
-                                        if (
-                                            eco_search
-                                            not in st.session_state.expedientes_docs
-                                        ):
-                                            st.session_state.expedientes_docs[
-                                                eco_search
-                                            ] = []
+                                        if eco_search not in st.session_state.expedientes_docs:
+                                            st.session_state.expedientes_docs[eco_search] = []
 
                                         nuevo_doc = {
                                             "Tipo": tipo_doc_sel,
-                                            "Nombre": doc_subido.name,
+                                            "Nombre": nombre_original,
                                             "URL": url_doc,
-                                            "Fecha": datetime.now().strftime(
-                                                "%Y-%m-%d %H:%M"
-                                            ),
+                                            "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
                                         }
-                                        st.session_state.expedientes_docs[
-                                            eco_search
-                                        ].append(nuevo_doc)
+                                        st.session_state.expedientes_docs[eco_search].append(nuevo_doc)
 
                                         tabla_map = {
-                                            "Administrativos": (
-                                                "vehiculos_administrativos"
-                                            ),
-                                            "Ambulancias": (
-                                                "vehiculos_ambulancias"
-                                            ),
-                                            "Institucionales": (
-                                                "vehiculos_institucionales"
-                                            ),
+                                            "Administrativos": "vehiculos_administrativos",
+                                            "Ambulancias": "vehiculos_ambulancias",
+                                            "Institucionales": "vehiculos_institucionales",
                                         }
-                                        nombre_tabla_vehiculos = (
-                                            tabla_map.get(
-                                                cat_actual,
-                                                "vehiculos_administrativos",
-                                            )
-                                        )
+                                        nombre_tabla_vehiculos = tabla_map.get(cat_actual, "vehiculos_administrativos")
 
-                                        docs_json_str = json.dumps(
-                                            st.session_state.expedientes_docs[
-                                                eco_search
-                                            ]
-                                        )
+                                        docs_json_str = json.dumps(st.session_state.expedientes_docs[eco_search])
 
-                                        supabase.table(
-                                            nombre_tabla_vehiculos
-                                        ).update(
+                                        supabase.table(nombre_tabla_vehiculos).update(
                                             {"documentos": docs_json_str}
-                                        ).eq(
-                                            "No. Ecco.", eco_search
-                                        ).execute()
+                                        ).eq("No. Ecco.", eco_search).execute()
 
-                                        st.success(
-                                            "✅ Documento PDF subido y guardado"
-                                            " permanentemente en la base de"
-                                            " datos."
-                                        )
+                                        st.success("✅ Documento subido y guardado permanentemente en la base de datos.")
 
                                         st.cache_data.clear()
                                         if "df_base" in st.session_state:
@@ -1567,13 +1526,27 @@ if mod_actual == "Expediente por ECO y Documental":
                                         st.rerun()
 
                                     except Exception as e:
-                                        st.error(
-                                            f"Error al subir el documento: {e}"
-                                        )
+                                        st.error(f"Error al subir el documento: {e}")
                                 else:
-                                    st.warning(
-                                        "Conexión a Supabase no disponible."
-                                    )
+                                    st.warning("Conexión a Supabase no disponible.")
+
+                    with col_d2:
+                        docs_guardados = st.session_state.expedientes_docs.get(eco_search, [])
+                        if docs_guardados:
+                            df_docs = pd.DataFrame(docs_guardados)
+                            st.dataframe(
+                                df_docs,
+                                use_container_width=True,
+                                hide_index=True,
+                            )
+
+                            for idx, doc in enumerate(docs_guardados):
+                                st.markdown(
+                                    f"📄 [{doc['Tipo']} - {doc['Nombre']}]({doc['URL']})"
+                                    f" (Agregado: {doc['Fecha']})"
+                                )
+                        else:
+                            st.info("Sin documentos registrados para este vehículo.")
 
                     with col_d2:
                         docs_guardados = st.session_state.expedientes_docs.get(
