@@ -326,33 +326,38 @@ st.markdown(
 )
 
 # -----------------------------------------------------------------------------
-# BARRA LATERAL (SIDEBAR)
+# -----------------------------------------------------------------------------
+# BARRA LATERAL (SIDEBAR) - OPTIMIZADA PARA ALTURA DE PANTALLA Y SIN SCROLL
 # -----------------------------------------------------------------------------
 with st.sidebar:
   if url_logo_supa:
     st.image(url_logo_supa, use_container_width=True)
   else:
     st.markdown(
-        f"<h2 style='color:{COLORES_PANTONE['468']}; text-align:center;'>IMSS</h2>",
+        f"<h2 style='color:{COLORES_PANTONE['468']};"
+        " text-align:center;margin-bottom:0px;'>IMSS</h2>",
         unsafe_allow_html=True,
     )
 
   color_468 = COLORES_PANTONE["468"]
 
   st.markdown(
-    "<div style='text-align: center; font-size: 11px; margin-bottom: 10px;'>"
-    "<b>Coordinación Técnica de Servicios Generales</b><br>"
-    f"<span style='font-size:9px; color:{color_468};'>"
-    "División de Transportes y Operación</span></div>",
-    unsafe_allow_html=True,
-)
-  st.markdown("---")
+      "<div style='text-align: center; font-size: 11px; margin-bottom:"
+      " 2px;'><b>Coordinación Técnica de Servicios Generales</b><br>"
+      f"<span style='font-size:9px; color:{color_468};'>"
+      "División de Transportes y Operación</span></div>",
+      unsafe_allow_html=True,
+  )
+
+  st.markdown("<hr style='margin: 4px 0;'>", unsafe_allow_html=True)
+
   st.markdown(
-      "<p style='font-size: 12px; margin-bottom: 8px;'><b>SELECCIONAR"
+      "<p style='font-size: 11px; margin-bottom: 4px;'><b>SELECCIONAR"
       " FLOTILLA:</b></p>",
       unsafe_allow_html=True,
   )
 
+  # Botones de flotilla más compactos en altura
   st.button(
       "ADMINISTRATIVOS",
       use_container_width=True,
@@ -387,7 +392,7 @@ with st.sidebar:
       args=("Institucionales",),
   )
 
-  st.markdown("---")
+  st.markdown("<hr style='margin: 4px 0;'>", unsafe_allow_html=True)
 
   modulos = [
       "Dashboard General",
@@ -410,12 +415,12 @@ with st.sidebar:
       index=modulos.index(st.session_state.modulo_activo),
   )
 
-  st.markdown("---")
+  st.markdown("<hr style='margin: 4px 0;'>", unsafe_allow_html=True)
   st.markdown(
-      "<div style='text-align: center; font-size: 10px; color: #CCCCCC;'>Desarrollado por:<br><b>eduardo.casas@imss.gob.mx</b></div>",
+      "<div style='text-align: center; font-size: 10px; color:"
+      " #CCCCCC;'>Desarrollado por:<br><b>eduardo.casas@imss.gob.mx</b></div>",
       unsafe_allow_html=True,
   )
-
 # -----------------------------------------------------------------------------
 # ENCABEZADO INSTITUCIONAL ÚNICO
 # -----------------------------------------------------------------------------
