@@ -21,7 +21,25 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+# --- AJUSTE LIMPIO DE TEXTOS EN EL MENÚ LATERAL ---
+st.markdown(
+    """
+    <style>
+        /* Ajustar el tamaño y espaciado de los textos del menú lateral para que respiren mejor */
+        [data-testid="stSidebar"] .stRadio label {
+            font-size: 13px !important;
+            line-height: 1.2 !important;
+            padding: 2px 0px !important;
+        }
 
+        /* Compactar ligeramente el espacio entre opciones del menú */
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
+            gap: 2px !important;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 # =============================================================================
 # CONSTANTES Y CONFIGURACIÓN DE COLUMNAS Y PALETA INSTITUCIONAL (PANTONES)
 # =============================================================================
