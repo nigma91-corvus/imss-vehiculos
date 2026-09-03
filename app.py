@@ -422,6 +422,36 @@ with st.sidebar:
 logo_html = f'<img src="{url_logo_supa}" style="height: 200px; width: auto; object-fit: contain; display: inline-block; vertical-align: middle;">' if url_logo_supa else f'<h2 style="color:{COLORES_PANTONE["468"]}; margin:0;">IMSS</h2>'
 
 st.markdown(
+    """
+    <style>
+        .block-container {
+            padding-top: 1rem !important; /* Mantenemos el padding compacto */
+            padding-bottom: 1rem !important;
+        }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    f"""
+    <div style="display: flex; align-items: flex-end; gap: 15px; width: 100%; margin: 0 0 15px 0;">
+        <div style="max-width: 65px; flex-shrink: 0;">
+            {logo_html.replace('<img ', '<img style="width: 100%; height: auto; display: block;" ')}
+        </div>
+        <div style="line-height: 1.2;">
+            <p style="color: {COLORES_PANTONE["627"]}; font-weight: 800; font-size: 20px; margin: 0;">Sistema de Gestión y Control Vehicular</p>
+            <p style="color: #555555; font-size: 11px; margin: 2px 0 0 0; font-weight: 600;">
+                <b>Flotilla Seleccionada:</b> <code>{st.session_state.categoria_seleccionada}</code> &nbsp;|&nbsp; 
+                <b>Módulo Activo:</b> <code>{st.session_state.modulo_activo}</code> &nbsp;|&nbsp; 
+                <b>Fecha de Operación:</b> {datetime.now().strftime('%d/%m/%Y')}
+            </p>
+        </div>
+    </div>
+    <hr style="margin: 0 0 15px 0; border: none; border-top: 1px solid #E9ECEF;">
+""",
+    unsafe_allow_html=True,
+)st.markdown(
     f"""
     <div style="display: flex; align-items: flex-end; gap: 15px; width: 100%; margin: 10px 0 15px 0;">
         <div style="max-width: 65px; flex-shrink: 0;">
