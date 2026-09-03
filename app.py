@@ -423,9 +423,9 @@ logo_html = f'<img src="{url_logo_supa}" style="height: 200px; width: auto; obje
 
 st.markdown(
     f"""
-    <div style="display: flex; align-items: center; gap: 15px; width: 100%; margin: 10px 0 15px 0;">
+    <div style="display: flex; align-items: flex-end; gap: 15px; width: 100%; margin: 10px 0 15px 0;">
         <div style="max-width: 65px; flex-shrink: 0;">
-            {logo_html.replace('<img ', '<img style="width: 100%; height: auto;" ')}
+            {logo_html.replace('<img ', '<img style="width: 100%; height: auto; display: block;" ')}
         </div>
         <div style="line-height: 1.2;">
             <p style="color: {COLORES_PANTONE["627"]}; font-weight: 800; font-size: 20px; margin: 0;">Sistema de Gestión y Control Vehicular</p>
@@ -440,7 +440,6 @@ st.markdown(
 """,
     unsafe_allow_html=True,
 )
-
 mod_actual = st.session_state.modulo_activo
 
 # -----------------------------------------------------------------------------
