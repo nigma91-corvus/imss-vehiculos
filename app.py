@@ -1094,13 +1094,12 @@ with t2:
 
           if doc_subido is not None:
             if st.button(
-                f"Guardar Documento PDF", key=f"btn_save_doc_{eco_search}"
+                "Guardar Documento PDF", key=f"btn_save_doc_{eco_search}"
             ):
               if supabase:
                 try:
                   import unicodedata
 
-                  # Función interna para limpiar acentos y caracteres especiales del nombre del archivo
                   def limpiar_nombre_archivo(texto):
                     nfkd_form = unicodedata.normalize("NFKD", texto)
                     solo_ascii = "".join(
@@ -1113,15 +1112,12 @@ with t2:
                     )
 
                   bytes_d = doc_subido.getvalue()
-
-                  # Limpiamos el tipo de documento y el ECO para que sean aptos para la URL/Storage
                   eco_limpio_str = limpiar_nombre_archivo(str(eco_search))
                   tipo_limpio_str = limpiar_nombre_archivo(tipo_doc_sel)
                   timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
                   nombre_d = f"{eco_limpio_str}_{tipo_limpio_str}_{timestamp_str}.pdf"
 
-                  # 1. Subir a Supabase Storage
                   supabase.storage.from_("evidencias-pdf").upload(
                       file=bytes_d,
                       path=nombre_d,
@@ -1131,7 +1127,6 @@ with t2:
                       },
                   )
 
-                  # 2. Obtener URL pública
                   pub_res_doc = supabase.storage.from_("evidencias-pdf").get_public_url(
                       nombre_d
                   )
@@ -1141,7 +1136,6 @@ with t2:
                       else pub_res_doc.get("publicUrl")
                   )
 
-                  # 3. Guardar registro en st.session_state
                   if eco_search not in st.session_state.expedientes_docs:
                     st.session_state.expedientes_docs[eco_search] = []
 
@@ -1174,6 +1168,27 @@ with t2:
             st.dataframe(df_docs, use_container_width=True, hide_index=True)
           else:
             st.info("Sin documentos registrados para este vehículo.")
+
+      with t3:
+        st.markdown("##### **Bitácora de Servicios e Intervenciones**")
+        hist_taller = [
+            r for r in st.session_state.taller_registros if r["ECO"] == eco_search
+        ]
+        if hist_taller:
+          st.dataframe(
+              pd.DataFrame(hist_taller),
+              use_container_width=True,
+              hide_index=True,
+          )
+        else:
+          st.caption(
+              "No se registran mantenimientos o siniestros previos para este"
+              " ECO."
+          )
+
+# Siguiente bloque (para verificar que la indentación y cierre coincidan):
+elif mod_actual == "Registro de Taller e Incidencias":
+    # ...
 # -----------------------------------------------------------------------------
 # 6. REGISTRO DE TALLER E INCIDENCIAS (PERSISTIDO EN SUPABASE)
 # -----------------------------------------------------------------------------
