@@ -354,7 +354,7 @@ st.markdown(
       unsafe_allow_html=True,
   )
 
-  st.button(
+st.button(
       "ADMINISTRATIVOS",
       use_container_width=True,
       type=(
@@ -365,7 +365,7 @@ st.markdown(
       on_click=cambiar_categoria,
       args=("Administrativos",),
   )
-  st.button(
+st.button(
       "AMBULANCIAS",
       use_container_width=True,
       type=(
