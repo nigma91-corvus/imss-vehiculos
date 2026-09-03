@@ -37,7 +37,7 @@ st.markdown(
             margin-bottom: 2px !important;
         }
         .logo-box img {
-            max-height: 100px !important;
+            max-height: 50px !important;
             width: auto !important;
             display: inline-block !important;
             object-fit: contain !important;
@@ -123,15 +123,14 @@ def parse_float(val):
 # -----------------------------------------------------------------------------
 @st.cache_resource
 def conectar_supabase():
-  url = st.secrets["supabase"]["url"]
-  key = st.secrets["supabase"]["key"]
-  return create_client(url, key)
-
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    return create_client(url, key)
 
 supabase = conectar_supabase()
 supabase_url = st.secrets["supabase"]["url"] if supabase else ""
 
-
+# -----------------------------------------------------------------------------
 # GESTIÓN DE IMÁGENES Y DOCUMENTOS DESDE SUPABASE STORAGE
 # -----------------------------------------------------------------------------
 def obtener_url_supabase(nombre_archivo, bucket="vehiculos-fotos"):
@@ -139,30 +138,21 @@ def obtener_url_supabase(nombre_archivo, bucket="vehiculos-fotos"):
     return f"{supabase_url}/storage/v1/object/public/{bucket}/{nombre_archivo}"
   return ""
 
-
 def obtener_imagen_catalogo_supabase(tipo, linea):
   tipo_str = str(tipo).upper().strip()
   linea_str = str(linea).upper().strip()
-  combinado = f"{tipo_str} {linea_str}"
 
-  if "PROMASTER" in combinado:
+  if "PROMASTER" in linea_str:
     archivo = "RAM_PROMASTER_GENERICA.png"
-  elif "TRANSIT" in combinado:
+  elif "TRANSIT" in linea_str:
     archivo = "FORD_TRANSIT_GENERICA.png"
-  elif "CRETA" in combinado or "SUV" in combinado:
+  elif "CRETA" in linea_str or "SUV" in linea_str:
     archivo = "creta-1-5l-gls-ivt.png"
-  elif (
-      "F-150" in combinado or "PICK UP" in combinado or "PICKUP" in combinado
-  ):
+  elif "F-150" in linea_str or "PICK UP" in linea_str:
     archivo = "f-150-xl.png"
-  elif "URVAN" in combinado or "VAN" in combinado:
+  elif "URVAN" in linea_str or "VAN" in linea_str:
     archivo = "urvan-panel.png"
-  elif (
-      "V-DRIVE" in combinado
-      or "SEDÁN" in combinado
-      or "SEDAN" in combinado
-      or "AUTO" in combinado
-  ):
+  elif "V-DRIVE" in linea_str or "SEDÁN" in linea_str or "SEDAN" in linea_str:
     archivo = "v-drive-tm-ac.png"
   else:
     archivo = "v-drive-tm-ac.png"
@@ -172,8 +162,11 @@ def obtener_imagen_catalogo_supabase(tipo, linea):
     return url_supa
   return os.path.join("assets", archivo)
 
-
 url_logo_supa = obtener_url_supabase("logo_imss.png", "vehiculos-fotos")
+
+os.makedirs("data", exist_ok=True)
+os.makedirs("expedientes", exist_ok=True)
+os.makedirs("assets", exist_ok=True)
 
 # -----------------------------------------------------------------------------
 # CARGA DE DATOS DESDE SUPABASE (FLOTILLAS, TALLER, BITÁCORAS, REASIGNACIONES)
@@ -1225,536 +1218,458 @@ st.markdown(
 
 # Simulación de variables de estado global si no están inicializadas
 if "taller_registros" not in st.session_state:
-    st.session_state.taller_registros = []
+  st.session_state.taller_registros = []
 
 if "expedientes_docs" not in st.session_state:
-    st.session_state.expedientes_docs = {}
+  st.session_state.expedientes_docs = {}
 
 
 def parse_float(valor):
-    try:
-        return float(valor)
-    except:
-        return 0.0
+  try:
+    return float(valor)
+  except:
+    return 0.0
 
 
 def obtener_imagen_catalogo_supabase(tipo, linea):
-    # Aquí va tu lógica real para conectar a Supabase o retornar None de prueba
-    return None
+  return None
+
+
 # -----------------------------------------------------------------------------
 # 5. EXPEDIENTE POR ECO Y DOCUMENTAL (BÚSQUEDA POR TEXTO LIBRE Y DISEÑO MEJORADO)
 # -----------------------------------------------------------------------------
 if mod_actual == "Expediente por ECO y Documental":
-    st.markdown(
-        f'<p class="subtitulo-seccion">Expediente Técnico y Documental por ECO — {cat_actual}</p>',
-        unsafe_allow_html=True,
-    )
+  st.markdown(
+      f'<p class="subtitulo-seccion">Expediente Técnico y Documental por'
+      f" ECO — {cat_actual}</p>",
+      unsafe_allow_html=True,
+  )
 
-    lista_ecos = (
-        list(df_base["No. Ecco."].unique())
-        if not df_base.empty and "No. Ecco." in df_base.columns
-        else []
-    )
+  lista_ecos = (
+      list(df_base["No. Ecco."].unique())
+      if not df_base.empty and "No. Ecco." in df_base.columns
+      else []
+  )
 
-    if not lista_ecos:
-        st.warning(
-            f"No hay vehículos cargados en la base de datos para la flotilla **{cat_actual}**."
-        )
+  if not lista_ecos:
+    st.warning(
+        f"No hay vehículos cargados en la base de datos para la flotilla"
+        f" **{cat_actual}**."
+    )
+  else:
+    # Búsqueda por texto libre en lugar de selectbox
+    col_b1, col_b2 = st.columns([2, 3])
+    with col_b1:
+      eco_input = st.text_input(
+          "Ingrese el No. de ECO a buscar:",
+          placeholder="Ej. ECO-1024 o similar...",
+      )
+
+    if not eco_input:
+      st.info(
+          "💡 Por favor, escriba el número de ECO en el campo de texto superior"
+          " para consultar su expediente."
+      )
+      with st.expander("Ver algunos ECOs disponibles en esta flotilla"):
+        st.write(", ".join([str(e) for e in lista_ecos[:25]]))
     else:
-        # Búsqueda por texto libre en lugar de selectbox
-        col_b1, col_b2 = st.columns([2, 3])
-        with col_b1:
-            eco_input = st.text_input(
-                "Ingrese el No. de ECO a buscar:",
-                placeholder="Ej. ECO-1024 o similar...",
-            )
+      eco_busqueda_limpio = eco_input.strip().upper()
+      vehiculo_sel = df_base[
+          df_base["No. Ecco."]
+          .astype(str)
+          .str.upper()
+          .str.contains(eco_busqueda_limpio, na=False)
+      ]
 
-        if not eco_input:
-            st.info(
-                "💡 Por favor, escriba el número de ECO en el campo de texto superior para consultar su expediente."
-            )
-            with st.expander("Ver algunos ECOs disponibles en esta flotilla"):
-                st.write(", ".join([str(e) for e in lista_ecos[:25]]))
+      if vehiculo_sel.empty:
+        st.error(
+            f"❌ No se encontró ningún vehículo con el ECO '{eco_input}' en la"
+            f" flotilla {cat_actual}. Verifique el dato e intente de nuevo."
+        )
+      else:
+        if len(vehiculo_sel) > 1:
+          st.warning(
+              f"Se encontraron {len(vehiculo_sel)} coincidencias para"
+              f" '{eco_input}':"
+          )
+          eco_opciones = list(vehiculo_sel["No. Ecco."].unique())
+          eco_search = st.selectbox(
+              "Seleccione la coincidencia exacta:", eco_opciones
+          )
+          vehiculo_sel = df_base[df_base["No. Ecco."] == eco_search]
         else:
-            eco_busqueda_limpio = eco_input.strip().upper()
-            vehiculo_sel = df_base[
-                df_base["No. Ecco."]
-                .astype(str)
-                .str.upper()
-                .str.contains(eco_busqueda_limpio, na=False)
-            ]
+          eco_search = vehiculo_sel.iloc[0]["No. Ecco."]
 
-            if vehiculo_sel.empty:
-                st.error(
-                    f"❌ No se encontró ningún vehículo con el ECO '{eco_input}' en la flotilla {cat_actual}. Verifique el dato e intente de nuevo."
-                )
-            else:
-                if len(vehiculo_sel) > 1:
-                    st.warning(
-                        f"Se encontraron {len(vehiculo_sel)} coincidencias para '{eco_input}':"
-                    )
-                    eco_opciones = list(vehiculo_sel["No. Ecco."].unique())
-                    eco_search = st.selectbox(
-                        "Seleccione la coincidencia exacta:", eco_opciones
-                    )
-                    vehiculo_sel = df_base[df_base["No. Ecco."] == eco_search]
-                else:
-                    eco_search = vehiculo_sel.iloc[0]["No. Ecco."]
+        v_data = vehiculo_sel.iloc[0]
+        st.markdown("---")
+        st.markdown(
+            f"#### 📋 Ficha Técnica y Descriptiva — ECO: `{v_data['No. Ecco.']}`"
+        )
 
-                v_data = vehiculo_sel.iloc[0]
-                st.markdown("---")
-                st.markdown(
-                    f"#### 📋 Ficha Técnica y Descriptiva — ECO: `{v_data['No. Ecco.']}`"
-                )
+        col_img_cat, col_info_cat = st.columns([1, 2.2], gap="small")
 
-                col_img_cat, col_info_cat = st.columns([1, 2.2], gap="small")
+        with col_img_cat:
+          tipo_v = v_data.get("Tipo", "")
+          linea_v = v_data.get("Linea", "")
+          url_cat = obtener_imagen_catalogo_supabase(tipo_v, linea_v)
+          if url_cat:
+            st.markdown(
+                f'<div class="image-container-full"><img src="{url_cat}"'
+                ' alt="Vehículo"></div>',
+                unsafe_allow_html=True,
+            )
+            st.caption(f"Catálogo: {tipo_v} - {linea_v}")
+          else:
+            st.info(f"📷 [Sin foto en catálogo: {linea_v}]")
 
-                with col_img_cat:
-                    tipo_v = v_data.get("Tipo", "")
-                    linea_v = v_data.get("Linea", "")
+        with col_info_cat:
+          en_taller = any(
+              r["ECO"] == v_data["No. Ecco."]
+              and r["Estatus"] == "Activo (En Taller)"
+              for r in st.session_state.taller_registros
+          )
+          estatus_veh = (
+              "En Taller"
+              if en_taller
+              else str(v_data.get("Estatus", "Titular Activo"))
+          )
+          badge_class = (
+              "badge-verde"
+              if "Activo" in estatus_veh
+              else ("badge-amarillo" if "Taller" in estatus_veh else "badge-rojo")
+          )
 
-                    # Línea de prueba para ver qué texto exacto lee la base de datos
-                    st.write(f"Debug -> Tipo: '{tipo_v}' | Línea: '{linea_v}'")
-
-                    url_cat = obtener_imagen_catalogo_supabase(tipo_v, linea_v)
-
-                    if url_cat:
-                        st.markdown(
-                            f'<div class="image-container-full"><img src="{url_cat}" alt="Vehículo"></div>',
-                            unsafe_allow_html=True,
-                        )
-                        st.caption(f"Catálogo: {tipo_v} - {linea_v}")
-                    else:
-                        st.info(f"📷 [Sin foto en catálogo: {linea_v}]")
-
-                with col_info_cat:
-                    en_taller = any(
-                        r["ECO"] == v_data["No. Ecco."]
-                        and r["Estatus"] == "Activo (En Taller)"
-                        for r in st.session_state.taller_registros
-                    )
-                    estatus_veh = (
-                        "En Taller"
-                        if en_taller
-                        else str(v_data.get("Estatus", "Titular Activo"))
-                    )
-                    badge_class = (
-                        "badge-verde"
-                        if "Activo" in estatus_veh
-                        else (
-                            "badge-amarillo"
-                            if "Taller" in estatus_veh
-                            else "badge-rojo"
-                        )
-                    )
-
-                    st.markdown(
-                        f"""
-                        <div class="card-resumen">
-                            <div style="margin-bottom: 6px;">
-                                <b>Estatus Operativo:</b> <span class="{badge_class}">{estatus_veh.upper()}</span>
-                            </div>
-                            <hr style="margin: 6px 0;">
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
-                                <div>
-                                    <p><b>Placas:</b> {v_data.get('Placas', 'N/A')}</p>
-                                    <p><b>Número de Serie (VIN):</b> {v_data.get('VIN', 'N/A')}</p>
-                                    <p><b>No. Tarjeta Circulación:</b> {v_data.get('No_TC', 'N/A')}</p>
-                                    <p><b>Arrendadora:</b> {v_data.get('Arrendadora', 'N/A')}</p>
-                                </div>
-                                <div>
-                                    <p><b>Tipo / Línea:</b> {v_data.get('Tipo', 'N/A')} - {v_data.get('Linea', 'N/A')}</p>
-                                    <p><b>Ubicación / OOAD:</b> {v_data.get('UBICACIÓN', 'N/A')}</p>
-                                    <p><b>Último Servicio:</b> {v_data.get('Ultimo_Servicio', 'N/A')}</p>
-                                    <p><b>Cuota Diaria:</b> ${parse_float(v_data.get('CUOTA DIARIA', 0.0)):,.2f}</p>
-                                </div>
-                            </div>
+          st.markdown(
+              f"""
+                <div class="card-resumen">
+                    <div style="margin-bottom: 6px;">
+                        <b>Estatus Operativo:</b> <span class="{badge_class}">{estatus_veh.upper()}</span>
+                    </div>
+                    <hr style="margin: 6px 0;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
+                        <div>
+                            <p><b>Placas:</b> {v_data.get('Placas', 'N/A')}</p>
+                            <p><b>Número de Serie (VIN):</b> {v_data.get('VIN', 'N/A')}</p>
+                            <p><b>No. Tarjeta Circulación:</b> {v_data.get('No_TC', 'N/A')}</p>
+                            <p><b>Arrendadora:</b> {v_data.get('Arrendadora', 'N/A')}</p>
                         </div>
-                        """,
-                        unsafe_allow_html=True,
+                        <div>
+                            <p><b>Tipo / Línea:</b> {v_data.get('Tipo', 'N/A')} - {v_data.get('Linea', 'N/A')}</p>
+                            <p><b>Ubicación / OOAD:</b> {v_data.get('UBICACIÓN', 'N/A')}</p>
+                            <p><b>Último Servicio:</b> {v_data.get('Ultimo_Servicio', 'N/A')}</p>
+                            <p><b>Cuota Diaria:</b> ${parse_float(v_data.get('CUOTA DIARIA', 0.0)):,.2f}</p>
+                        </div>
+                    </div>
+                </div>
+                """,
+              unsafe_allow_html=True,
+          )
+
+        st.markdown("---")
+        t1, t2, t3 = st.tabs([
+            "Galería de Inspección Física (4 Vistas)",
+            "Expediente Documental (PDF/Visor)",
+            "Historial de Mantenimientos",
+        ])
+
+        with t1:
+          st.markdown(
+              "##### **Galería de Inspección Física (Vistas Reglamentarias)**"
+          )
+          st.info(
+              "Sube un archivo o toma una fotografía directa. Las imágenes se"
+              " ajustan automáticamente para mantener un diseño limpio y"
+              " ordenado."
+          )
+
+          eco_limpio = str(eco_search).replace(" ", "_").replace("/", "-")
+          vistas_inspeccion = {
+              "Foto Frontal": "foto_frontal",
+              "Foto Trasera": "foto_trasera",
+              "Foto Lateral Derecho": "foto_lateral_der",
+              "Foto Lateral Izquierdo": "foto_lateral_izq",
+          }
+
+          grid_cols = st.columns(2)
+
+          for idx, (nombre_vista, campo_key) in enumerate(
+              vistas_inspeccion.items()
+          ):
+            col_actual = grid_cols[idx % 2]
+
+            with col_actual:
+              st.markdown(f"**{nombre_vista}**")
+
+              foto_guardada_url = v_data.get(campo_key)
+
+              if foto_guardada_url and str(foto_guardada_url).startswith(
+                  "http"
+              ):
+                st.markdown(
+                    f"""
+                            <div style="width: 100%; max-height: 220px; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 8px;">
+                                <img src="{foto_guardada_url}" style="max-width: 100%; max-height: 210px; object-fit: contain;" alt="{nombre_vista}">
+                            </div>
+                            """,
+                    unsafe_allow_html=True,
+                )
+                st.success("✔ Imagen cargada en servidor")
+              else:
+                st.warning("⚠ Sin fotografía registrada")
+
+              metodo_captura = st.radio(
+                  f"Método para {nombre_vista}:",
+                  ["Subir Imagen", "Tomar Foto con Cámara"],
+                  key=f"radio_{campo_key}_{eco_search}",
+                  horizontal=True,
+              )
+
+              imagen_a_guardar = None
+
+              if metodo_captura == "Subir Imagen":
+                imagen_a_guardar = st.file_uploader(
+                    f"Cargar {nombre_vista}",
+                    type=["jpg", "jpeg", "png"],
+                    key=f"upl_{campo_key}_{eco_search}",
+                )
+              else:
+                imagen_a_guardar = st.camera_input(
+                    f"Tomar {nombre_vista}",
+                    key=f"cam_{campo_key}_{eco_search}",
+                )
+
+              if imagen_a_guardar is not None:
+                if st.button(
+                    f"Guardar {nombre_vista}",
+                    key=f"btn_save_{campo_key}_{eco_search}",
+                ):
+                  try:
+                    nombre_original = getattr(
+                        imagen_a_guardar, "name", "captura.jpg"
+                    )
+                    extension = (
+                        nombre_original.split(".")[-1]
+                        if "." in nombre_original
+                        else "jpg"
+                    )
+                    nombre_archivo_nube = (
+                        f"{eco_limpio}_{campo_key}.{extension}"
+                    )
+                    bytes_f = imagen_a_guardar.getvalue()
+
+                    if supabase:
+                      supabase.storage.from_("vehiculos-fotos").upload(
+                          file=bytes_f,
+                          path=nombre_archivo_nube,
+                          file_options={
+                              "content-type": f"image/{extension}",
+                              "upsert": "true",
+                          },
+                      )
+
+                      pub_res = supabase.storage.from_(
+                          "vehiculos-fotos"
+                      ).get_public_url(nombre_archivo_nube)
+                      url_base = (
+                          pub_res
+                          if isinstance(pub_res, str)
+                          else pub_res.get("publicUrl")
+                      )
+                      url_final = (
+                          f"{url_base}?t={int(datetime.now().timestamp())}"
+                      )
+
+                      tabla_map = {
+                          "Administrativos": "vehiculos_administrativos",
+                          "Ambulancias": "vehiculos_ambulancias",
+                          "Institucionales": "vehiculos_institucionales",
+                      }
+                      nombre_tabla_vehiculos = tabla_map.get(
+                          cat_actual, "vehiculos_administrativos"
+                      )
+
+                      supabase.table(nombre_tabla_vehiculos).update(
+                          {campo_key: url_final}
+                      ).eq("eco", eco_search).execute()
+
+                      st.success(
+                          f"✅ {nombre_vista} guardada y vinculada"
+                          " permanentemente."
+                      )
+
+                      st.cache_data.clear()
+                      if "df_base" in st.session_state:
+                        del st.session_state["df_base"]
+
+                      st.rerun()
+                    else:
+                      st.error("Conexión a Supabase no disponible.")
+                  except Exception as e:
+                    st.error(f"Error al subir la imagen: {e}")
+
+              st.markdown("---")
+
+        with t2:
+          st.markdown("##### **Documentos Oficiales Registrados y Carga**")
+
+          if "expedientes_docs" not in st.session_state:
+            st.session_state.expedientes_docs = {}
+
+          if eco_search not in st.session_state.expedientes_docs:
+            docs_bd = v_data.get("documentos", None)
+            if docs_bd:
+              if isinstance(docs_bd, str):
+                try:
+                  st.session_state.expedientes_docs[eco_search] = json.loads(
+                      docs_bd
+                  )
+                except:
+                  st.session_state.expedientes_docs[eco_search] = []
+              elif isinstance(docs_bd, list):
+                st.session_state.expedientes_docs[eco_search] = docs_bd
+            else:
+              st.session_state.expedientes_docs[eco_search] = []
+
+          col_d1, col_d2 = st.columns(2)
+          with col_d1:
+            tipo_doc_sel = st.selectbox(
+                "Tipo de Documento:",
+                [
+                    "Póliza de Seguro",
+                    "Tarjeta de Circulación",
+                    "Factura / Contrato",
+                    "Dictamen Taller",
+                    "Otro",
+                ],
+                key=f"tipo_doc_sel_{eco_search}",
+            )
+            doc_subido = st.file_uploader(
+                f"Adjuntar Archivo PDF para ECO {eco_search}:",
+                type=["pdf"],
+                key=f"doc_uploader_{eco_search}",
+            )
+
+            if doc_subido is not None:
+              if st.button(
+                  "Guardar Documento PDF", key=f"btn_save_doc_{eco_search}"
+              ):
+                if supabase:
+                  try:
+
+                    def limpiar_nombre_archivo(texto):
+                      nfkd_form = unicodedata.normalize("NFKD", str(texto))
+                      solo_ascii = "".join([
+                          c for c in nfkd_form if not unicodedata.combining(c)
+                      ])
+                      return (
+                          solo_ascii.replace(" ", "_")
+                          .replace("/", "_")
+                          .replace("\\", "_")
+                          .replace(".", "_")
+                      )
+
+                    bytes_d = doc_subido.getvalue()
+                    eco_limpio_str = limpiar_nombre_archivo(str(eco_search))
+                    tipo_limpio_str = limpiar_nombre_archivo(tipo_doc_sel)
+                    timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+                    nombre_d = f"{eco_limpio_str}_{tipo_limpio_str}_{timestamp_str}.pdf"
+
+                    supabase.storage.from_("evidencias-pdf").upload(
+                        file=bytes_d,
+                        path=nombre_d,
+                        file_options={
+                            "content-type": "application/pdf",
+                            "upsert": "true",
+                        },
                     )
 
-                st.markdown("---")
-                t1, t2, t3 = st.tabs([
-                    "Galería de Inspección Física (4 Vistas)",
-                    "Expediente Documental (PDF/Visor)",
-                    "Historial de Mantenimientos",
-                ])
-
-                with t1:
-                    st.markdown(
-                        "##### **Galería de Inspección Física (Vistas Reglamentarias)**"
+                    pub_res_doc = supabase.storage.from_(
+                        "evidencias-pdf"
+                    ).get_public_url(nombre_d)
+                    url_doc = (
+                        pub_res_doc
+                        if isinstance(pub_res_doc, str)
+                        else pub_res_doc.get("publicUrl")
                     )
-                    st.info(
-                        "Sube un archivo o toma una fotografía directa. Las imágenes se ajustan automáticamente para mantener un diseño limpio y ordenado."
-                    )
-
-                    eco_limpio = (
-                        str(eco_search).replace(" ", "_").replace("/", "-")
-                    )
-                    vistas_inspeccion = {
-                        "Foto Frontal": "foto_frontal",
-                        "Foto Trasera": "foto_trasera",
-                        "Foto Lateral Derecho": "foto_lateral_der",
-                        "Foto Lateral Izquierdo": "foto_lateral_izq",
-                    }
-
-                    grid_cols = st.columns(2)
-
-                    for idx, (nombre_vista, campo_key) in enumerate(
-                        vistas_inspeccion.items()
-                    ):
-                        col_actual = grid_cols[idx % 2]
-
-                        with col_actual:
-                            st.markdown(f"**{nombre_vista}**")
-
-                            foto_guardada_url = v_data.get(campo_key)
-
-                            if foto_guardada_url and str(
-                                foto_guardada_url
-                            ).startswith("http"):
-                                st.markdown(
-                                    f"""
-                                    <div style="width: 100%; max-height: 220px; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 8px;">
-                                        <img src="{foto_guardada_url}" style="max-width: 100%; max-height: 210px; object-fit: contain;" alt="{nombre_vista}">
-                                    </div>
-                                    """,
-                                    unsafe_allow_html=True,
-                                )
-                                st.success("✔ Imagen cargada en servidor")
-                            else:
-                                st.warning("⚠ Sin fotografía registrada")
-
-                            metodo_captura = st.radio(
-                                f"Método para {nombre_vista}:",
-                                ["Subir Imagen", "Tomar Foto con Cámara"],
-                                key=f"radio_{campo_key}_{eco_search}",
-                                horizontal=True,
-                            )
-
-                            imagen_a_guardar = None
-
-                            if metodo_captura == "Subir Imagen":
-                                imagen_a_guardar = st.file_uploader(
-                                    f"Cargar {nombre_vista}",
-                                    type=["jpg", "jpeg", "png"],
-                                    key=f"upl_{campo_key}_{eco_search}",
-                                )
-                            else:
-                                imagen_a_guardar = st.camera_input(
-                                    f"Tomar {nombre_vista}",
-                                    key=f"cam_{campo_key}_{eco_search}",
-                                )
-
-                            if imagen_a_guardar is not None:
-                                if st.button(
-                                    f"Guardar {nombre_vista}",
-                                    key=f"btn_save_{campo_key}_{eco_search}",
-                                ):
-                                    try:
-                                        nombre_original = getattr(
-                                            imagen_a_guardar,
-                                            "name",
-                                            "captura.jpg",
-                                        )
-                                        extension = (
-                                            nombre_original.split(".")[-1]
-                                            if "." in nombre_original
-                                            else "jpg"
-                                        )
-                                        nombre_archivo_nube = f"{eco_limpio}_{campo_key}.{extension}"
-                                        bytes_f = imagen_a_guardar.getvalue()
-
-                                        if supabase:
-                                            supabase.storage.from_(
-                                                "vehiculos-fotos"
-                                            ).upload(
-                                                file=bytes_f,
-                                                path=nombre_archivo_nube,
-                                                file_options={
-                                                    "content-type": f"image/{extension}",
-                                                    "upsert": "true",
-                                                },
-                                            )
-
-                                            pub_res = (
-                                                supabase.storage.from_(
-                                                    "vehiculos-fotos"
-                                                ).get_public_url(
-                                                    nombre_archivo_nube
-                                                )
-                                            )
-                                            url_base = (
-                                                pub_res
-                                                if isinstance(pub_res, str)
-                                                else pub_res.get("publicUrl")
-                                            )
-                                            url_final = f"{url_base}?t={int(datetime.now().timestamp())}"
-
-                                            tabla_map = {
-                                                "Administrativos": (
-                                                    "vehiculos_administrativos"
-                                                ),
-                                                "Ambulancias": (
-                                                    "vehiculos_ambulancias"
-                                                ),
-                                                "Institucionales": (
-                                                    "vehiculos_institucionales"
-                                                ),
-                                            }
-                                            nombre_tabla_vehiculos = (
-                                                tabla_map.get(
-                                                    cat_actual,
-                                                    "vehiculos_administrativos",
-                                                )
-                                            )
-
-                                            supabase.table(
-                                                nombre_tabla_vehiculos
-                                            ).update(
-                                                {campo_key: url_final}
-                                            ).eq(
-                                                "eco", eco_search
-                                            ).execute()
-
-                                            st.success(
-                                                f"✅ {nombre_vista} guardada y vinculada permanentemente."
-                                            )
-
-                                            st.cache_data.clear()
-                                            if "df_base" in st.session_state:
-                                                del st.session_state["df_base"]
-
-                                            st.rerun()
-                                        else:
-                                            st.error(
-                                                "Conexión a Supabase no disponible."
-                                            )
-                                    except Exception as e:
-                                        st.error(
-                                            f"Error al subir la imagen: {e}"
-                                        )
-
-                            st.markdown("---")
-
-                with t2:
-                    st.markdown(
-                        "##### **Documentos Oficiales Registrados y Carga**"
-                    )
-
-                    if "expedientes_docs" not in st.session_state:
-                        st.session_state.expedientes_docs = {}
 
                     if eco_search not in st.session_state.expedientes_docs:
-                        docs_bd = v_data.get("documentos", None)
-                        if docs_bd:
-                            if isinstance(docs_bd, str):
-                                try:
-                                    st.session_state.expedientes_docs[
-                                        eco_search
-                                    ] = json.loads(docs_bd)
-                                except:
-                                    st.session_state.expedientes_docs[
-                                        eco_search
-                                    ] = []
-                            elif isinstance(docs_bd, list):
-                                st.session_state.expedientes_docs[
-                                    eco_search
-                                ] = docs_bd
-                            else:
-                                st.session_state.expedientes_docs[
-                                    eco_search
-                                ] = []
+                      st.session_state.expedientes_docs[eco_search] = []
 
-                    col_d1, col_d2 = st.columns(2)
-                    with col_d1:
-                        tipo_doc_sel = st.selectbox(
-                            "Tipo de Documento:",
-                            [
-                                "Póliza de Seguro",
-                                "Tarjeta de Circulación",
-                                "Factura / Contrato",
-                                "Dictamen Taller",
-                                "Otro",
-                            ],
-                            key=f"tipo_doc_sel_{eco_search}",
-                        )
-                        doc_subido = st.file_uploader(
-                            f"Adjuntar Archivo PDF para ECO {eco_search}:",
-                            type=["pdf"],
-                            key=f"doc_uploader_{eco_search}",
-                        )
-
-                        if doc_subido is not None:
-                            if st.button(
-                                "Guardar Documento PDF",
-                                key=f"btn_save_doc_{eco_search}",
-                            ):
-                                if supabase:
-                                    try:
-
-                                        def limpiar_nombre_archivo(texto):
-                                            nfkd_form = unicodedata.normalize(
-                                                "NFKD", str(texto)
-                                            )
-                                            solo_ascii = "".join([
-                                                c
-                                                for c in nfkd_form
-                                                if not unicodedata.combining(c)
-                                            ])
-                                            return (
-                                                solo_ascii.replace(" ", "_")
-                                                .replace("/", "_")
-                                                .replace("\\", "_")
-                                                .replace(".", "_")
-                                            )
-
-                                        bytes_d = doc_subido.getvalue()
-                                        eco_limpio_str = limpiar_nombre_archivo(
-                                            str(eco_search)
-                                        )
-                                        tipo_limpio_str = limpiar_nombre_archivo(
-                                            tipo_doc_sel
-                                        )
-                                        timestamp_str = (
-                                            datetime.now().strftime(
-                                                "%Y%m%d_%H%M%S"
-                                            )
-                                        )
-
-                                        nombre_d = f"{eco_limpio_str}_{tipo_limpio_str}_{timestamp_str}.pdf"
-
-                                        supabase.storage.from_(
-                                            "evidencias-pdf"
-                                        ).upload(
-                                            file=bytes_d,
-                                            path=nombre_d,
-                                            file_options={
-                                                "content-type": (
-                                                    "application/pdf"
-                                                ),
-                                                "upsert": "true",
-                                            },
-                                        )
-
-                                        pub_res_doc = (
-                                            supabase.storage.from_(
-                                                "evidencias-pdf"
-                                            ).get_public_url(nombre_d)
-                                        )
-                                        url_doc = (
-                                            pub_res_doc
-                                            if isinstance(pub_res_doc, str)
-                                            else pub_res_doc.get("publicUrl")
-                                        )
-
-                                        if (
-                                            eco_search
-                                            not in st.session_state.expedientes_docs
-                                        ):
-                                            st.session_state.expedientes_docs[
-                                                eco_search
-                                            ] = []
-
-                                        nuevo_doc = {
-                                            "Tipo": tipo_doc_sel,
-                                            "Nombre": doc_subido.name,
-                                            "URL": url_doc,
-                                            "Fecha": datetime.now().strftime(
-                                                "%Y-%m-%d %H:%M"
-                                            ),
-                                        }
-                                        st.session_state.expedientes_docs[
-                                            eco_search
-                                        ].append(nuevo_doc)
-
-                                        tabla_map = {
-                                            "Administrativos": (
-                                                "vehiculos_administrativos"
-                                            ),
-                                            "Ambulancias": (
-                                                "vehiculos_ambulancias"
-                                            ),
-                                            "Institucionales": (
-                                                "vehiculos_institucionales"
-                                            ),
-                                        }
-                                        nombre_tabla_vehiculos = tabla_map.get(
-                                            cat_actual,
-                                            "vehiculos_administrativos",
-                                        )
-
-                                        docs_json_str = json.dumps(
-                                            st.session_state.expedientes_docs[
-                                                eco_search
-                                            ]
-                                        )
-
-                                        supabase.table(
-                                            nombre_tabla_vehiculos
-                                        ).update({
-                                            "documentos": docs_json_str
-                                        }).eq(
-                                            "eco", eco_search
-                                        ).execute()
-
-                                        st.success(
-                                            "✅ Documento PDF subido y guardado permanentemente en la base de datos."
-                                        )
-
-                                        st.cache_data.clear()
-                                        if "df_base" in st.session_state:
-                                            del st.session_state["df_base"]
-                                        st.rerun()
-
-                                    except Exception as e:
-                                        st.error(
-                                            f"Error al subir el documento: {e}"
-                                        )
-                                else:
-                                    st.warning(
-                                        "Conexión a Supabase no disponible."
-                                    )
-
-                    with col_d2:
-                        docs_guardados = st.session_state.expedientes_docs.get(
-                            eco_search, []
-                        )
-                        if docs_guardados:
-                            df_docs = pd.DataFrame(docs_guardados)
-                            st.dataframe(
-                                df_docs, use_container_width=True, hide_index=True
-                            )
-
-                            for idx, doc in enumerate(docs_guardados):
-                                st.markdown(
-                                    f"📄 [{doc['Tipo']} - {doc['Nombre']}]({doc['URL']}) (Agregado: {doc['Fecha']})"
-                                )
-                        else:
-                            st.info(
-                                "Sin documentos registrados para este vehículo."
-                            )
-
-                with t3:
-                    st.markdown(
-                        "##### **Bitácora de Servicios e Intervenciones**"
+                    nuevo_doc = {
+                        "Tipo": tipo_doc_sel,
+                        "Nombre": doc_subido.name,
+                        "URL": url_doc,
+                        "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    }
+                    st.session_state.expedientes_docs[eco_search].append(
+                        nuevo_doc
                     )
-                    hist_taller = [
-                        r
-                        for r in st.session_state.taller_registros
-                        if r["ECO"] == eco_search
-                    ]
-                    if hist_taller:
-                        st.dataframe(
-                            pd.DataFrame(hist_taller),
-                            use_container_width=True,
-                            hide_index=True,
-                        )
-                    else:
-                        st.caption(
-                            "No se registran mantenimientos o siniestros previos para este ECO."
-                        )
+
+                    tabla_map = {
+                        "Administrativos": "vehiculos_administrativos",
+                        "Ambulancias": "vehiculos_ambulancias",
+                        "Institucionales": "vehiculos_institucionales",
+                    }
+                    nombre_tabla_vehiculos = tabla_map.get(
+                        cat_actual, "vehiculos_administrativos"
+                    )
+
+                    docs_json_str = json.dumps(
+                        st.session_state.expedientes_docs[eco_search]
+                    )
+
+                    supabase.table(nombre_tabla_vehiculos).update(
+                        {"documentos": docs_json_str}
+                    ).eq("eco", eco_search).execute()
+
+                    st.success(
+                        "✅ Documento PDF subido y guardado permanentemente"
+                        " en la base de datos."
+                    )
+
+                    st.cache_data.clear()
+                    if "df_base" in st.session_state:
+                      del st.session_state["df_base"]
+                    st.rerun()
+
+                  except Exception as e:
+                    st.error(f"Error al subir el documento: {e}")
+                else:
+                  st.warning("Conexión a Supabase no disponible.")
+
+          with col_d2:
+            docs_guardados = st.session_state.expedientes_docs.get(
+                eco_search, []
+            )
+            if docs_guardados:
+              df_docs = pd.DataFrame(docs_guardados)
+              st.dataframe(df_docs, use_container_width=True, hide_index=True)
+
+              for idx, doc in enumerate(docs_guardados):
+                st.markdown(
+                    f"📄 [{doc['Tipo']} - {doc['Nombre']}]({doc['URL']})"
+                    f" (Agregado: {doc['Fecha']})"
+                )
+            else:
+              st.info("Sin documentos registrados para este vehículo.")
+
+        with t3:
+          st.markdown("##### **Bitácora de Servicios e Intervenciones**")
+          hist_taller = [
+              r for r in st.session_state.taller_registros if r["ECO"] == eco_search
+          ]
+          if hist_taller:
+            st.dataframe(
+                pd.DataFrame(hist_taller),
+                use_container_width=True,
+                hide_index=True,
+            )
+          else:
+            st.caption(
+                "No se registran mantenimientos o siniestros previos para este"
+                " ECO."
+            )
 # 6. REGISTRO DE TALLER E INCIDENCIAS (PERSISTIDO EN SUPABASE)
 # -----------------------------------------------------------------------------
 elif mod_actual == "Registro de Taller e Incidencias":
