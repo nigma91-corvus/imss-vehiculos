@@ -21,31 +21,49 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-# --- DISEÑO COMPACTO Y FIJO PARA LA BARRA LATERAL (SIN ENCIMARSE) ---
+# --- AJUSTE FINO DE LOGOTIPO, ESPACIADO Y FIJACIÓN DE BARRA ---
 st.markdown(
     """
     <style>
-        /* 1. Forzar que el contenedor de la barra lateral distribuya sus elementos de arriba a abajo */
+        /* 1. Mantener la barra lateral fija/estática en la pantalla sin scroll innecesario */
+        [data-testid="stSidebar"] {
+            position: sticky !important;
+            top: 0 !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+        }
+
+        /* 2. Controlar la distribución interna y bajar ligeramente los elementos superiores */
         [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
             display: flex;
             flex-direction: column;
-            height: calc(100vh - 40px);
+            height: 100%;
             justify-content: space-between;
+            padding-top: 15px !important; /* Baja un poco el logotipo y los textos de arriba */
+            padding-bottom: 10px !important;
         }
 
-        /* 2. Compactar los espacios y márgenes del menú de radio */
+        /* 3. Reducir el tamaño de la imagen/logotipo en la barra lateral */
+        [data-testid="stSidebar"] img {
+            max-width: 120px !important; /* Ajusta este valor si lo quieres un poco más chico o grande */
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* 4. Compactar los textos del menú de módulos */
         [data-testid="stSidebar"] .stRadio label {
             font-size: 12px !important;
             line-height: 1.15 !important;
             padding: 1px 0px !important;
         }
 
-        /* 3. Reducir separación entre el último botón de flotilla y el título de módulos */
+        /* 5. Acercar el título de módulos al último botón de flotilla */
         [data-testid="stSidebar"] .stRadio {
-            margin-top: -15px !important;
+            margin-top: -12px !important;
         }
 
-        /* 4. Espaciado limpio entre los elementos de los módulos */
+        /* 6. Espaciado limpio entre las opciones del menú */
         [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
             gap: 2px !important;
         }
