@@ -12,57 +12,6 @@ import numpy as np
 import pandas as pd
 from supabase import create_client
 
-st.markdown(
-    """
-    <style>
-        [data-testid="stSidebar"] {
-            overflow: hidden !important;
-            max-height: 100vh !important;
-        }
-        [data-testid="stSidebar"] > div:first-child {
-            overflow-y: hidden !important;
-            height: 100vh !important;
-            max-height: 100vh !important;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding-top: 0.3rem !important;
-            padding-bottom: 0.3rem !important;
-        }
-        
-        /* LOGO HTML PURO: Centrado estricto e inviolable */
-        .logo-box {
-            text-align: center !important;
-            width: 100% !important;
-            margin-bottom: 2px !important;
-        }
-        .logo-box img {
-            max-height: 50px !important;
-            width: auto !important;
-            display: inline-block !important;
-            object-fit: contain !important;
-        }
-
-        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
-            gap: 2px !important; 
-        }
-        [data-testid="stSidebar"] .stRadio label {
-            display: flex !important;
-            align-items: center !important;
-            margin-bottom: 0px !important;
-            min-height: 22px !important;
-        }
-        [data-testid="stSidebar"] .stRadio label p {
-            font-size: 12px !important;
-            line-height: 1.05 !important;
-            margin: 0 !important;
-            padding-left: 4px !important;
-        }
-    </style>
-""",
-    unsafe_allow_html=True,
-)
-
 # -----------------------------------------------------------------------------
 # CONFIGURACIÓN DE PÁGINA
 # -----------------------------------------------------------------------------
@@ -425,16 +374,11 @@ st.markdown(
 )
 
 # -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
 # BARRA LATERAL (SIDEBAR)
 # -----------------------------------------------------------------------------
 with st.sidebar:
   if url_logo_supa:
-    # Usamos HTML puro para forzar el contenedor centrado
-    st.markdown(
-        f'<div class="logo-box"><img src="{url_logo_supa}"></div>',
-        unsafe_allow_html=True,
-    )
+    st.image(url_logo_supa, use_container_width=True)
   else:
     st.markdown(
         f"<h2 style='color:{COLORES_PANTONE['468']};"
