@@ -402,7 +402,7 @@ modulos = [
       "Conciliación Financiera y Pagos",
   ]
 
-  if st.session_state.modulo_activo not in modulos:
+if st.session_state.modulo_activo not in modulos:
     st.session_state.modulo_activo = "Dashboard General"
 
   st.session_state.modulo_activo = st.radio(
