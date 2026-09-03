@@ -1072,14 +1072,14 @@ elif mod_actual == "Carga Inicial":
         use_container_width=True,
         hide_index=True,
     )
-# 5. EXPEDIENTE POR ECO Y DOCUMENTAL (CON CARGA REAL DE FOTOS Y DOCUMENTOS)
-# -----------------------------------------------------------------------------
 import json
 import unicodedata
 from datetime import datetime
 import pandas as pd
 import streamlit as st
 
+# 5. EXPEDIENTE POR ECO Y DOCUMENTAL (CON CARGA REAL DE FOTOS Y DOCUMENTOS)
+# -----------------------------------------------------------------------------
 if mod_actual == "Expediente por ECO y Documental":
     st.markdown(
         f'<p class="subtitulo-seccion">Expediente Técnico y Documental por ECO - {cat_actual}</p>',
@@ -1305,12 +1305,13 @@ if mod_actual == "Expediente por ECO y Documental":
                                             "vehiculos_administrativos",
                                         )
 
+                                        # CORREGIDO: Uso de "eco" en lugar de "No. Ecco."
                                         supabase.table(
                                             nombre_tabla_vehiculos
                                         ).update(
                                             {campo_key: url_final}
                                         ).eq(
-                                            "No. Ecco.", eco_search
+                                            "eco", eco_search
                                         ).execute()
 
                                         st.success(
@@ -1473,12 +1474,13 @@ if mod_actual == "Expediente por ECO y Documental":
                                         ]
                                     )
 
+                                    # CORREGIDO: Uso de "eco" en lugar de "No. Ecco."
                                     supabase.table(
                                         nombre_tabla_vehiculos
                                     ).update(
                                         {"documentos": docs_json_str}
                                     ).eq(
-                                        "No. Ecco.", eco_search
+                                        "eco", eco_search
                                     ).execute()
 
                                     st.success(
@@ -1538,7 +1540,7 @@ if mod_actual == "Expediente por ECO y Documental":
                         "No se registran mantenimientos o siniestros previos"
                         " para este ECO."
                     )
-                    # 6. REGISTRO DE TALLER E INCIDENCIAS (PERSISTIDO EN SUPABASE)
+# 6. REGISTRO DE TALLER E INCIDENCIAS (PERSISTIDO EN SUPABASE)
 # -----------------------------------------------------------------------------
 elif mod_actual == "Registro de Taller e Incidencias":
   st.markdown(
