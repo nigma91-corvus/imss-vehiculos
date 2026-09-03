@@ -421,9 +421,12 @@ with st.sidebar:
 # -----------------------------------------------------------------------------
 logo_html = f'<img src="{url_logo_supa}" style="height: 200px; width: auto; object-fit: contain; display: inline-block; vertical-align: middle;">' if url_logo_supa else f'<h2 style="color:{COLORES_PANTONE["468"]}; margin:0;">IMSS</h2>'
 
-st.markdown(f"""
+st.markdown(
+    f"""
     <div style="display: flex; align-items: center; gap: 15px; width: 100%; margin: 10px 0 15px 0;">
-        <div>{logo_html}</div>
+        <div style="max-width: 65px; flex-shrink: 0;">
+            {logo_html.replace('<img ', '<img style="width: 100%; height: auto;" ')}
+        </div>
         <div style="line-height: 1.2;">
             <p style="color: {COLORES_PANTONE["627"]}; font-weight: 800; font-size: 20px; margin: 0;">Sistema de Gestión y Control Vehicular</p>
             <p style="color: #555555; font-size: 11px; margin: 2px 0 0 0; font-weight: 600;">
@@ -434,7 +437,9 @@ st.markdown(f"""
         </div>
     </div>
     <hr style="margin: 0 0 15px 0; border: none; border-top: 1px solid #E9ECEF;">
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 mod_actual = st.session_state.modulo_activo
 
