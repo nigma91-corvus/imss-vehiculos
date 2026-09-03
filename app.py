@@ -30,17 +30,16 @@ st.markdown(
             padding-bottom: 0.3rem !important;
         }
         
-        /* CONTENEDOR DEL LOGO: Centrado perfecto y limpio */
-        .logo-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            width: 100%;
-            margin-bottom: 2px;
+        /* LOGO HTML PURO: Centrado estricto e inviolable */
+        .logo-box {
+            text-align: center !important;
+            width: 100% !important;
+            margin-bottom: 2px !important;
         }
-        [data-testid="stSidebar"] img {
-            max-height: 55px !important;
+        .logo-box img {
+            max-height: 50px !important;
             width: auto !important;
+            display: inline-block !important;
             object-fit: contain !important;
         }
 
@@ -431,7 +430,11 @@ st.markdown(
 # -----------------------------------------------------------------------------
 with st.sidebar:
   if url_logo_supa:
-    st.image(url_logo_supa, use_container_width=True)
+    # Usamos HTML puro para forzar el contenedor centrado
+    st.markdown(
+        f'<div class="logo-box"><img src="{url_logo_supa}"></div>',
+        unsafe_allow_html=True,
+    )
   else:
     st.markdown(
         f"<h2 style='color:{COLORES_PANTONE['468']};"
