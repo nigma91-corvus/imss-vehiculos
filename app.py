@@ -337,7 +337,7 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    st.markdown(
+   st.markdown(
       "<div style='text-align: center; font-size: 11px; margin-bottom:"
       " 10px;'><b>DIRECCIÓN DE ADMINISTRACIÓN</b><br><span"
       f" style='font-size:9px; color:{COLORES_PANTONE['468']};'>Coordinación Técnica de Servicios"
