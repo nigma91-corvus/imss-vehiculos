@@ -307,11 +307,9 @@ st.markdown(
         overflow: hidden;
     }}
     .image-container-full img {{
-        max-width: 120px !important;
-        max-height: 70px !important;
+        max-width: 100% !important;
+        max-height: 200px !important;
         object-fit: contain !important;
-        display: block;
-        margin: 0 auto;
     }}
     .footer-firma {{
         margin-top: 30px;
@@ -331,8 +329,8 @@ st.markdown(
 # BARRA LATERAL (SIDEBAR)
 # -----------------------------------------------------------------------------
 with st.sidebar:
-  if url_logo_supa:
-    st.image(url_logo_supa, use_container_width=True)
+  if url_logo_supa:
+    st.image(url_logo_supa, use_container_width=True)
   else:
     st.markdown(
         f"<h2 style='color:{COLORES_PANTONE['468']}; text-align:center;'>IMSS</h2>",
