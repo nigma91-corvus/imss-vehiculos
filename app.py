@@ -333,14 +333,15 @@ with st.sidebar:
     st.image(url_logo_supa, use_container_width=True)
   else:
     st.markdown(
-        f"<h2 style='color:{COLORES_PANTONE['461']}; text-align:center;'>IMSS</h2>",
+        f"<h2 style='color:{COLORES_PANTONE['468']}; text-align:center;'>IMSS</h2>",
         unsafe_allow_html=True,
     )
 
   st.markdown(
       "<div style='text-align: center; font-size: 11px; margin-bottom:"
-      " 10px;'><b>Coordinacion Técnica de servicios Generales</b><br><span"
-      f" style='font-size:9px; color:{COLORES_PANTONE['468']};'>Division de Transportes y Operación"</span></div>",
+      " 10px;'><b>DIRECCIÓN DE ADMINISTRACIÓN</b><br><span"
+      f" style='font-size:9px; color:{COLORES_PANTONE['468']};'>Coordinación Técnica de Servicios"
+      " Generales</span></div>",
       unsafe_allow_html=True,
   )
   st.markdown("---")
@@ -579,12 +580,12 @@ if mod_actual == "Dashboard General":
       
       if not resumen_tipo.empty:
         paleta_barras = [
-            COLORES_PANTONE["465"],
+            COLORES_PANTONE["627"],
             COLORES_PANTONE["626"],
-            COLORES_PANTONE["7420"],
-            COLORES_PANTONE["468"],
             COLORES_PANTONE["561"],
-            COLORES_PANTONE["504"]
+            COLORES_PANTONE["490"],
+            COLORES_PANTONE["7420"],
+            COLORES_PANTONE["465"]
         ]
         colores_asignados = [paleta_barras[i % len(paleta_barras)] for i in range(len(resumen_tipo))]
         
