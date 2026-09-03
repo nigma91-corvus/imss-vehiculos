@@ -131,9 +131,15 @@ def conectar_supabase():
 supabase = conectar_supabase()
 supabase_url = st.secrets["supabase"]["url"] if supabase else ""
 
-# -----------------------------------------------------------------------------
+
 # GESTIÓN DE IMÁGENES Y DOCUMENTOS DESDE SUPABASE STORAGE
 # -----------------------------------------------------------------------------
+def obtener_url_supabase(nombre_archivo, bucket="vehiculos-fotos"):
+  if supabase_url:
+    return f"{supabase_url}/storage/v1/object/public/{bucket}/{nombre_archivo}"
+  return ""
+
+
 def obtener_imagen_catalogo_supabase(tipo, linea):
   tipo_str = str(tipo).upper().strip()
   linea_str = str(linea).upper().strip()
@@ -156,7 +162,7 @@ def obtener_imagen_catalogo_supabase(tipo, linea):
       or "SEDÁN" in combinado
       or "SEDAN" in combinado
       or "AUTO" in combinado
-    ):
+  ):
     archivo = "v-drive-tm-ac.png"
   else:
     archivo = "v-drive-tm-ac.png"
@@ -165,6 +171,9 @@ def obtener_imagen_catalogo_supabase(tipo, linea):
   if url_supa:
     return url_supa
   return os.path.join("assets", archivo)
+
+
+url_logo_supa = obtener_url_supabase("logo_imss.png", "vehiculos-fotos")
 
 # -----------------------------------------------------------------------------
 # CARGA DE DATOS DESDE SUPABASE (FLOTILLAS, TALLER, BITÁCORAS, REASIGNACIONES)
