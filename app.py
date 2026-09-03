@@ -333,7 +333,7 @@ with st.sidebar:
     st.image(url_logo_supa, use_container_width=True)
   else:
     st.markdown(
-        f"<h2 style='color:{COLORES_PANTONE['561']}; text-align:center;'>IMSS</h2>",
+        f"<h2 style='color:{COLORES_PANTONE['465']}; text-align:center;'>IMSS</h2>",
         unsafe_allow_html=True,
     )
 
