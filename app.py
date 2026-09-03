@@ -1072,7 +1072,6 @@ elif mod_actual == "Carga Inicial":
         use_container_width=True,
         hide_index=True,
     )
-# -----------------------------------------------------------------------------
 # 5. EXPEDIENTE POR ECO Y DOCUMENTAL (CON CARGA REAL DE FOTOS Y DOCUMENTOS)
 # -----------------------------------------------------------------------------
 elif mod_actual == "Expediente por ECO y Documental":
@@ -1179,9 +1178,9 @@ elif mod_actual == "Expediente por ECO y Documental":
             "##### **Galería de Inspección Física (Vistas Reglamentarias)**"
         )
         st.info(
-            "Sube o actualiza de manera independiente cada una de las 4 vistas"
-            " requeridas. Las imágenes se guardan de forma permanente"
-            " vinculadas al ECO en la base de datos."
+            "Sube un archivo o toma una fotografía directa. Las imágenes se"
+            " ajustan automáticamente para mantener un diseño limpio y"
+            " ordenado."
         )
 
         eco_limpio = str(eco_search).replace(" ", "_").replace("/", "-")
@@ -1202,39 +1201,63 @@ elif mod_actual == "Expediente por ECO y Documental":
           with col_actual:
             st.markdown(f"**{nombre_vista}**")
 
-            # LEER DIRECTAMENTE DE LA BASE DE DATOS DEL VEHÍCULO ACTUAL
             foto_guardada_url = v_data.get(campo_key)
 
             if foto_guardada_url and str(foto_guardada_url).startswith("http"):
-              st.image(
-                  foto_guardada_url,
-                  caption=f"{nombre_vista} - ECO {eco_search}",
-                  use_container_width=True,
+              # Contenedor con CSS inline para limitar el tamaño de despliegue y evitar que se desborde la interfaz
+              st.markdown(
+                  f"""
+                            <div style="width: 100%; max-height: 220px; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 8px;">
+                                <img src="{foto_guardada_url}" style="max-width: 100%; max-height: 210px; object-fit: contain;" alt="{nombre_vista}">
+                            </div>
+                            """,
+                  unsafe_allow_html=True,
               )
               st.success("✔ Imagen cargada en servidor")
             else:
               st.warning("⚠ Sin fotografía registrada")
 
-            foto_subida = st.file_uploader(
-                f"Cargar {nombre_vista}",
-                type=["jpg", "jpeg", "png"],
-                key=f"upl_{campo_key}_{eco_search}",
+            metodo_captura = st.radio(
+                f"Método para {nombre_vista}:",
+                ["Subir Imagen", "Tomar Foto con Cámara"],
+                key=f"radio_{campo_key}_{eco_search}",
+                horizontal=True,
             )
 
-            if foto_subida is not None:
+            imagen_a_guardar = None
+
+            if metodo_captura == "Subir Imagen":
+              imagen_a_guardar = st.file_uploader(
+                  f"Cargar {nombre_vista}",
+                  type=["jpg", "jpeg", "png"],
+                  key=f"upl_{campo_key}_{eco_search}",
+              )
+            else:
+              imagen_a_guardar = st.camera_input(
+                  f"Tomar {nombre_vista}",
+                  key=f"cam_{campo_key}_{eco_search}",
+              )
+
+            if imagen_a_guardar is not None:
               if st.button(
                   f"Guardar {nombre_vista}",
                   key=f"btn_save_{campo_key}_{eco_search}",
               ):
                 try:
-                  extension = foto_subida.name.split(".")[-1]
+                  nombre_original = getattr(
+                      imagen_a_guardar, "name", "captura.jpg"
+                  )
+                  extension = (
+                      nombre_original.split(".")[-1]
+                      if "." in nombre_original
+                      else "jpg"
+                  )
                   nombre_archivo_nube = (
                       f"{eco_limpio}_{campo_key}.{extension}"
                   )
-                  bytes_f = foto_subida.getvalue()
+                  bytes_f = imagen_a_guardar.getvalue()
 
                   if supabase:
-                    # 1. Subir al Storage
                     supabase.storage.from_("vehiculos-fotos").upload(
                         file=bytes_f,
                         path=nombre_archivo_nube,
@@ -1244,7 +1267,6 @@ elif mod_actual == "Expediente por ECO y Documental":
                         },
                     )
 
-                    # 2. Obtener URL pública (con anti-caché)
                     pub_res = supabase.storage.from_("vehiculos-fotos").get_public_url(
                         nombre_archivo_nube
                     )
@@ -1255,7 +1277,6 @@ elif mod_actual == "Expediente por ECO y Documental":
                     )
                     url_final = f"{url_base}?t={int(datetime.now().timestamp())}"
 
-                    # 3. ACTUALIZAR EN LA TABLA DE SUPABASE
                     tabla_map = {
                         "Administrativos": "vehiculos_administrativos",
                         "Ambulancias": "vehiculos_ambulancias",
@@ -1274,7 +1295,6 @@ elif mod_actual == "Expediente por ECO y Documental":
                         " permanentemente."
                     )
 
-                    # 4. Limpiar caché para refrescar datos frescos
                     st.cache_data.clear()
                     if "df_base" in st.session_state:
                       del st.session_state["df_base"]
@@ -1304,35 +1324,67 @@ elif mod_actual == "Expediente por ECO y Documental":
               type=["pdf"],
               key=f"doc_{eco_search}",
           )
+
           if doc_subido is not None:
-            if eco_search not in st.session_state.expedientes_docs:
-              st.session_state.expedientes_docs[eco_search] = []
-            st.session_state.expedientes_docs[eco_search].append({
-                "Tipo": tipo_doc_sel,
-                "Nombre": doc_subido.name,
-                "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
-            })
-            if supabase:
-              try:
-                bytes_d = doc_subido.getvalue()
-                nombre_d = f"{eco_search}_{tipo_doc_sel}_{datetime.now().strftime('%Y%m%d')}.pdf"
-                supabase.storage.from_("evidencias-pdf").upload(
-                    file=bytes_d,
-                    path=nombre_d,
-                    file_options={
-                        "content-type": "application/pdf",
-                        "upsert": "true",
-                    },
+            if st.button(
+                f"Guardar Documento PDF", key=f"btn_save_doc_{eco_search}"
+            ):
+              if supabase:
+                try:
+                  bytes_d = doc_subido.getvalue()
+                  nombre_d = f"{eco_limpio}_{tipo_doc_sel}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+
+                  # 1. Subir a Supabase Storage
+                  supabase.storage.from_("evidencias-pdf").upload(
+                      file=bytes_d,
+                      path=nombre_d,
+                      file_options={
+                          "content-type": "application/pdf",
+                          "upsert": "true",
+                      },
+                  )
+
+                  # 2. Obtener URL pública
+                  pub_res_doc = supabase.storage.from_("evidencias-pdf").get_public_url(
+                      nombre_d
+                  )
+                  url_doc = (
+                      pub_res_doc
+                      if isinstance(pub_res_doc, str)
+                      else pub_res_doc.get("publicUrl")
+                  )
+
+                  # 3. Guardar registro en la tabla de la base de datos (Ej. se puede mapear o guardar en st.session_state / tabla dedicada)
+                  # Aseguramos persistencia guardando en session_state y opcionalmente en BD si tienes tabla de documentos
+                  if eco_search not in st.session_state.expedientes_docs:
+                    st.session_state.expedientes_docs[eco_search] = []
+
+                  st.session_state.expedientes_docs[eco_search].append({
+                      "Tipo": tipo_doc_sel,
+                      "Nombre": doc_subido.name,
+                      "URL": url_doc,
+                      "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                  })
+
+                  st.success(
+                      "✅ Documento PDF subido y guardado permanentemente en"
+                      " la nube."
+                  )
+                  st.rerun()
+                except Exception as e:
+                  st.error(f"Error al subir el documento: {e}")
+              else:
+                st.warning(
+                    "Conexión a Supabase no disponible para almacenamiento"
+                    " permanente."
                 )
-                st.success("✅ Documento PDF guardado en Supabase Storage.")
-              except Exception as e:
-                pass
 
         with col_d2:
           docs_guardados = st.session_state.expedientes_docs.get(
               eco_search, []
           )
           if docs_guardados:
+            # Mostrar tabla limpia con enlaces funcionales si están disponibles
             df_docs = pd.DataFrame(docs_guardados)
             st.dataframe(df_docs, use_container_width=True, hide_index=True)
           else:
