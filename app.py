@@ -347,7 +347,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-  st.markdown("---")
+st.markdown("---")
   st.markdown(
       "<p style='font-size: 12px; margin-bottom: 8px;'><b>SELECCIONAR"
       " FLOTILLA:</b></p>",
