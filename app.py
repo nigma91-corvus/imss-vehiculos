@@ -390,7 +390,7 @@ st.button(
 
 st.markdown("---")
 
-  modulos = [
+modulos = [
       "Dashboard General",
       "Semáforo de Movilidad por Ciudad",
       "Control del Pool de Sustitutos (20%)",
