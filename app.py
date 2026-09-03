@@ -405,11 +405,11 @@ modulos = [
 if st.session_state.modulo_activo not in modulos:
     st.session_state.modulo_activo = "Dashboard General"
 
-  st.session_state.modulo_activo = st.radio(
-      "Módulos del Sistema:",
-      modulos,
-      index=modulos.index(st.session_state.modulo_activo),
-  )
+st.session_state.modulo_activo = st.radio(
+    "Módulos del Sistema:",
+    modulos,
+    index=modulos.index(st.session_state.modulo_activo),
+)
 
   st.markdown("---")
   st.markdown(
