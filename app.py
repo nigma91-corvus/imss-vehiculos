@@ -331,10 +331,8 @@ st.markdown(
 # BARRA LATERAL (SIDEBAR)
 # -----------------------------------------------------------------------------
 with st.sidebar:
-  if url_logo_supa:
-    st.image(
-        url_logo_supa, width=100
-    )
+  if url_logo_supa:
+    st.image(url_logo_supa, use_container_width=110)
       
   else:
     st.markdown(
