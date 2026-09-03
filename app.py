@@ -1244,60 +1244,7 @@ elif mod_actual == "Expediente por ECO y Documental":
                         },
                     )
 
-                    # 2. Obtener URL pública
-                    pub_res = supabase.storage.from_("vehiculos-fotos").get_public_url(
-                        nombre_archivo_nube
-                    )
-                    url_final = (
-                        pub_res
-                        if isinstance(pub_res, str)
-                        else pub_res.get("publicUrl")
-                    )
-
-                    # 3. ACTUALIZAR DIRECTAMENTE EN LA TABLA DE SUPABASE
-                    tabla_map = {
-                        "Administrativos": "vehiculos_administrativos",
-                        "Ambulancias": "vehiculos_ambulancias",
-                        "Institucionales": "vehiculos_institucionales",
-                    }
-                    nombre_tabla_vehiculos = tabla_map.get(
-                        cat_actual, "vehiculos_administrativos"
-                    )
-
-                    # AQUÍ SE CORRIGIÓ EL FILTRO USANDO LA COLUMNA SIN ESPACIOS (ej. "No_Ecco" o "eco")
-                    supabase.table(nombre_tabla_vehiculos).update(
-                        {campo_key: url_final}
-                    ).eq(
-                        "ecofoto_subida = st.file_uploader(
-                f"Cargar {nombre_vista}",
-                type=["jpg", "jpeg", "png"],
-                key=f"upl_{campo_key}_{eco_search}",
-            )
-
-            if foto_subida is not None:
-              if st.button(
-                  f"Guardar {nombre_vista}",
-                  key=f"btn_save_{campo_key}_{eco_search}",
-              ):
-                try:
-                  extension = foto_subida.name.split(".")[-1]
-                  nombre_archivo_nube = (
-                      f"{eco_limpio}_{campo_key}.{extension}"
-                  )
-                  bytes_f = foto_subida.getvalue()
-
-                  if supabase:
-                    # 1. Subir al Storage
-                    supabase.storage.from_("vehiculos-fotos").upload(
-                        file=bytes_f,
-                        path=nombre_archivo_nube,
-                        file_options={
-                            "content-type": f"image/{extension}",
-                            "upsert": "true",
-                        },
-                    )
-
-                    # 2. Obtener URL pública (con timestamp para romper caché de imagen)
+                    # 2. Obtener URL pública (con anti-caché)
                     pub_res = supabase.storage.from_("vehiculos-fotos").get_public_url(
                         nombre_archivo_nube
                     )
@@ -1326,8 +1273,8 @@ elif mod_actual == "Expediente por ECO y Documental":
                         f"✅ {nombre_vista} guardada y vinculada"
                         " permanentemente."
                     )
-                    
-                    # 4. LIMPIAR TODAS LAS CACHÉS DE STREAMLIT PARA OBLIGAR A RECARGAR DATOS FRESCOS
+
+                    # 4. Limpiar caché para refrescar datos frescos
                     st.cache_data.clear()
                     if "df_base" in st.session_state:
                       del st.session_state["df_base"]
@@ -1335,6 +1282,78 @@ elif mod_actual == "Expediente por ECO y Documental":
                     st.rerun()
                 except Exception as e:
                   st.error(f"Error al subir la imagen: {e}")
+
+            st.markdown("---")
+
+      with t2:
+        st.markdown("##### **Documentos Oficiales Registrados y Carga**")
+        col_d1, col_d2 = st.columns(2)
+        with col_d1:
+          tipo_doc_sel = st.selectbox(
+              "Tipo de Documento:",
+              [
+                  "Póliza de Seguro",
+                  "Tarjeta de Circulación",
+                  "Factura / Contrato",
+                  "Dictamen Taller",
+                  "Otro",
+              ],
+          )
+          doc_subido = st.file_uploader(
+              f"Adjuntar Archivo PDF para ECO {eco_search}:",
+              type=["pdf"],
+              key=f"doc_{eco_search}",
+          )
+          if doc_subido is not None:
+            if eco_search not in st.session_state.expedientes_docs:
+              st.session_state.expedientes_docs[eco_search] = []
+            st.session_state.expedientes_docs[eco_search].append({
+                "Tipo": tipo_doc_sel,
+                "Nombre": doc_subido.name,
+                "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            })
+            if supabase:
+              try:
+                bytes_d = doc_subido.getvalue()
+                nombre_d = f"{eco_search}_{tipo_doc_sel}_{datetime.now().strftime('%Y%m%d')}.pdf"
+                supabase.storage.from_("evidencias-pdf").upload(
+                    file=bytes_d,
+                    path=nombre_d,
+                    file_options={
+                        "content-type": "application/pdf",
+                        "upsert": "true",
+                    },
+                )
+                st.success("✅ Documento PDF guardado en Supabase Storage.")
+              except Exception as e:
+                pass
+
+        with col_d2:
+          docs_guardados = st.session_state.expedientes_docs.get(
+              eco_search, []
+          )
+          if docs_guardados:
+            df_docs = pd.DataFrame(docs_guardados)
+            st.dataframe(df_docs, use_container_width=True, hide_index=True)
+          else:
+            st.info("Sin documentos registrados para este vehículo.")
+
+      with t3:
+        st.markdown("##### **Bitácora de Servicios e Intervenciones**")
+        hist_taller = [
+            r for r in st.session_state.taller_registros if r["ECO"] == eco_search
+        ]
+        if hist_taller:
+          st.dataframe(
+              pd.DataFrame(hist_taller),
+              use_container_width=True,
+              hide_index=True,
+          )
+        else:
+          st.caption(
+              "No se registran mantenimientos o siniestros previos para este"
+              " ECO."
+          )
 # -----------------------------------------------------------------------------
 # 6. REGISTRO DE TALLER E INCIDENCIAS (PERSISTIDO EN SUPABASE)
 # -----------------------------------------------------------------------------
