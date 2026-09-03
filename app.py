@@ -1078,6 +1078,37 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
+# Configuración inicial de la página (Asegúrate de colocar esto al inicio de tu app principal si no lo tienes)
+# st.set_page_config(page_title="Control Vehicular - Taller Creativo Corvus", layout="wide")
+
+# -----------------------------------------------------------------------------
+# FUNCIONES AUXILIARES DE EJEMPLO (Ajusta según tu implementación real)
+# -----------------------------------------------------------------------------
+def parse_float(valor):
+    try:
+        return float(valor)
+    except:
+        return 0.0
+
+def obtener_imagen_catalogo_supabase(tipo, linea):
+    # Función mock o llamada real a tu bucket/base de datos para la imagen de catálogo
+    return None
+
+# Simulación de variables de estado global si no están inicializadas
+if "taller_registros" not in st.session_state:
+    st.session_state.taller_registros = []
+
+if "expedientes_docs" not in st.session_state:
+    st.session_state.expedientes_docs = {}
+
+# Variables globales simuladas para el entorno
+# cat_actual = "Administrativos"
+# mod_actual = "Expediente por ECO y Documental"
+# supabase = ... (tu cliente de supabase inicializado)
+# df_base = pd.DataFrame(...) # Tu dataframe principal con la información de los vehículos
+
+
+# -----------------------------------------------------------------------------
 # 5. EXPEDIENTE POR ECO Y DOCUMENTAL (CON CARGA REAL DE FOTOS Y DOCUMENTOS)
 # -----------------------------------------------------------------------------
 if mod_actual == "Expediente por ECO y Documental":
@@ -1305,7 +1336,7 @@ if mod_actual == "Expediente por ECO y Documental":
                                             "vehiculos_administrativos",
                                         )
 
-                                        # CORREGIDO: Uso de "eco" en lugar de "No. Ecco."
+                                        # Actualización en base de datos usando "eco"
                                         supabase.table(
                                             nombre_tabla_vehiculos
                                         ).update(
@@ -1324,6 +1355,8 @@ if mod_actual == "Expediente por ECO y Documental":
                                             del st.session_state["df_base"]
 
                                         st.rerun()
+                                    else:
+                                        st.error("Conexión a Supabase no disponible.")
                                 except Exception as e:
                                     st.error(f"Error al subir la imagen: {e}")
 
@@ -1474,7 +1507,7 @@ if mod_actual == "Expediente por ECO y Documental":
                                         ]
                                     )
 
-                                    # CORREGIDO: Uso de "eco" en lugar de "No. Ecco."
+                                    # Actualización en base de datos usando "eco"
                                     supabase.table(
                                         nombre_tabla_vehiculos
                                     ).update(
