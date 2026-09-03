@@ -21,20 +21,30 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-# --- AJUSTE LIMPIO DE TEXTOS EN EL MENÚ LATERAL ---
+# --- AJUSTE DE ESPACIADO Y SCROLL EN BARRA LATERAL ---
 st.markdown(
     """
     <style>
-        /* Ajustar el tamaño y espaciado de los textos del menú lateral para que respiren mejor */
-        [data-testid="stSidebar"] .stRadio label {
-            font-size: 13px !important;
-            line-height: 1.2 !important;
-            padding: 2px 0px !important;
+        /* Asegurar que la barra lateral permita scroll interno si el contenido es largo */
+        [data-testid="stSidebar"] {
+            overflow-y: auto !important;
         }
 
-        /* Compactar ligeramente el espacio entre opciones del menú */
+        /* Darle espacio y separación clara (interlineado) a cada opción del menú */
+        [data-testid="stSidebar"] .stRadio label {
+            font-size: 13px !important;
+            line-height: 1.35 !important;
+            padding: 6px 0px !important; /* Espacio interno arriba y abajo de cada opción */
+        }
+
+        /* Separación marcada (interlineado) entre cada bloque de módulo */
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label {
+            margin-bottom: 8px !important; /* Distancia real entre un módulo y el siguiente */
+        }
+
+        /* Reducir el espacio predeterminado interno del grupo */
         [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
-            gap: 2px !important;
+            gap: 0px !important;
         }
     </style>
     """,
