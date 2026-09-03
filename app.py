@@ -12,6 +12,50 @@ import numpy as np
 import pandas as pd
 from supabase import create_client
 
+st.markdown(
+    """
+    <style>
+        [data-testid="stSidebar"] {
+            overflow: hidden !important;
+            max-height: 100vh !important;
+        }
+        [data-testid="stSidebar"] > div:first-child {
+            overflow-y: hidden !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding-top: 0.3rem !important;
+            padding-bottom: 0.3rem !important;
+        }
+        [data-testid="stSidebar"] img {
+            max-height: 60px !important;
+            width: auto !important;
+            margin: 0 auto !important;
+            display: block !important;
+            object-fit: contain !important;
+        }
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
+            gap: 2px !important; 
+        }
+        [data-testid="stSidebar"] .stRadio label {
+            display: flex !important;
+            align-items: center !important;
+            margin-bottom: 0px !important;
+            min-height: 22px !important;
+        }
+        [data-testid="stSidebar"] .stRadio label p {
+            font-size: 12px !important;
+            line-height: 1.05 !important;
+            margin: 0 !important;
+            padding-left: 4px !important;
+        }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
+
 # -----------------------------------------------------------------------------
 # CONFIGURACIÓN DE PÁGINA
 # -----------------------------------------------------------------------------
@@ -373,6 +417,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 # BARRA LATERAL (SIDEBAR)
 # -----------------------------------------------------------------------------
