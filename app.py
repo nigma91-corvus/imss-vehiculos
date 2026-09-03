@@ -337,10 +337,12 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
+  color_468 = COLORES_PANTONE["468"]
+
   st.markdown(
     "<div style='text-align: center; font-size: 11px; margin-bottom: 10px;'>"
     "<b>Coordinación Técnica de Servicios Generales</b><br>"
-    f"<span style='font-size:9px; color:{COLORES_PANTONE[\"468\"]};'>"
+    f"<span style='font-size:9px; color:{color_468};'>"
     "División de Transportes y Operación</span></div>",
     unsafe_allow_html=True,
 )
