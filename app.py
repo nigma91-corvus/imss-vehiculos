@@ -21,30 +21,44 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-# --- AJUSTE DE ESPACIADO Y SCROLL EN BARRA LATERAL ---
+# --- AJUSTE FINO DE BARRA LATERAL FIJA Y COMPACTA ---
 st.markdown(
     """
     <style>
-        /* Asegurar que la barra lateral permita scroll interno si el contenido es largo */
+        /* 1. Fijar la barra lateral completamente y quitarle el scroll */
         [data-testid="stSidebar"] {
-            overflow-y: auto !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            height: 100vh !important;
+            overflow: hidden !important; /* Elimina cualquier barra de desplazamiento */
         }
 
-        /* Darle espacio y separación clara (interlineado) a cada opción del menú */
+        /* 2. Reducir los espacios y márgenes internos generales de la barra */
+        [data-testid="stSidebar"] .block-container {
+            padding-top: 1.5rem !important;
+            padding-bottom: 1rem !important;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+        }
+
+        /* 3. Ajustar el interlineado de los módulos del sistema */
         [data-testid="stSidebar"] .stRadio label {
-            font-size: 13px !important;
-            line-height: 1.35 !important;
-            padding: 6px 0px !important; /* Espacio interno arriba y abajo de cada opción */
+            font-size: 12.5px !important;
+            line-height: 1.2 !important;
+            padding: 2px 0px !important;
         }
 
-        /* Separación marcada (interlineado) entre cada bloque de módulo */
-        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] > label {
-            margin-bottom: 8px !important; /* Distancia real entre un módulo y el siguiente */
+        /* 4. Quitar espacio excesivo entre el botón de institucionales y el título de módulos */
+        [data-testid="stSidebar"] .stRadio {
+            margin-top: -10px !important;
         }
 
-        /* Reducir el espacio predeterminado interno del grupo */
+        /* 5. Separación compacta entre las opciones de los módulos */
         [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
-            gap: 0px !important;
+            gap: 2px !important;
         }
     </style>
     """,
