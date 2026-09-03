@@ -617,7 +617,7 @@ if mod_actual == "Dashboard General":
             COLORES_PANTONE["561"],
             COLORES_PANTONE["465"],
             COLORES_PANTONE["7420"],
-            COLORES_PANTONE["656"],
+            COLORES_PANTONE["626"],
             COLORES_PANTONE["468"],
         ]
         colores_asignados = [
