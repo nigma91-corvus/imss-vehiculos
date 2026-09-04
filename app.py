@@ -25,12 +25,26 @@ st.set_page_config(
 st.markdown(
     """
     <style>
+        /* 0. Reducir el padding superior de la barra lateral por defecto */
+        [data-testid="stSidebar"] > div:first-child {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
+
         /* 1. Forzar que el contenedor de la barra lateral distribuya sus elementos de arriba a abajo */
         [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
             display: flex;
             flex-direction: column;
-            height: calc(100vh - 40px);
+            height: calc(100vh - 20px);
             justify-content: space-between;
+        }
+
+        /* 1.1 Reducir y centrar el logo de la barra lateral */
+        [data-testid="stSidebar"] img {
+            max-width: 100px !important;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         /* 2. Compactar los espacios y márgenes del menú de radio */
@@ -40,9 +54,9 @@ st.markdown(
             padding: 1px 0px !important;
         }
 
-        /* 3. Reducir separación entre el último botón de flotilla y el título de módulos */
+        /* 3. Reducir separación entre elementos de selección */
         [data-testid="stSidebar"] .stRadio {
-            margin-top: -15px !important;
+            margin-top: -5px !important;
         }
 
         /* 4. Espaciado limpio entre los elementos de los módulos */
