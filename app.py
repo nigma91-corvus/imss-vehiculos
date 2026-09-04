@@ -1514,10 +1514,10 @@ if mod_actual == "Expediente por ECO y Documental":
 
                                         docs_json_str = json.dumps(st.session_state.expedientes_docs[eco_search])
 
-                                        # CORREGIDO: Se envuelve el nombre de la columna con comillas dobles para evitar el error de PostgREST
+                                        # CORREGIDO: Apunta directo a la columna "eco" de la base de datos
                                         supabase.table(nombre_tabla_vehiculos).update(
                                             {"documentos": docs_json_str}
-                                        ).eq('"No. Ecco."', eco_search).execute()
+                                        ).eq("eco", eco_search).execute()
 
                                         st.success("✅ Documento subido y guardado permanentemente en la base de datos.")
 
@@ -1530,6 +1530,24 @@ if mod_actual == "Expediente por ECO y Documental":
                                         st.error(f"Error al subir el documento: {e}")
                                 else:
                                     st.warning("Conexión a Supabase no disponible.")
+
+                    with col_d2:
+                        docs_guardados = st.session_state.expedientes_docs.get(eco_search, [])
+                        if docs_guardados:
+                            df_docs = pd.DataFrame(docs_guardados)
+                            st.dataframe(
+                                df_docs,
+                                use_container_width=True,
+                                hide_index=True,
+                            )
+
+                            for idx, doc in enumerate(docs_guardados):
+                                st.markdown(
+                                    f"📄 [{doc['Tipo']} - {doc['Nombre']}]({doc['URL']})"
+                                    f" (Agregado: {doc['Fecha']})"
+                                )
+                        else:
+                            st.info("Sin documentos registrados para este vehículo.")
 
                     with col_d2:
                         docs_guardados = st.session_state.expedientes_docs.get(eco_search, [])
