@@ -69,7 +69,7 @@ COLORES_PANTONE = {
 }
 
 COLUMNAS_OFICIALES = [
-    "No. Ecco.",
+    "eco",
     "Tipo",
     "Linea",
     "UBICACIÓN",
@@ -184,12 +184,12 @@ def cargar_datos_supabase(categoria):
       if "id" in df.columns:
         df = df.drop(columns=["id"])
       
-      # Mapeo flexible para estandarizar columnas de identificación (eco, No. Ecco., etc.)
+      # Mapeo flexible para estandarizar columnas de identificación (eco, eco, etc.)
       columnas_mapeo = {}
       for col in df.columns:
         c_clean = col.lower().replace(".", "").replace("_", " ").strip()
         if c_clean in ["eco", "no eco", "noecco", "no_ecco"]:
-          columnas_mapeo[col] = "No. Ecco."
+          columnas_mapeo[col] = "eco"
         elif c_clean in ["ubicacion", "ubicación"]:
           columnas_mapeo[col] = "UBICACIÓN"
       if columnas_mapeo:
@@ -556,7 +556,7 @@ if mod_actual == "Dashboard General":
 
   tot_unidades = len(df_dash)
   ecos_filtrados = (
-      set(df_dash["No. Ecco."].unique()) if "No. Ecco." in df_dash.columns else set()
+      set(df_dash["eco"].unique()) if "eco" in df_dash.columns else set()
   )
 
   ecos_en_taller = {
@@ -574,7 +574,7 @@ if mod_actual == "Dashboard General":
       len(
           df_dash[
               (df_dash["Estatus"] == "Sustituto Entregado")
-              & (~df_dash["No. Ecco."].isin(ecos_en_taller))
+              & (~df_dash["eco"].isin(ecos_en_taller))
           ]
       )
       if "Estatus" in df_dash.columns
@@ -584,7 +584,7 @@ if mod_actual == "Dashboard General":
       len(
           df_dash[
               (df_dash["Estatus"] == "Titular Activo")
-              & (~df_dash["No. Ecco."].isin(ecos_en_taller))
+              & (~df_dash["eco"].isin(ecos_en_taller))
           ]
       )
       if "Estatus" in df_dash.columns
@@ -745,7 +745,7 @@ if mod_actual == "Dashboard General":
   st.markdown("---")
   st.markdown("##### **Vistas Detalladas de la Base de Datos Activa**")
   cols_mostrar = [
-      "No. Ecco.",
+      "eco",
       "Tipo",
       "Linea",
       "UBICACIÓN",
@@ -798,7 +798,7 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
     df_ciudades = (
         df_base.groupby("UBICACIÓN")
         .agg(
-            Flotilla_Asignada=("No. Ecco.", "count"),
+            Flotilla_Asignada=("eco", "count"),
             Titulares_Activos=(
                 "Estatus",
                 lambda x: (x == "Titular Activo").sum(),
@@ -1007,7 +1007,7 @@ elif mod_actual == "Carga Inicial":
     # --- PEGALO AQUÍ: Botón de Descarga de Plantilla ---
     st.markdown("##### **1. Descargar Plantilla Oficial**")
     columnas_plantilla = [
-        "No. Ecco.",
+        "eco",
         "Tipo",
         "Linea",
         "UBICACIÓN",
@@ -1119,7 +1119,7 @@ if mod_actual == "Expediente por ECO y Documental":
         unsafe_allow_html=True,
     )
 
-    if df_base.empty or "No. Ecco." not in df_base.columns:
+    if df_base.empty or "eco" not in df_base.columns:
         st.warning(
             f"No hay vehículos cargados en la base de datos para la flotilla **{cat_actual}**."
         )
@@ -1140,7 +1140,7 @@ if mod_actual == "Expediente por ECO y Documental":
         else:
             # Filtramos buscando coincidencia exacta (puedes usar .str.contains() si prefieres búsqueda parcial)
             vehiculo_sel = df_base[
-                df_base["No. Ecco."].astype(str).str.strip().str.lower()
+                df_base["eco"].astype(str).str.strip().str.lower()
                 == eco_input.strip().lower()
             ]
 
@@ -1151,13 +1151,13 @@ if mod_actual == "Expediente por ECO y Documental":
                 )
             else:
                 eco_search = vehiculo_sel.iloc[0][
-                    "No. Ecco."
+                    "eco"
                 ]  # Mantiene el formato original de la BD
                 v_data = vehiculo_sel.iloc[0]
 
                 st.markdown("---")
                 st.markdown(
-                    f"#### 📋 Ficha Técnica y Descriptiva — ECO: `{v_data['No. Ecco.']}`"
+                    f"#### 📋 Ficha Técnica y Descriptiva — ECO: `{v_data['eco']}`"
                 )
 
                 col_img_cat, col_info_cat = st.columns([1, 2.2], gap="small")
@@ -1177,7 +1177,7 @@ if mod_actual == "Expediente por ECO y Documental":
 
                 with col_info_cat:
                     en_taller = any(
-                        r["ECO"] == v_data["No. Ecco."]
+                        r["ECO"] == v_data["eco"]
                         and r["Estatus"] == "Activo (En Taller)"
                         for r in st.session_state.taller_registros
                     )
@@ -1368,7 +1368,7 @@ if mod_actual == "Expediente por ECO y Documental":
                                             ).update(
                                                 {campo_key: url_final}
                                             ).eq(
-                                                "No. Ecco.", eco_search
+                                                "eco", eco_search
                                             ).execute()
 
                                             st.success(
@@ -1619,8 +1619,8 @@ elif mod_actual == "Registro de Taller e Incidencias":
   )
 
   lista_ecos_taller = (
-      list(df_base["No. Ecco."].unique())
-      if not df_base.empty and "No. Ecco." in df_base.columns
+      list(df_base["eco"].unique())
+      if not df_base.empty and "eco" in df_base.columns
       else []
   )
   tab_captura, tab_csv, tab_editar = st.tabs([
@@ -1965,8 +1965,8 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
   )
 
   lista_ecos_reasignacion = (
-      list(df_base["No. Ecco."].unique())
-      if not df_base.empty and "No. Ecco." in df_base.columns
+      list(df_base["eco"].unique())
+      if not df_base.empty and "eco" in df_base.columns
       else []
   )
   
@@ -1990,7 +1990,7 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
 
     sede_origen = ""
     if not df_base.empty and eco_r in lista_ecos_reasignacion:
-      veh_r_info = df_base[df_base["No. Ecco."] == eco_r].iloc[0]
+      veh_r_info = df_base[df_base["eco"] == eco_r].iloc[0]
       sede_origen = veh_r_info.get("UBICACIÓN", "")
 
     col_r2.text_input("Sede de Origen Actual:", value=sede_origen, disabled=True)
@@ -2223,7 +2223,7 @@ elif mod_actual == "Conciliación Financiera y Pagos":
   st.markdown("---")
   st.markdown("##### **Detalle por Registro de Unidad**")
   cols_fin = [
-      "No. Ecco.",
+      "eco",
       "UBICACIÓN",
       "Arrendadora",
       "CUOTA DIARIA",
