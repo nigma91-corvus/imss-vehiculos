@@ -24,7 +24,7 @@ st.set_page_config(
 # --- 1. ENCABEZADO Y LOGO CENTRADOS CON COLUMNAS NATIVAS ---
 _, col_logo, _ = st.sidebar.columns([1, 1.2, 1])
 with col_logo:
-    st.image("tu_logo_imss.png", width=75)  # Reemplaza con la ruta de tu imagen
+    st.image("tu_ruta_original_del_logo.png", width=75)  # Mantén aquí tu ruta exacta
 
 st.sidebar.markdown(
     """
@@ -36,29 +36,114 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
-# --- 2. CSS LIMPIO (SIN ALTURAS FORZADAS NI TEXTOS APRETADOS) ---
+# --- 1. ENCABEZADO Y LOGO CENTRADOS CON COLUMNAS NATIVAS ---
+_, col_logo, _ = st.sidebar.columns([1, 1.2, 1])
+with col_logo:
+    st.image("tu_ruta_original_del_logo.png", width=75)  # Mantén aquí tu ruta exacta
+
+st.sidebar.markdown(
+    """
+    <div style="text-align: center; margin-top: -5px;">
+        <span style="font-size: 11px; font-weight: bold; color: white;">Coordinación Técnica de<br>Servicios Generales</span><br>
+        <span style="font-size: 10px; color: #dcdcdc;">División de Transportes y Operación</span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+## --- 1. ENCABEZADO Y LOGO CENTRADOS CON COLUMNAS NATIVAS ---
+_, col_logo, _ = st.sidebar.columns([1, 1.2, 1])
+with col_logo:
+    st.image("tu_ruta_original_del_logo.png", width=75)  # Mantén aquí tu ruta exacta
+
+st.sidebar.markdown(
+    """
+    <div style="text-align: center; margin-top: -5px;">
+        <span style="font-size: 11px; font-weight: bold; color: white;">Coordinación Técnica de<br>Servicios Generales</span><br>
+        <span style="font-size: 10px; color: #dcdcdc;">División de Transportes y Operación</span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# --- 1. ENCABEZADO Y LOGO CENTRADOS CON COLUMNAS NATIVAS ---
+_, col_logo, _ = st.sidebar.columns([1, 1.2, 1])
+with col_logo:
+    st.image("tu_ruta_original_del_logo.png", width=75)  # Mantén aquí tu ruta exacta
+
+st.sidebar.markdown(
+    """
+    <div style="text-align: center; margin-top: -5px;">
+        <span style="font-size: 11px; font-weight: bold; color: white;">Coordinación Técnica de<br>Servicios Generales</span><br>
+        <span style="font-size: 10px; color: #dcdcdc;">División de Transportes y Operación</span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# --- 1. ENCABEZADO Y LOGO CENTRADOS CON COLUMNAS NATIVAS ---
+_, col_logo, _ = st.sidebar.columns([1, 1.2, 1])
+with col_logo:
+    st.image("tu_ruta_original_del_logo.png", width=75)  # Mantén aquí tu ruta exacta
+
+st.sidebar.markdown(
+    """
+    <div style="text-align: center; margin-top: -5px;">
+        <span style="font-size: 11px; font-weight: bold; color: white;">Coordinación Técnica de<br>Servicios Generales</span><br>
+        <span style="font-size: 10px; color: #dcdcdc;">División de Transportes y Operación</span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# --- 1. ENCABEZADO Y LOGO CENTRADOS CON COLUMNAS NATIVAS ---
+_, col_logo, _ = st.sidebar.columns([1, 1.2, 1])
+with col_logo:
+    st.image("tu_ruta_original_del_logo.png", width=75)  # Mantén aquí tu ruta exacta
+
+st.sidebar.markdown(
+    """
+    <div style="text-align: center; margin-top: -5px;">
+        <span style="font-size: 11px; font-weight: bold; color: white;">Coordinación Técnica de<br>Servicios Generales</span><br>
+        <span style="font-size: 10px; color: #dcdcdc;">División de Transportes y Operación</span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+# --- 1. ENCABEZADO Y LOGO CENTRADOS CON COLUMNAS NATIVAS ---
+_, col_logo, _ = st.sidebar.columns([1, 1.2, 1])
+with col_logo:
+    st.image("tu_ruta_original_del_logo.png", width=75)  # Mantén aquí tu ruta exacta
+
+st.sidebar.markdown(
+    """
+    <div style="text-align: center; margin-top: -5px;">
+        <span style="font-size: 11px; font-weight: bold; color: white;">Coordinación Técnica de<br>Servicios Generales</span><br>
+        <span style="font-size: 10px; color: #dcdcdc;">División de Transportes y Operación</span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# --- 2. CSS LIMPIO PARA EVITAR SCROLL Y AMONTONAMIENTO ---
 st.markdown(
     """
     <style>
-        /* Margenes generales de la barra */
         [data-testid="stSidebar"] > div:first-child {
             padding-top: 0.5rem !important;
             padding-bottom: 0.5rem !important;
         }
 
-        /* Permitir flujo natural para que los créditos nunca se corten */
         [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
             gap: 0.8rem;
         }
 
-        /* Dar respiro y buen interlineado a las opciones de módulos */
         [data-testid="stSidebar"] .stRadio label {
             font-size: 11.5px !important;
             line-height: 1.4 !important;
             padding: 4px 0px !important;
         }
 
-        /* Control de separación del radio */
         [data-testid="stSidebar"] .stRadio {
             margin-top: 0px !important;
         }
