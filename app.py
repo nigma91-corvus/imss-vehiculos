@@ -21,72 +21,49 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-# --- DISEÑO COMPACTO Y FIJO PARA LA BARRA LATERAL (SIN ENCIMARSE) ---
+# --- 1. ENCABEZADO Y LOGO CENTRADOS CON COLUMNAS NATIVAS ---
+_, col_logo, _ = st.sidebar.columns([1, 1.2, 1])
+with col_logo:
+    st.image("tu_logo_imss.png", width=75)  # Reemplaza con la ruta de tu imagen
+
+st.sidebar.markdown(
+    """
+    <div style="text-align: center; margin-top: -5px;">
+        <span style="font-size: 11px; font-weight: bold; color: white;">Coordinación Técnica de<br>Servicios Generales</span><br>
+        <span style="font-size: 10px; color: #dcdcdc;">División de Transportes y Operación</span>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# --- 2. CSS LIMPIO (SIN ALTURAS FORZADAS NI TEXTOS APRETADOS) ---
 st.markdown(
     """
     <style>
-        /* 0. Reducir al mínimo los espacios internos y externos de la barra lateral */
+        /* Margenes generales de la barra */
         [data-testid="stSidebar"] > div:first-child {
-            padding-top: 0.2rem !important;
-            padding-bottom: 0.2rem !important;
+            padding-top: 0.5rem !important;
+            padding-bottom: 0.5rem !important;
         }
 
-        /* 1. Contenedor flexible estricto sin scroll vertical */
+        /* Permitir flujo natural para que los créditos nunca se corten */
         [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            height: 100vh !important;
-            max-height: 100vh !important;
-            overflow: hidden !important;
+            gap: 0.8rem;
         }
 
-        /* 1.1 Centrado absoluto del logo corrigiendo el contenedor padre de Streamlit */
-        [data-testid="stSidebar"] [data-testid="stImage"] {
-            width: 100% !important;
-            display: flex !important;
-            justify-content: center !important;
-            align-items: center !important;
-            text-align: center !important;
-        }
-        [data-testid="stSidebar"] [data-testid="stImage"] div {
-            margin: 0 auto !important;
-            display: flex !important;
-            justify-content: center !important;
-        }
-        [data-testid="stSidebar"] img {
-            max-width: 55px !important;
-            height: auto !important;
-            display: block !important;
-            margin: 0 auto !important;
-        }
-
-        /* 1.2 Subir títulos y textos para ganar espacio */
-        [data-testid="stSidebar"] h3, 
-        [data-testid="stSidebar"] h4, 
-        [data-testid="stSidebar"] p {
-            margin-top: 0px !important;
-            margin-bottom: 1px !important;
-            padding-top: 0px !important;
-            padding-bottom: 0px !important;
-            text-align: center;
-        }
-
-        /* 2. Compactar el menú de módulos para evitar cualquier rastro de scroll */
+        /* Dar respiro y buen interlineado a las opciones de módulos */
         [data-testid="stSidebar"] .stRadio label {
-            font-size: 10.5px !important;
-            line-height: 1.25 !important;
-            padding: 1px 0px !important;
+            font-size: 11.5px !important;
+            line-height: 1.4 !important;
+            padding: 4px 0px !important;
         }
 
-        /* 3. Reducir separación superior de los selectores */
+        /* Control de separación del radio */
         [data-testid="stSidebar"] .stRadio {
-            margin-top: -6px !important;
+            margin-top: 0px !important;
         }
-
-        /* 4. Espaciado interno mínimo entre módulos */
         [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
-            gap: 0px !important;
+            gap: 3px !important;
         }
     </style>
     """,
