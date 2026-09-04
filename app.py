@@ -21,134 +21,47 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
-# --- 1. ENCABEZADO Y LOGO CENTRADOS CON COLUMNAS NATIVAS ---
-_, col_logo, _ = st.sidebar.columns([1, 1.2, 1])
-with col_logo:
-    st.image("tu_ruta_original_del_logo.png", width=75)  # Mantén aquí tu ruta exacta
-
-st.sidebar.markdown(
-    """
-    <div style="text-align: center; margin-top: -5px;">
-        <span style="font-size: 11px; font-weight: bold; color: white;">Coordinación Técnica de<br>Servicios Generales</span><br>
-        <span style="font-size: 10px; color: #dcdcdc;">División de Transportes y Operación</span>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-# --- 1. ENCABEZADO Y LOGO CENTRADOS CON COLUMNAS NATIVAS ---
-_, col_logo, _ = st.sidebar.columns([1, 1.2, 1])
-with col_logo:
-    st.image("tu_ruta_original_del_logo.png", width=75)  # Mantén aquí tu ruta exacta
-
-st.sidebar.markdown(
-    """
-    <div style="text-align: center; margin-top: -5px;">
-        <span style="font-size: 11px; font-weight: bold; color: white;">Coordinación Técnica de<br>Servicios Generales</span><br>
-        <span style="font-size: 10px; color: #dcdcdc;">División de Transportes y Operación</span>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-## --- 1. ENCABEZADO Y LOGO CENTRADOS CON COLUMNAS NATIVAS ---
-_, col_logo, _ = st.sidebar.columns([1, 1.2, 1])
-with col_logo:
-    st.image("tu_ruta_original_del_logo.png", width=75)  # Mantén aquí tu ruta exacta
-
-st.sidebar.markdown(
-    """
-    <div style="text-align: center; margin-top: -5px;">
-        <span style="font-size: 11px; font-weight: bold; color: white;">Coordinación Técnica de<br>Servicios Generales</span><br>
-        <span style="font-size: 10px; color: #dcdcdc;">División de Transportes y Operación</span>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-# --- 1. ENCABEZADO Y LOGO CENTRADOS CON COLUMNAS NATIVAS ---
-_, col_logo, _ = st.sidebar.columns([1, 1.2, 1])
-with col_logo:
-    st.image("tu_ruta_original_del_logo.png", width=75)  # Mantén aquí tu ruta exacta
-
-st.sidebar.markdown(
-    """
-    <div style="text-align: center; margin-top: -5px;">
-        <span style="font-size: 11px; font-weight: bold; color: white;">Coordinación Técnica de<br>Servicios Generales</span><br>
-        <span style="font-size: 10px; color: #dcdcdc;">División de Transportes y Operación</span>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-# --- 1. ENCABEZADO Y LOGO CENTRADOS CON COLUMNAS NATIVAS ---
-_, col_logo, _ = st.sidebar.columns([1, 1.2, 1])
-with col_logo:
-    st.image("tu_ruta_original_del_logo.png", width=75)  # Mantén aquí tu ruta exacta
-
-st.sidebar.markdown(
-    """
-    <div style="text-align: center; margin-top: -5px;">
-        <span style="font-size: 11px; font-weight: bold; color: white;">Coordinación Técnica de<br>Servicios Generales</span><br>
-        <span style="font-size: 10px; color: #dcdcdc;">División de Transportes y Operación</span>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-# --- 1. ENCABEZADO Y LOGO CENTRADOS CON COLUMNAS NATIVAS ---
-_, col_logo, _ = st.sidebar.columns([1, 1.2, 1])
-with col_logo:
-    st.image("tu_ruta_original_del_logo.png", width=75)  # Mantén aquí tu ruta exacta
-
-st.sidebar.markdown(
-    """
-    <div style="text-align: center; margin-top: -5px;">
-        <span style="font-size: 11px; font-weight: bold; color: white;">Coordinación Técnica de<br>Servicios Generales</span><br>
-        <span style="font-size: 10px; color: #dcdcdc;">División de Transportes y Operación</span>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-# --- 1. ENCABEZADO Y LOGO CENTRADOS CON COLUMNAS NATIVAS ---
-_, col_logo, _ = st.sidebar.columns([1, 1.2, 1])
-with col_logo:
-    st.image("tu_ruta_original_del_logo.png", width=75)  # Mantén aquí tu ruta exacta
-
-st.sidebar.markdown(
-    """
-    <div style="text-align: center; margin-top: -5px;">
-        <span style="font-size: 11px; font-weight: bold; color: white;">Coordinación Técnica de<br>Servicios Generales</span><br>
-        <span style="font-size: 10px; color: #dcdcdc;">División de Transportes y Operación</span>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-# --- 2. CSS LIMPIO PARA EVITAR SCROLL Y AMONTONAMIENTO ---
+# --- DISEÑO COMPACTO Y FIJO PARA LA BARRA LATERAL (SIN ENCIMARSE) ---
 st.markdown(
     """
     <style>
+        /* 0. Reducir el padding superior de la barra lateral por defecto */
         [data-testid="stSidebar"] > div:first-child {
-            padding-top: 0.5rem !important;
-            padding-bottom: 0.5rem !important;
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
         }
 
+        /* 1. Forzar que el contenedor de la barra lateral distribuya sus elementos de arriba a abajo */
         [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-            gap: 0.8rem;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 20px);
+            justify-content: space-between;
         }
 
+        /* 1.1 Reducir y centrar el logo de la barra lateral */
+        [data-testid="stSidebar"] img {
+            max-width: 100px !important;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* 2. Compactar los espacios y márgenes del menú de radio */
         [data-testid="stSidebar"] .stRadio label {
-            font-size: 11.5px !important;
-            line-height: 1.4 !important;
-            padding: 4px 0px !important;
+            font-size: 12px !important;
+            line-height: 1.15 !important;
+            padding: 1px 0px !important;
         }
 
+        /* 3. Reducir separación entre elementos de selección */
         [data-testid="stSidebar"] .stRadio {
-            margin-top: 0px !important;
+            margin-top: -5px !important;
         }
+
+        /* 4. Espaciado limpio entre los elementos de los módulos */
         [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
-            gap: 3px !important;
+            gap: 2px !important;
         }
     </style>
     """,
