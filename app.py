@@ -27,8 +27,8 @@ st.markdown(
     <style>
         /* 0. Reducir al mínimo los espacios internos y externos de la barra lateral */
         [data-testid="stSidebar"] > div:first-child {
-            padding-top: 0.5rem !important;
-            padding-bottom: 0.5rem !important;
+            padding-top: 0.4rem !important;
+            padding-bottom: 0.4rem !important;
         }
 
         /* 1. Forzar contenedor estricto de altura sin scroll */
@@ -41,18 +41,27 @@ st.markdown(
             overflow: hidden !important;
         }
 
-        /* 1.1 Centrar y reducir el contenedor del logo de manera absoluta */
+        /* 1.1 Centrar ABSOLUTAMENTE el contenedor y la imagen del logo */
         [data-testid="stSidebar"] [data-testid="stImage"] {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin-bottom: -10px !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            width: 100% !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+            text-align: center !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stImage"] > div {
+            display: flex !important;
+            justify-content: center !important;
+            width: 100% !important;
         }
         [data-testid="stSidebar"] img {
-            max-width: 75px !important;
+            max-width: 70px !important;
             height: auto !important;
-            display: block;
-            margin: 0 auto !important;
+            display: block !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
         }
 
         /* 1.2 Subir las secciones de títulos y textos */
