@@ -25,43 +25,61 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-        /* 0. Reducir el padding superior de la barra lateral por defecto */
+        /* 0. Reducir al mínimo los espacios internos y externos de la barra lateral */
         [data-testid="stSidebar"] > div:first-child {
-            padding-top: 1rem !important;
-            padding-bottom: 1rem !important;
+            padding-top: 0.5rem !important;
+            padding-bottom: 0.5rem !important;
         }
 
-        /* 1. Forzar que el contenedor de la barra lateral distribuya sus elementos de arriba a abajo */
+        /* 1. Forzar contenedor estricto de altura sin scroll */
         [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
             display: flex;
             flex-direction: column;
-            height: calc(100vh - 20px);
+            height: 100vh;
+            max-height: 100vh;
             justify-content: space-between;
+            overflow: hidden !important;
         }
 
-        /* 1.1 Reducir y centrar el logo de la barra lateral */
+        /* 1.1 Centrar y reducir el contenedor del logo de manera absoluta */
+        [data-testid="stSidebar"] [data-testid="stImage"] {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: -10px !important;
+        }
         [data-testid="stSidebar"] img {
-            max-width: 100px !important;
+            max-width: 75px !important;
+            height: auto !important;
             display: block;
-            margin-left: auto;
-            margin-right: auto;
+            margin: 0 auto !important;
         }
 
-        /* 2. Compactar los espacios y márgenes del menú de radio */
+        /* 1.2 Subir las secciones de títulos y textos */
+        [data-testid="stSidebar"] h3, 
+        [data-testid="stSidebar"] h4, 
+        [data-testid="stSidebar"] p {
+            margin-top: 0px !important;
+            margin-bottom: 2px !important;
+            padding-top: 0px !important;
+            padding-bottom: 0px !important;
+        }
+
+        /* 2. Dar mejor separación (interlineado) a las opciones del menú de módulos */
         [data-testid="stSidebar"] .stRadio label {
-            font-size: 12px !important;
-            line-height: 1.15 !important;
-            padding: 1px 0px !important;
+            font-size: 11.5px !important;
+            line-height: 1.35 !important;
+            padding: 3px 0px !important;
         }
 
-        /* 3. Reducir separación entre elementos de selección */
+        /* 3. Reducir separación superior de los selectores o radios */
         [data-testid="stSidebar"] .stRadio {
-            margin-top: -5px !important;
+            margin-top: -8px !important;
         }
 
-        /* 4. Espaciado limpio entre los elementos de los módulos */
+        /* 4. Espaciado controlado entre los elementos internos de los módulos */
         [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
-            gap: 2px !important;
+            gap: 1px !important;
         }
     </style>
     """,
