@@ -1514,9 +1514,10 @@ if mod_actual == "Expediente por ECO y Documental":
 
                                         docs_json_str = json.dumps(st.session_state.expedientes_docs[eco_search])
 
+                                        # CORREGIDO: Se envuelve el nombre de la columna con comillas dobles para evitar el error de PostgREST
                                         supabase.table(nombre_tabla_vehiculos).update(
                                             {"documentos": docs_json_str}
-                                        ).eq("No. Ecco.", eco_search).execute()
+                                        ).eq('"No. Ecco."', eco_search).execute()
 
                                         st.success("✅ Documento subido y guardado permanentemente en la base de datos.")
 
