@@ -27,63 +27,58 @@ st.markdown(
     <style>
         /* 0. Reducir al mínimo los espacios internos y externos de la barra lateral */
         [data-testid="stSidebar"] > div:first-child {
-            padding-top: 0.4rem !important;
-            padding-bottom: 0.4rem !important;
+            padding-top: 0.3rem !important;
+            padding-bottom: 0.3rem !important;
         }
 
-        /* 1. Forzar contenedor estricto de altura sin scroll */
+        /* 1. Contenedor flexible que respeta el flujo y muestra los créditos al fondo */
         [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
             display: flex;
             flex-direction: column;
-            height: 100vh;
-            max-height: 100vh;
             justify-content: space-between;
-            overflow: hidden !important;
+            min-height: 92vh;
         }
 
-        /* 1.1 Centrar ABSOLUTAMENTE el contenedor y la imagen del logo */
+        /* 1.1 Centrar perfectamente el logo anulando las clases de Streamlit */
         [data-testid="stSidebar"] [data-testid="stImage"] {
-            display: flex !important;
-            justify-content: center !important;
-            align-items: center !important;
-            width: 100% !important;
+            text-align: center !important;
             margin-left: auto !important;
             margin-right: auto !important;
-            text-align: center !important;
+            display: block !important;
         }
-        [data-testid="stSidebar"] [data-testid="stImage"] > div {
+        [data-testid="stSidebar"] [data-testid="stImage"] div {
             display: flex !important;
             justify-content: center !important;
-            width: 100% !important;
+            margin: 0 auto !important;
         }
         [data-testid="stSidebar"] img {
-            max-width: 70px !important;
+            max-width: 65px !important;
             height: auto !important;
             display: block !important;
-            margin-left: auto !important;
-            margin-right: auto !important;
+            margin: 0 auto !important;
         }
 
-        /* 1.2 Subir las secciones de títulos y textos */
+        /* 1.2 Subir las secciones de títulos y textos para ganar espacio */
         [data-testid="stSidebar"] h3, 
         [data-testid="stSidebar"] h4, 
         [data-testid="stSidebar"] p {
             margin-top: 0px !important;
-            margin-bottom: 2px !important;
+            margin-bottom: 1px !important;
             padding-top: 0px !important;
             padding-bottom: 0px !important;
+            text-align: center;
         }
 
-        /* 2. Dar mejor separación (interlineado) a las opciones del menú de módulos */
+        /* 2. Dar buen interlineado y separación a las opciones del menú de módulos */
         [data-testid="stSidebar"] .stRadio label {
-            font-size: 11.5px !important;
-            line-height: 1.35 !important;
-            padding: 3px 0px !important;
+            font-size: 11px !important;
+            line-height: 1.3 !important;
+            padding: 2px 0px !important;
         }
 
         /* 3. Reducir separación superior de los selectores o radios */
         [data-testid="stSidebar"] .stRadio {
-            margin-top: -8px !important;
+            margin-top: -5px !important;
         }
 
         /* 4. Espaciado controlado entre los elementos internos de los módulos */
