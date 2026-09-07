@@ -815,11 +815,11 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
             Flotilla_Asignada=("eco", "count"),
             Titulares_Activos=(
                 "Estatus",
-                lambda x: (x == "Titular Activo").sum(),
+                lambda x: (x == "Activo").sum(),
             ),
             Sustitutos_Entregados=(
                 "Estatus",
-                lambda x: (x == "Sustituto Entregado").sum(),
+                lambda x: (x == "Sustituto").sum(),
             ),
             En_Taller_Inoperativos=(
                 "Estatus",
