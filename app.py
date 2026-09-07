@@ -815,7 +815,7 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
             Flotilla_Asignada=("eco", "count"),
             Titulares_Activos=(
                 "Estatus",
-                lambda x: (x == "Activo").sum(),
+                lambda x: (x == "Titular Activo").sum(),
             ),
             Sustitutos_Entregados=(
                 "Estatus",
@@ -833,7 +833,7 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
         df_ciudades["Flotilla_Asignada"] > 0,
         (
             (
-                df_ciudades["Activos"]
+                df_ciudades["Titulares_Activos"]
                 + df_ciudades["Sustitutos_Entregados"]
             )
             / df_ciudades["Flotilla_Asignada"]
@@ -850,7 +850,7 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
         columns={
             "UBICACIÓN": "Ciudad / OOAD",
             "Flotilla_Asignada": "Flotilla Asignada",
-            "Titulares_Activos": "Activos",
+            "Titulares_Activos": "Titulares Activos",
             "Sustitutos_Entregados": "Sustitutos Entregados",
             "En_Taller_Inoperativos": "En Taller / Inoperativos",
         },
@@ -860,7 +860,7 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
     df_ciudades = pd.DataFrame(columns=[
         "Ciudad / OOAD",
         "Flotilla Asignada",
-        "Activos",
+        "Titulares Activos",
         "Sustitutos Entregados",
         "En Taller / Inoperativos",
         "Movilidad (%)",
