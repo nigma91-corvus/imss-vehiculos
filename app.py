@@ -2094,17 +2094,43 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
         }
         df_reasig = df_reasig.rename(columns=renombrar_reasig)
         
+        # ---------------------------------------------------------------------
+        # SECCIÓN DE FILTROS PARA LAS REASIGNACIONES
+        # ---------------------------------------------------------------------
+        with st.expander("🔍 Filtrar Historial de Reasignaciones", expanded=False):
+            col_f1, col_f2 = st.columns(2)
+            
+            with col_f1:
+                # Filtro por número ECO (búsqueda de texto flexible)
+                filtro_eco = st.text_input("Filtrar por ECO:", value="", placeholder="Ej. 104 o dejar vacío")
+                
+            with col_f2:
+                # Filtro por Sede Destino
+                sedes_disponibles_hist = ["Todas"] + sorted(df_reasig["Sede Destino"].dropna().unique().tolist()) if "Sede Destino" in df_reasig.columns else ["Todas"]
+                filtro_sede_dest = st.selectbox("Filtrar por Sede de Destino:", sedes_disponibles_hist)
+
+        # Aplicando los filtros al DataFrame
+        df_filtrado_r = df_reasig.copy()
+        
+        if filtro_eco.strip():
+            df_filtrado_r = df_filtrado_r[df_filtrado_r["ECO"].astype(str).str.contains(filtro_eco.strip(), case=False, na=False)]
+            
+        if filtro_sede_dest != "Todas":
+            df_filtrado_r = df_filtrado_r[df_filtrado_r["Sede Destino"] == filtro_sede_dest]
+        
+        # Mostrar métrica rápida de registros filtrados
+        st.caption(f"Mostrando {len(df_filtrado_r)} de {len(df_reasig)} registros totales.")
+
         cols_ordenadas_r = ["ECO", "Sede Origen", "Sede Destino", "Fecha Reasignación", "No. Oficio", "Motivo", "Enlace Oficio"]
-        cols_finales_r = [c for c in cols_ordenadas_r if c in df_reasig.columns]
+        cols_finales_r = [c for c in cols_ordenadas_r if c in df_filtrado_r.columns]
         
         st.dataframe(
-            df_reasig[cols_finales_r],
+            df_filtrado_r[cols_finales_r],
             use_container_width=True,
             hide_index=True,
         )
     else:
         st.info("No hay registros de reasignaciones en el histórico.")
-
 # -----------------------------------------------------------------------------
 # 8. REPORTES Y EXPORTACIÓN
 # -----------------------------------------------------------------------------
