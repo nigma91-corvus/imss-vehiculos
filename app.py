@@ -1185,8 +1185,7 @@ if mod_actual == "Expediente por ECO y Documental":
                 # Si arroja solo uno (o si se hizo búsqueda exacta), toma el registro
                 eco_search = vehiculo_sel.iloc[0]["eco"]
                 v_data = vehiculo_sel.iloc[0]
-                # (Aquí continúa todo el despliegue normal de tu expediente...)
-
+               
                 st.markdown("---")
                 st.markdown(
                     f"#### 📋 Ficha Técnica y Descriptiva — ECO: `{v_data['eco']}`"
@@ -1493,6 +1492,34 @@ if mod_actual == "Expediente por ECO y Documental":
                         )
                     else:
                         st.caption("No se registran mantenimientos o siniestros previos para este ECO.")
+import cloudinary
+import cloudinary.uploader
+
+# Configuración de Cloudinary (asegúrate de tener tus credenciales en st.secrets o variables de entorno)
+# cloudinary.config(
+#   cloud_name = st.secrets["cloudinary"]["cloud_name"],
+#   api_key = st.secrets["cloudinary"]["api_key"],
+#   api_secret = st.secrets["cloudinary"]["api_secret"]
+# )
+
+def subir_a_cloudinary(archivo_subido, folder_destino="taller_flotilla"):
+    """Sube un archivo de Streamlit a Cloudinary y retorna la URL segura."""
+    if archivo_subido is not None:
+        try:
+            bytes_data = archivo_subido.getvalue()
+            # resource_type="auto" detecta si es imagen, PDF o raw
+            response = cloudinary.uploader.upload(
+                bytes_data, 
+                folder=folder_destino, 
+                resource_type="auto",
+                public_id=f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{archivo_subido.name.split('.')[0]}"
+            )
+            return response.get("secure_url")
+        except Exception as e:
+            st.error(f"Error al subir archivo a Cloudinary: {e}")
+            return None
+    return "N/A"
+
 # 6. REGISTRO DE TALLER E INCIDENCIAS (PERSISTIDO EN SUPABASE)
 # -----------------------------------------------------------------------------
 elif mod_actual == "Registro de Taller e Incidencias":
@@ -1579,11 +1606,9 @@ elif mod_actual == "Registro de Taller e Incidencias":
           if not lista_ecos_taller:
             st.error("No se puede registrar sin vehículos en la base.")
           else:
-            nombre_archivo = (
-                f"{eco_t}_ENTRADA_TALLER_{datetime.now().strftime('%Y%m%d')}.pdf"
-                if evidencia
-                else "N/A"
-            )
+            # Subida de archivo a Cloudinary
+            url_evidencia = subir_a_cloudinary(evidencia, folder_destino="taller_entradas")
+            
             nuevo_reg = {
                 "eco": eco_t,
                 "tipo": tipo_mantenimiento,
@@ -1594,6 +1619,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
                 "sustituto": req_sust,
                 "estatus": "Activo (En Taller)",
                 "observaciones": obs_m,
+                "evidencia_url": url_evidencia # Guardando el enlace de Cloudinary en Supabase
             }
             if supabase:
               try:
@@ -1603,8 +1629,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
 
             st.session_state.taller_registros = cargar_taller_supabase()
             st.success(
-                f"Ingreso registrado para {eco_t}. Documento:"
-                f" '{nombre_archivo}'."
+                f"Ingreso registrado para {eco_t}. Archivo respaldado en Cloudinary."
             )
             st.rerun()
 
@@ -1642,11 +1667,9 @@ elif mod_actual == "Registro de Taller e Incidencias":
           if not lista_ecos_taller:
             st.error("No se puede registrar sin vehículos en la base.")
           else:
-            nombre_archivo_s = (
-                f"{eco_s}_SINIESTRO_{datetime.now().strftime('%Y%m%d')}.pdf"
-                if evidencia_s
-                else "N/A"
-            )
+            # Subida de archivo a Cloudinary
+            url_evidencia_s = subir_a_cloudinary(evidencia_s, folder_destino="taller_siniestros")
+
             nuevo_reg_s = {
                 "eco": eco_s,
                 "tipo": "Siniestro",
@@ -1657,6 +1680,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
                 "sustituto": "Sí",
                 "estatus": "Activo (En Taller)",
                 "observaciones": obs_s,
+                "evidencia_url": url_evidencia_s
             }
             if supabase:
               try:
@@ -1666,8 +1690,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
 
             st.session_state.taller_registros = cargar_taller_supabase()
             st.warning(
-                f"Siniestro registrado para {eco_s}. Documento:"
-                f" '{nombre_archivo_s}'."
+                f"Siniestro registrado para {eco_s}. Evidencia respaldada en Cloudinary."
             )
             st.rerun()
 
@@ -1680,7 +1703,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
       ingresos_activos = [
           r
           for r in st.session_state.taller_registros
-          if r["ECO"] == eco_salida and r["Estatus"] == "Activo (En Taller)"
+          if r.get("ECO", r.get("eco")) == eco_salida and r.get("Estatus", r.get("estatus")) == "Activo (En Taller)"
       ]
 
       if len(ingresos_activos) == 0:
@@ -1689,8 +1712,8 @@ elif mod_actual == "Registro de Taller e Incidencias":
         reg_previo = ingresos_activos[0]
         st.success(
             f"✓ Entrada activa confirmada para **{eco_salida}**"
-            f" ({reg_previo['Tipo']} | Fecha Entrada:"
-            f" {reg_previo['Fecha_Ingreso']})."
+            f" ({reg_previo.get('Tipo', reg_previo.get('tipo'))} | Fecha Entrada:"
+            f" {reg_previo.get('Fecha_Ingreso', reg_previo.get('fecha_ingreso'))})."
         )
 
         with st.form(key="form_salida_taller"):
@@ -1709,21 +1732,21 @@ elif mod_actual == "Registro de Taller e Incidencias":
           )
 
           if st.form_submit_button("Confirmar y Liberar Salida"):
-            nombre_archivo_sal = (
-                f"{eco_salida}_SALIDA_TALLER_{datetime.now().strftime('%Y%m%d')}.pdf"
-                if evidencia_salida
-                else "N/A"
-            )
+            # Subida de comprobante de salida a Cloudinary
+            url_evidencia_sal = subir_a_cloudinary(evidencia_salida, folder_destino="taller_salidas")
+
             if supabase:
               try:
-                supabase.table("taller_incidencias").update({"estatus": "Concluido (Salida Completa)"}).eq("eco", eco_salida).eq("estatus", "Activo (En Taller)").execute()
+                supabase.table("taller_incidencias").update({
+                    "estatus": "Concluido (Salida Completa)",
+                    "observaciones": f"{reg_previo.get('Observaciones', '')} | Salida: {obs_salida}"
+                }).eq("eco", eco_salida).eq("estatus", "Activo (En Taller)").execute()
               except Exception as err:
                 st.error(f"Error al actualizar en Supabase: {err}")
 
             st.session_state.taller_registros = cargar_taller_supabase()
             st.success(
-                f"Salida registrada exitosamente para {eco_salida}. Documento:"
-                f" '{nombre_archivo_sal}'."
+                f"Salida registrada exitosamente para {eco_salida}. Comprobante respaldado en Cloudinary."
             )
             st.rerun()
 
@@ -1749,7 +1772,8 @@ elif mod_actual == "Registro de Taller e Incidencias":
                 "taller": ri.get("Taller", "General"),
                 "sustituto": ri.get("Sustituto", "Sí"),
                 "estatus": ri.get("Estatus", "Activo (En Taller)"),
-                "observaciones": ri.get("Observaciones", "Carga por CSV")
+                "observaciones": ri.get("Observaciones", "Carga por CSV"),
+                "evidencia_url": "N/A"
             })
           
           if supabase and inserts:
@@ -1768,8 +1792,8 @@ elif mod_actual == "Registro de Taller e Incidencias":
     else:
       opciones_reg = [
           (
-              f"ID: {idx} | ECO: {r['ECO']} | Tipo: {r['Tipo']} | Fecha:"
-              f" {r['Fecha_Ingreso']} | Estatus: {r['Estatus']}"
+              f"ID: {idx} | ECO: {r.get('ECO', r.get('eco', 'N/A'))} | Tipo: {r.get('Tipo', r.get('tipo', 'N/A'))} | Fecha:"
+              f" {r.get('Fecha_Ingreso', r.get('fecha_ingreso', 'N/A'))} | Estatus: {r.get('Estatus', r.get('estatus', 'N/A'))}"
           )
           for idx, r in enumerate(st.session_state.taller_registros)
       ]
@@ -1783,34 +1807,36 @@ elif mod_actual == "Registro de Taller e Incidencias":
       with st.form(key="form_corregir_taller_extension"):
         st.markdown(f"**Modificando Registro en la Posición `{idx_sel}`**")
         ce1, ce2 = st.columns(2)
-        e_eco = ce1.text_input("ECO Correcto:", value=reg_actual["ECO"])
+        e_eco = ce1.text_input("ECO Correcto:", value=reg_actual.get("ECO", reg_actual.get("eco", "")))
 
         tipos_m_list = [
             "Mantenimiento Preventivo",
             "Mantenimiento Correctivo",
             "Siniestro",
         ]
+        tipo_actual = reg_actual.get("Tipo", reg_actual.get("tipo", ""))
         idx_t = (
-            tipos_m_list.index(reg_actual["Tipo"])
-            if reg_actual["Tipo"] in tipos_m_list
+            tipos_m_list.index(tipo_actual)
+            if tipo_actual in tipos_m_list
             else 0
         )
         e_tipo = ce2.selectbox("Tipo Correcto:", tipos_m_list, index=idx_t)
 
         ce3, ce4 = st.columns(2)
         e_resp = ce3.text_input(
-            "Responsable:", value=reg_actual["Responsable"]
+            "Responsable:", value=reg_actual.get("Responsable", reg_actual.get("responsable", ""))
         )
-        e_taller = ce4.text_input("Taller:", value=reg_actual["Taller"])
+        e_taller = ce4.text_input("Taller:", value=reg_actual.get("Taller", reg_actual.get("taller", "")))
 
         estatus_list = [
             "Activo (En Taller)",
             "Concluido (Salida Completa)",
             "Anulado por Error",
         ]
+        estatus_actual = reg_actual.get("Estatus", reg_actual.get("estatus", ""))
         idx_est = (
-            estatus_list.index(reg_actual["Estatus"])
-            if reg_actual["Estatus"] in estatus_list
+            estatus_list.index(estatus_actual)
+            if estatus_actual in estatus_list
             else 0
         )
         e_estatus = st.selectbox(
@@ -1819,12 +1845,34 @@ elif mod_actual == "Registro de Taller e Incidencias":
 
         e_obs = st.text_area(
             "Observaciones o notas de la corrección:",
-            value=reg_actual["Observaciones"],
+            value=reg_actual.get("Observaciones", reg_actual.get("observaciones", "")),
         )
 
         if st.form_submit_button("💾 Guardar Cambios en Bitácora"):
-          st.success("¡El registro ha sido actualizado correctamente!")
-          st.rerun()
+          if supabase:
+            try:
+              reg_id = reg_actual.get("id")
+              datos_actualizados = {
+                  "eco": e_eco,
+                  "tipo": e_tipo,
+                  "responsable": e_resp,
+                  "taller": e_taller,
+                  "estatus": e_estatus,
+                  "observaciones": e_obs,
+              }
+
+              if reg_id:
+                supabase.table("taller_incidencias").update(datos_actualizados).eq("id", reg_id).execute()
+              else:
+                supabase.table("taller_incidencias").update(datos_actualizados).eq("eco", reg_actual.get("ECO", reg_actual.get("eco"))).eq("fecha_ingreso", reg_actual.get("Fecha_Ingreso", reg_actual.get("fecha_ingreso"))).execute()
+
+              st.session_state.taller_registros = cargar_taller_supabase()
+              st.success("¡El registro ha sido actualizado correctamente en Supabase!")
+              st.rerun()
+            except Exception as err:
+              st.error(f"Error al actualizar el registro en Supabase: {err}")
+          else:
+            st.error("No hay conexión activa con Supabase.")
 
   st.markdown("---")
   st.markdown("##### **Bitácora de Control de Taller e Incidencias**")
@@ -1833,7 +1881,6 @@ elif mod_actual == "Registro de Taller e Incidencias":
       use_container_width=True,
       hide_index=True,
   )
-
 # -----------------------------------------------------------------------------
 # 7. REASIGNACIÓN POR NECESIDAD DE SERVICIO (PERSISTIDA EN SUPABASE)
 # -----------------------------------------------------------------------------
