@@ -1518,8 +1518,8 @@ def subir_a_cloudinary(archivo_subido, folder_destino="taller_flotilla"):
 # -----------------------------------------------------------------------------
 if mod_actual == "Registro de Taller e Incidencias":
     st.markdown(
-        f'<p class="subtitulo-seccion">Registro de Taller, Incidencias y'
-        f" Siniestros - Flotilla {cat_actual}</p>",
+        f'<p class="subtitulo-seccion">Registro de Taller, Incidencias y '
+        f"Siniestros - Flotilla {cat_actual}</p>",
         unsafe_allow_html=True,
     )
 
@@ -1528,6 +1528,7 @@ if mod_actual == "Registro de Taller e Incidencias":
         if not df_base.empty and "eco" in df_base.columns
         else []
     )
+    
     tab_captura, tab_csv, tab_editar = st.tabs([
         "📝 Captura de Altas / Salidas",
         "📥 Carga Masiva CSV Incidencias",
@@ -1546,20 +1547,13 @@ if mod_actual == "Registro de Taller e Incidencias":
         )
         st.markdown("---")
 
-        if (
-            opcion_taller
-            == "1. Ingreso a Taller (Mantenimiento Preventivo / Correctivo)"
-        ):
+        if opcion_taller == "1. Ingreso a Taller (Mantenimiento Preventivo / Correctivo)":
             with st.form(key="form_ingreso_mantenimiento"):
                 st.markdown("##### **Registro de Ingreso a Taller**")
                 c1, c2 = st.columns(2)
                 eco_t = c1.selectbox(
                     "Número Económico (ECO):",
-                    (
-                        lista_ecos_taller
-                        if lista_ecos_taller
-                        else ["Sin ECCOS registrados"]
-                    ),
+                    lista_ecos_taller if lista_ecos_taller else ["Sin ECCOS registrados"],
                 )
                 tipo_mantenimiento = c2.selectbox(
                     "Tipo de Estatus / Servicio:",
@@ -1586,13 +1580,13 @@ if mod_actual == "Registro de Taller e Incidencias":
                 )
                 if tipo_mantenimiento == "Mantenimiento Correctivo":
                     st.info(
-                        "ℹ️ **Mantenimiento Correctivo:** Requiere asignación de Vehículo"
-                        " Sustituto (Pool 20%)."
+                        "ℹ️ **Mantenimiento Correctivo:** Requiere asignación de Vehículo "
+                        "Sustituto (Pool 20%)."
                     )
                 else:
                     st.caption(
-                        "ℹ️ **Mantenimiento Preventivo:** No aplica vehículo sustituto si"
-                        " la salida del taller no pasa de 48Hrs."
+                        "ℹ️ **Mantenimiento Preventivo:** No aplica vehículo sustituto si "
+                        "la salida del taller no pasa de 48Hrs."
                     )
 
                 evidencia = st.file_uploader(
@@ -1607,7 +1601,6 @@ if mod_actual == "Registro de Taller e Incidencias":
                 if not lista_ecos_taller:
                     st.error("No se puede registrar sin vehículos en la base.")
                 else:
-                    # Validación para evitar doble registro por clic repetido
                     duplicado_activo = any(
                         r.get("ECO", r.get("eco")) == str(eco_t) and r.get("Estatus", r.get("estatus")) == "Activo (En Taller)"
                         for r in st.session_state.get("taller_registros", [])
@@ -1670,8 +1663,7 @@ if mod_actual == "Registro de Taller e Incidencias":
                 h_est_siniestro = cse2.time_input("Hora Estimada de Entrega:")
 
                 st.info(
-                    "ℹ️ **Siniestro:** Requiere asignación de Vehículo Sustituto (Pool"
-                    " 20%)."
+                    "ℹ️ **Siniestro:** Requiere asignación de Vehículo Sustituto (Pool 20%)."
                 )
                 evidencia_s = st.file_uploader(
                     "Declaración de Siniestro / Fotos Impacto (PDF/JPG):",
@@ -1728,8 +1720,7 @@ if mod_actual == "Registro de Taller e Incidencias":
                 lista_ecos_taller if lista_ecos_taller else ["Sin ECOs cargados"],
             )
             ingresos_activos = [
-                r
-                for r in st.session_state.taller_registros
+                r for r in st.session_state.get("taller_registros", [])
                 if r.get("ECO", r.get("eco")) == eco_salida and r.get("Estatus", r.get("estatus")) == "Activo (En Taller)"
             ]
 
@@ -1738,9 +1729,9 @@ if mod_actual == "Registro de Taller e Incidencias":
             else:
                 reg_previo = ingresos_activos[0]
                 st.success(
-                    f"✓ Entrada activa confirmada para **{eco_salida}**"
-                    f" ({reg_previo.get('Tipo', reg_previo.get('tipo'))} | Fecha Entrada:"
-                    f" {reg_previo.get('Fecha_Ingreso', reg_previo.get('fecha_ingreso'))})."
+                    f"✓ Entrada activa confirmada para **{eco_salida}** "
+                    f"({reg_previo.get('Tipo', reg_previo.get('tipo'))} | Fecha Entrada: "
+                    f"{reg_previo.get('Fecha_Ingreso', reg_previo.get('fecha_ingreso'))})."
                 )
 
                 with st.form(key="form_salida_taller"):
@@ -1827,13 +1818,13 @@ if mod_actual == "Registro de Taller e Incidencias":
 
     with tab_editar:
         st.markdown("##### **Módulo de Corrección de Registros Mal Capturados**")
-        if len(st.session_state.taller_registros) == 0:
+        if len(st.session_state.get("taller_registros", [])) == 0:
             st.info("No hay registros guardados en la bitácora para corregir.")
         else:
             opciones_reg = [
                 (
-                    f"ID: {idx} | ECO: {r.get('ECO', r.get('eco', 'N/A'))} | Tipo: {r.get('Tipo', r.get('tipo', 'N/A'))} | Fecha:"
-                    f" {r.get('Fecha_Ingreso', r.get('fecha_ingreso', 'N/A'))} | Estatus: {r.get('Estatus', r.get('estatus', 'N/A'))}"
+                    f"ID: {idx} | ECO: {r.get('ECO', r.get('eco', 'N/A'))} | Tipo: {r.get('Tipo', r.get('tipo', 'N/A'))} | Fecha: "
+                    f"{r.get('Fecha_Ingreso', r.get('fecha_ingreso', 'N/A'))} | Estatus: {r.get('Estatus', r.get('estatus', 'N/A'))}"
                 )
                 for idx, r in enumerate(st.session_state.taller_registros)
             ]
@@ -1919,10 +1910,9 @@ if mod_actual == "Registro de Taller e Incidencias":
     st.markdown("---")
     st.markdown("##### **Bitácora de Control de Taller e Incidencias**")
     
-    if st.session_state.taller_registros:
+    if st.session_state.get("taller_registros"):
         df_bitacora = pd.DataFrame(st.session_state.taller_registros)
         
-        # Mapeo de columnas para renombrarlas de forma legible
         columnas_renombrar = {
             "eco": "ECO",
             "tipo": "Tipo",
@@ -1940,7 +1930,6 @@ if mod_actual == "Registro de Taller e Incidencias":
         }
         df_bitacora = df_bitacora.rename(columns=columnas_renombrar)
         
-        # Columnas ordenadas incluyendo las de entrega y salida
         cols_ordenadas = [
             "ECO", "Tipo", "Fecha Ingreso", "Hora Ingreso", 
             "Fecha Est. Entrega", "Hora Est. Entrega", 
@@ -1957,70 +1946,6 @@ if mod_actual == "Registro de Taller e Incidencias":
         )
     else:
         st.info("No hay registros en la bitácora actualmente.")
-# ---------------------------------------------------------------------
-        # VISTA PREVIA Y ACCESO DIRECTO AL DOCUMENTO
-        # ---------------------------------------------------------------------
-        st.markdown("##### **📁 Vista Previa de Oficio Justificatorio**")
-        if not df_filtrado_r.empty:
-            lista_opciones_prev = []
-            mapeo_indices = []
-            
-            for original_idx, item in enumerate(st.session_state.reasignaciones_historial):
-                e_val = item.get("eco", item.get("ECO", "N/A"))
-                o_val = item.get("oficio_autorizacion", item.get("No. Oficio", "S/N"))
-                d_val = item.get("sede_destino", item.get("Sede Destino", "N/A"))
-                
-                etiqueta = f"ECO: {e_val} | Oficio: {o_val} | Destino: {d_val}"
-                lista_opciones_prev.append(etiqueta)
-                mapeo_indices.append(original_idx)
-            
-            sel_prev = st.selectbox("Seleccione el movimiento para visualizar su documento:", lista_opciones_prev)
-            
-            if sel_prev:
-                idx_seleccionado = lista_opciones_prev.index(sel_prev)
-                dict_original = st.session_state.reasignaciones_historial[mapeo_indices[idx_seleccionado]]
-                
-                # --- LÍNEA DE DEPURACIÓN ---
-                with st.expander("🛠️ Depurar contenido exacto en Supabase para este registro", expanded=False):
-                    st.write(dict_original)
-                # ---------------------------
-
-                url_doc = "N/A"
-                for clave_posible in ["evidencia_url", "url_oficio", "enlace_oficio", "Enlace Oficio", "evidencia"]:
-                    val = dict_original.get(clave_posible)
-                    if val and pd.notna(val) and str(val).strip() != "" and str(val).strip() != "N/A":
-                        url_doc = str(val).strip()
-                        break
-
-                eco_actual = dict_original.get("eco", dict_original.get("ECO", "N/A"))
-                oficio_actual = dict_original.get("oficio_autorizacion", dict_original.get("No. Oficio", "S/N"))
-
-                if url_doc != "N/A" and url_doc.startswith("http"):
-                    st.success(f"Documento asociado para el ECO **{eco_actual}** (Oficio: **{oficio_actual}**):")
-                    
-                    col_v1, col_v2 = st.columns(2)
-                    with col_v1:
-                        st.markdown(f"📥 [Abrir / Descargar Archivo Original]({url_doc})", unsafe_allow_html=True)
-                    with col_v2:
-                        st.markdown(f"🔗 [Copiar Enlace Directo]({url_doc})", unsafe_allow_html=True)
-
-                    st.markdown("---")
-
-                    try:
-                        if any(ext in url_doc.lower() for ext in [".jpg", ".jpeg", ".png", "image/upload"]):
-                            st.image(url_doc, caption=f"Oficio de Reasignación - ECO {eco_actual}", use_container_width=True)
-                        elif ".pdf" in url_doc.lower() or "raw/upload" in url_doc or "pdf" in url_doc.lower():
-                            st.markdown(f'<iframe src="{url_doc}" width="100%" height="600px" style="border:none;"></iframe>', unsafe_allow_html=True)
-                        else:
-                            st.image(url_doc, caption=f"Oficio - ECO {eco_actual}", use_container_width=True)
-                    except Exception as e:
-                        st.warning("No se pudo cargar la vista previa interactiva directamente en la página, pero puedes acceder al documento mediante el enlace de arriba.")
-                else:
-                    st.warning(f"Este registro no cuenta con un archivo adjunto válido. Valor en BD: `{url_doc}`.")
-        else:
-            st.info("No hay registros que coincidan con los filtros seleccionados.")
-    else:
-        st.info("No hay registros de reasignaciones en el histórico.")
 # -----------------------------------------------------------------------------
 # 8. REPORTES Y EXPORTACIÓN
 # -----------------------------------------------------------------------------
