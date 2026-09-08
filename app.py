@@ -2012,7 +2012,7 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
             ]
             if reasig_unidad:
                 ultima_reasig = reasig_unidad[-1]
-                destino_previo = ultima_reasig.get("sede_destino", ultima_reasig.get("Sede_Destino"))
+                destino_previo = ultima_reasig.get("sede_destino", ultima_reasig.get("Sede Destino"))
                 if destino_previo and pd.notna(destino_previo):
                     sede_origen = str(destino_previo).strip()
 
@@ -2080,7 +2080,10 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
     if "reasignaciones_historial" in st.session_state and st.session_state.reasignaciones_historial:
         df_reasig = pd.DataFrame(st.session_state.reasignaciones_historial)
         
-        # Mapeo seguro para estandarizar columnas sin importar cómo lleguen
+        # Normalizar nombres de columnas del DataFrame sin importar cómo vengan de Supabase
+        df_reasig.columns = [str(c).strip().lower() for c in df_reasig.columns]
+        
+        # Mapeo a nombres amigables
         renombrar_reasig = {
             "eco": "ECO",
             "sede_origen": "Sede Origen",
@@ -2088,7 +2091,8 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
             "fecha": "Fecha Reasignación",
             "motivo": "Motivo",
             "oficio_autorizacion": "No. Oficio",
-            "evidencia_url": "Enlace Oficio"
+            "evidencia_url": "Enlace Oficio",
+            "url_oficio": "Enlace Oficio"
         }
         df_reasig = df_reasig.rename(columns=renombrar_reasig)
         
@@ -2097,18 +2101,16 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
             with col_f1:
                 filtro_eco = st.text_input("Filtrar por ECO:", value="", placeholder="Ej. A001 o dejar vacío")
             with col_f2:
-                col_sede_key = "Sede Destino" if "Sede Destino" in df_reasig.columns else "sede_destino"
-                sedes_disponibles_hist = ["Todas"] + sorted(df_reasig[col_sede_key].dropna().unique().tolist()) if col_sede_key in df_reasig.columns else ["Todas"]
+                sedes_disponibles_hist = ["Todas"] + sorted(df_reasig["Sede Destino"].dropna().unique().tolist()) if "Sede Destino" in df_reasig.columns else ["Todas"]
                 filtro_sede_dest = st.selectbox("Filtrar por Sede de Destino:", sedes_disponibles_hist)
 
         df_filtrado_r = df_reasig.copy()
-        col_eco_key = "ECO" if "ECO" in df_filtrado_r.columns else "eco"
         
-        if filtro_eco.strip() and col_eco_key in df_filtrado_r.columns:
-            df_filtrado_r = df_filtrado_r[df_filtrado_r[col_eco_key].astype(str).str.contains(filtro_eco.strip(), case=False, na=False)]
+        if filtro_eco.strip() and "ECO" in df_filtrado_r.columns:
+            df_filtrado_r = df_filtrado_r[df_filtrado_r["ECO"].astype(str).str.contains(filtro_eco.strip(), case=False, na=False)]
             
-        if filtro_sede_dest != "Todas" and col_sede_key in df_filtrado_r.columns:
-            df_filtrado_r = df_filtrado_r[df_filtrado_r[col_sede_key] == filtro_sede_dest]
+        if filtro_sede_dest != "Todas" and "Sede Destino" in df_filtrado_r.columns:
+            df_filtrado_r = df_filtrado_r[df_filtrado_r["Sede Destino"] == filtro_sede_dest]
         
         st.caption(f"Mostrando {len(df_filtrado_r)} de {len(df_reasig)} registros totales.")
 
@@ -2121,13 +2123,17 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
             hide_index=True,
         )
 
+        # ---------------------------------------------------------------------
         # VISTA PREVIA DEL DOCUMENTO JUSTIFICATORIO
+        # ---------------------------------------------------------------------
         st.markdown("##### **📁 Vista Previa de Oficio Justificatorio**")
         if not df_filtrado_r.empty:
-            lista_opciones_prev = [
-                f"ECO: {row.get(col_eco_key, 'N/A')} | Oficio: {row.get('No. Oficio', row.get('oficio_autorizacion', 'S/N'))} | Destino: {row.get(col_sede_key, '')}" 
-                for _, row in df_filtrado_r.iterrows()
-            ]
+            lista_opciones_prev = []
+            for _, row in df_filtrado_r.iterrows():
+                e_val = row.get("ECO", "N/A")
+                o_val = row.get("No. Oficio", "S/N")
+                d_val = row.get("Sede Destino", "N/A")
+                lista_opciones_prev.append(f"ECO: {e_val} | Oficio: {o_val} | Destino: {d_val}")
             
             sel_prev = st.selectbox("Seleccione el movimiento para visualizar su documento:", lista_opciones_prev)
             
@@ -2135,30 +2141,30 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
                 idx_sel = lista_opciones_prev.index(sel_prev)
                 fila_sel = df_filtrado_r.iloc[idx_sel]
                 
-                # Búsqueda exhaustiva de la URL en las columnas posibles del diccionario
+                # Búsqueda infalible de la URL revisando cualquier columna que contenga texto de enlace o http
                 url_doc = "N/A"
-                for possible_col in ["Enlace Oficio", "evidencia_url", "Evidencia_Url", "url_oficio", "evidencia"]:
-                    if possible_col in fila_sel and pd.notna(fila_sel[possible_col]) and str(fila_sel[possible_col]).strip() != "":
-                        url_doc = str(fila_sel[possible_col]).strip()
+                for col_name in fila_sel.index:
+                    val_col = str(fila_sel[col_name]).strip()
+                    if val_col.startswith("http://") or val_col.startswith("https://"):
+                        url_doc = val_col
                         break
                 
-                eco_actual = fila_sel.get(col_eco_key, "N/A")
-                oficio_actual = fila_sel.get("No. Oficio", fila_sel.get("oficio_autorizacion", "S/N"))
+                eco_actual = fila_sel.get("ECO", "N/A")
+                oficio_actual = fila_sel.get("No. Oficio", "S/N")
 
-                if url_doc and url_doc != "N/A" and str(url_doc).startswith("http"):
+                if url_doc != "N/A":
                     st.success(f"Documento asociado para el ECO **{eco_actual}** (Oficio: **{oficio_actual}**):")
                     
-                    if url_doc.lower().endswith((".jpg", ".jpeg", ".png")):
+                    if url_doc.lower().endswith((".jpg", ".jpeg", ".png")) or "image/upload" in url_doc or "cloudinary.com" in url_doc:
                         st.image(url_doc, caption=f"Oficio de Reasignación - ECO {eco_actual}", use_container_width=True)
                     elif url_doc.lower().endswith(".pdf"):
                         st.markdown(f'<iframe src="{url_doc}" width="100%" height="600px" type="application/pdf"></iframe>', unsafe_allow_html=True)
                         st.markdown(f"[Abrir PDF en pestaña nueva]({url_doc})")
                     else:
-                        # Si es una URL válida de Cloudinary u otra pero sin extensión clásica, la mostramos como imagen o enlace seguro
                         st.image(url_doc, caption=f"Oficio - ECO {eco_actual}", use_container_width=True)
                         st.markdown(f"🔗 [Enlace directo al documento]({url_doc})")
                 else:
-                    st.warning(f"Este registro no cuenta con un documento digital adjunto válido (`{url_doc}`).")
+                    st.warning("Este registro no cuenta con un documento digital adjunto válido en la base de datos.")
     else:
         st.info("No hay registros de reasignaciones en el histórico.")
 # -----------------------------------------------------------------------------
