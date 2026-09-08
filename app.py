@@ -1971,7 +1971,7 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
     )
 
     lista_ecos_reasignacion = (
-        list(df_base["eco"].unique())
+        list(df_base["eco"].astype(str).unique())
         if not df_base.empty and "eco" in df_base.columns
         else []
     )
@@ -1982,33 +1982,32 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
         else ["Aguascalientes", "Colima", "Manzanillo", "Tepic", "Mazatlán", "Zacatecas"]
     )
 
-    # Inicializar el estado del ECO seleccionado si no existe
     if "eco_seleccionado_r" not in st.session_state:
         st.session_state.eco_seleccionado_r = lista_ecos_reasignacion[0] if lista_ecos_reasignacion else ""
 
     col_r1, col_r2 = st.columns(2)
     
     with col_r1:
-        # El selectbox actualiza la sesión y fuerza el redibujado de la interfaz
         eco_r = st.selectbox(
             "Seleccione el ECO a Reasignar:",
             lista_ecos_reasignacion if lista_ecos_reasignacion else ["Sin ECOs cargados"],
-            key="eco_seleccionado_r",
-            on_change=lambda: st.rerun()
+            key="eco_seleccionado_r"
         )
 
-    # Cálculo dinámico de la Sede de Origen según el ECO activo
+    # Extracción directa usando la columna exacta UBICACIÓN de tu tabla
     sede_origen = "No asignada"
     if not df_base.empty and eco_r in lista_ecos_reasignacion:
-        veh_r_info = df_base[df_base["eco"] == eco_r]
-        if not veh_r_info.empty:
-            fila = veh_r_info.iloc[0]
-            for col in ["ubicacion", "UBICACIÓN", "Ubicación", "sede", "Sede", "delegacion", "Delegacion"]:
+        match_veh = df_base[df_base["eco"].astype(str).str.strip() == str(eco_r).strip()]
+        
+        if not match_veh.empty:
+            fila = match_veh.iloc[0]
+            # Apuntando de forma prioritaria a la columna exacta con mayúscula y acento
+            for col in ["UBICACIÓN", "ubicacion", "Ubicación", "sede", "Sede", "delegacion", "Delegacion"]:
                 if col in df_base.columns and pd.notna(fila[col]):
                     sede_origen = str(fila[col]).strip()
                     break
         
-        # Validación opcional del histórico de reasignaciones en Supabase
+        # Validar si tiene reasignaciones previas registradas en Supabase
         if "reasignaciones_historial" in st.session_state and st.session_state.reasignaciones_historial:
             reasig_unidad = [
                 r for r in st.session_state.reasignaciones_historial 
@@ -2021,8 +2020,7 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
                     sede_origen = str(destino_previo).strip()
 
     with col_r2:
-        # Mostramos la sede correspondiente al vehículo seleccionado
-        st.text_input("Sede de Origen Actual:", value=sede_origen, disabled=True)
+        st.text_input("Sede de Origen Actual:", value=sede_origen, disabled=True, key=f"txt_orig_{eco_r}")
 
     with st.form(key="form_reasignacion"):
         st.markdown("##### **Formulario Oficial de Reasignación**")
