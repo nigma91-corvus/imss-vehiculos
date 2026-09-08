@@ -198,24 +198,10 @@ def cargar_datos_supabase(categoria):
             if "id" in df.columns:
                 df = df.drop(columns=["id"])
             
-            # Limpiar y estandarizar nombres de columnas a minúsculas primero
-            df.columns = df.columns.str.strip().str.lower()
+            # Limpiar espacios en los nombres de las columnas pero respetando mayúsculas originales
+            df.columns = df.columns.str.strip()
             
-            # Mapeo flexible para estandarizar columnas críticas del dashboard
-            columnas_mapeo = {}
-            for col in df.columns:
-                c_clean = col.replace(".", "").replace("_", " ").strip()
-                if c_clean in ["eco", "no eco", "noecco", "no_ecco"]:
-                    columnas_mapeo[col] = "eco"
-                elif c_clean in ["ubicacion", "ubicación"]:
-                    columnas_mapeo[col] = "ubicación"
-                elif c_clean in ["estatus", "status"]:
-                    columnas_mapeo[col] = "estatus"
-            
-            if columnas_mapeo:
-                df = df.rename(columns=columnas_mapeo)
-                
-            # Convertir a texto después de renombrar para evitar problemas de tipos
+            # Convertir a texto para evitar errores de tipo en Streamlit
             df = df.astype(str)
         else:
             return pd.DataFrame(columns=COLUMNAS_OFICIALES)
