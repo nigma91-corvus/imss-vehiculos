@@ -1922,7 +1922,7 @@ if mod_actual == "Registro de Taller e Incidencias":
     if st.session_state.taller_registros:
         df_bitacora = pd.DataFrame(st.session_state.taller_registros)
         
-        # Mapeo opcional para renombrar columnas si vienen en minúsculas desde Supabase
+        # Mapeo de columnas para renombrarlas de forma legible
         columnas_renombrar = {
             "eco": "ECO",
             "tipo": "Tipo",
@@ -1930,6 +1930,8 @@ if mod_actual == "Registro de Taller e Incidencias":
             "hora": "Hora Ingreso",
             "fecha_estimada_salida": "Fecha Est. Entrega",
             "hora_estimada_salida": "Hora Est. Entrega",
+            "fecha_salida": "Fecha Salida Real",
+            "hora_salida": "Hora Salida Real",
             "responsable": "Responsable",
             "taller": "Taller",
             "sustituto": "Sustituto",
@@ -1938,13 +1940,14 @@ if mod_actual == "Registro de Taller e Incidencias":
         }
         df_bitacora = df_bitacora.rename(columns=columnas_renombrar)
         
-        # Seleccionar y ordenar las columnas principales si existen
+        # Columnas ordenadas incluyendo las de entrega y salida
         cols_ordenadas = [
             "ECO", "Tipo", "Fecha Ingreso", "Hora Ingreso", 
             "Fecha Est. Entrega", "Hora Est. Entrega", 
+            "Fecha Salida Real", "Hora Salida Real",
             "Responsable", "Taller", "Sustituto", "Estatus", "Observaciones"
         ]
-        # Filtrar solo las columnas que realmente existan en el dataframe
+        
         cols_finales = [c for c in cols_ordenadas if c in df_bitacora.columns]
         
         st.dataframe(
