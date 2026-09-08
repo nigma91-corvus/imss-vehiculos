@@ -165,7 +165,6 @@ os.makedirs("assets", exist_ok=True)
 # -----------------------------------------------------------------------------
 # CARGA DE DATOS DESDE SUPABASE (FLOTILLAS, TALLER, BITÁCORAS, REASIGNACIONES)
 # -----------------------------------------------------------------------------
-
 @st.cache_data(ttl=60)
 def cargar_datos_supabase(categoria):
     if not supabase:
@@ -185,7 +184,6 @@ def cargar_datos_supabase(categoria):
         while True:
             response = supabase.table(nombre_tabla).select("*").range(offset, offset + batch_size - 1).execute()
             data = response.data
-
             if not data:
                 break
             all_rows.extend(data)
@@ -195,27 +193,39 @@ def cargar_datos_supabase(categoria):
 
         df = pd.DataFrame(all_rows)
         if not df.empty:
+            df = df.astype(str)
+            df.columns = df.columns.str.strip()
             if "id" in df.columns:
                 df = df.drop(columns=["id"])
             
-            # Limpiar espacios en los nombres de las columnas originales
-            df.columns = df.columns.str.strip()
-            
-            # Mapear y asegurar existencia dual (minúsculas y mayúsculas) para compatibilidad total
-            for col in list(df.columns):
-                c_low = col.lower()
-                if c_low in ["estatus", "status"]:
-                    df["estatus"] = df[col]
-                    df["Estatus"] = df[col]
-                elif c_low in ["tipo", "tipo_vehiculo", "tipovehiculo"]:
-                    df["tipo"] = df[col]
-                    df["Tipo"] = df[col]
-                elif c_low in ["ubicacion", "ubicación"]:
-                    df["ubicación"] = df[col]
-                    df["ubicacion"] = df[col]
-                    df["Ubicación"] = df[col]
+            # Mapeo flexible y seguro para estandarizar columnas clave manteniendo compatibilidad total
+            columnas_mapeo = {}
+            for col in df.columns:
+                c_clean = col.lower().replace(".", "").replace("_", " ").strip()
+                if c_clean in ["eco", "no eco", "noecco", "no_ecco"]:
+                    columnas_mapeo[col] = "eco"
+                elif c_clean in ["ubicacion", "ubicación"]:
+                    columnas_mapeo[col] = "UBICACIÓN"
+                elif c_clean in ["estatus", "status"]:
+                    columnas_mapeo[col] = "Estatus"
+                elif c_clean in ["tipo", "tipo vehiculo", "tipovehiculo"]:
+                    columnas_mapeo[col] = "Tipo"
 
-            # Limpiar espacios en blanco en los valores de texto
+            if columnas_mapeo:
+                df = df.rename(columns=columnas_mapeo)
+            
+            # Asegurar duplicados de respaldo en minúscula/mayúscula para que ninguna gráfica falle
+            if "Estatus" in df.columns and "estatus" not in df.columns:
+                df["estatus"] = df["Estatus"]
+            elif "estatus" in df.columns and "Estatus" not in df.columns:
+                df["Estatus"] = df["estatus"]
+
+            if "Tipo" in df.columns and "tipo" not in df.columns:
+                df["tipo"] = df["Tipo"]
+            elif "tipo" in df.columns and "Tipo" not in df.columns:
+                df["Tipo"] = df["tipo"]
+
+            # Limpiar espacios en blanco en los valores de texto para un conteo exacto en las gráficas
             for col in df.select_dtypes(include=["object", "string"]).columns:
                 df[col] = df[col].astype(str).str.strip()
                 df[col] = df[col].replace({"nan": "", "None": "", "NAT": ""})
@@ -225,72 +235,6 @@ def cargar_datos_supabase(categoria):
         return df
     except Exception as e:
         return pd.DataFrame(columns=COLUMNAS_OFICIALES)
-
-@st.cache_data(ttl=60)
-def cargar_taller_supabase():
-    if not supabase:
-        return []
-    try:
-        res = supabase.table("taller_incidencias").select("*").execute()
-        rows = res.data or []
-        mapped = []
-        for r in rows:
-            mapped.append({
-                "ECO": str(r.get("eco") or r.get("ECO", "")).strip(),
-                "Tipo": str(r.get("tipo") or r.get("Tipo", "")).strip(),
-                "Fecha_Ingreso": str(r.get("fecha_ingreso") or r.get("Fecha_Ingreso", "")).strip(),
-                "Hora": str(r.get("hora") or r.get("Hora", "")).strip(),
-                "Responsable": str(r.get("responsable") or r.get("Responsable", "")).strip(),
-                "Taller": str(r.get("taller") or r.get("Taller", "")).strip(),
-                "Sustituto": str(r.get("sustituto") or r.get("Sustituto", "")).strip(),
-                "Estatus": str(r.get("estatus") or r.get("Estatus", "")).strip(),
-                "Observaciones": str(r.get("observaciones") or r.get("Observaciones", "")).strip()
-            })
-        return mapped
-    except Exception:
-        return []
-
-@st.cache_data(ttl=60)
-def cargar_bitacora_cargas_supabase():
-    if not supabase:
-        return []
-    try:
-        res = supabase.table("bitacora_cargas").select("*").execute()
-        rows = res.data or []
-        mapped = []
-        for r in rows:
-            mapped.append({
-                "Fecha": str(r.get("fecha") or r.get("Fecha", "")).strip(),
-                "Usuario": str(r.get("usuario") or r.get("Usuario", "")).strip(),
-                "Base": str(r.get("base") or r.get("Base", "")).strip(),
-                "Archivo": str(r.get("archivo") or r.get("Archivo", "")).strip(),
-                "Registros": int(r.get("registros") or r.get("Registros", 0)),
-                "Estado": str(r.get("estado") or r.get("Estado", "Exitoso")).strip()
-            })
-        return mapped
-    except Exception:
-        return []
-
-@st.cache_data(ttl=60)
-def cargar_reasignaciones_supabase():
-    if not supabase:
-        return []
-    try:
-        res = supabase.table("reasignaciones").select("*").execute()
-        rows = res.data or []
-        mapped = []
-        for r in rows:
-            mapped.append({
-                "ECO": str(r.get("eco") or r.get("ECO", "")).strip(),
-                "Sede_Origen": str(r.get("sede_origen") or r.get("Sede_Origen", "")).strip(),
-                "Sede_Destino": str(r.get("sede_destino") or r.get("Sede_Destino", "")).strip(),
-                "Fecha": str(r.get("fecha") or r.get("Fecha", "")).strip(),
-                "Motivo": str(r.get("motivo") or r.get("Motivo", "")).strip(),
-                "Oficio_Autorizacion": str(r.get("oficio_autorizacion") or r.get("Oficio_Autorizacion", "")).strip()
-            })
-        return mapped
-    except Exception:
-        return []
 # -----------------------------------------------------------------------------
 # GESTIÓN DEL ESTADO DE SESIÓN (SINCRONIZADO CON SUPABASE)
 # -----------------------------------------------------------------------------
