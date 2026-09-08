@@ -2101,15 +2101,12 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
             col_f1, col_f2 = st.columns(2)
             
             with col_f1:
-                # Filtro por número ECO (búsqueda de texto flexible)
                 filtro_eco = st.text_input("Filtrar por ECO:", value="", placeholder="Ej. 104 o dejar vacío")
                 
             with col_f2:
-                # Filtro por Sede Destino
                 sedes_disponibles_hist = ["Todas"] + sorted(df_reasig["Sede Destino"].dropna().unique().tolist()) if "Sede Destino" in df_reasig.columns else ["Todas"]
                 filtro_sede_dest = st.selectbox("Filtrar por Sede de Destino:", sedes_disponibles_hist)
 
-        # Aplicando los filtros al DataFrame
         df_filtrado_r = df_reasig.copy()
         
         if filtro_eco.strip():
@@ -2118,17 +2115,47 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
         if filtro_sede_dest != "Todas":
             df_filtrado_r = df_filtrado_r[df_filtrado_r["Sede Destino"] == filtro_sede_dest]
         
-        # Mostrar métrica rápida de registros filtrados
         st.caption(f"Mostrando {len(df_filtrado_r)} de {len(df_reasig)} registros totales.")
 
+        # Orden de columnas solicitadas: No. Oficio antes de Motivo, y Enlace Oficio al final
         cols_ordenadas_r = ["ECO", "Sede Origen", "Sede Destino", "Fecha Reasignación", "No. Oficio", "Motivo", "Enlace Oficio"]
         cols_finales_r = [c for c in cols_ordenadas_r if c in df_filtrado_r.columns]
         
+        # Mostrar la tabla base de datos
         st.dataframe(
             df_filtrado_r[cols_finales_r],
             use_container_width=True,
             hide_index=True,
         )
+
+        # ---------------------------------------------------------------------
+        # VISTA PREVIA DEL DOCUMENTO JUSTIFICATORIO (OFICIO)
+        # ---------------------------------------------------------------------
+        st.markdown("##### **📁 Vista Previa de Oficio Justificatorio**")
+        if not df_filtrado_r.empty:
+            # Seleccionar un registro del conjunto filtrado para previsualizar
+            lista_opciones_prev = [f"ECO: {row['ECO']} | Oficio: {row.get('No. Oficio', 'S/N')} | Destino: {row.get('Sede Destino', '')}" for _, row in df_filtrado_r.iterrows()]
+            
+            sel_prev = st.selectbox("Seleccione el movimiento para visualizar su documento:", lista_opciones_prev)
+            
+            if sel_prev:
+                idx_sel = lista_opciones_prev.index(sel_prev)
+                fila_sel = df_filtrado_r.iloc[idx_sel]
+                url_doc = fila_sel.get("Enlace Oficio", "N/A")
+                
+                if url_doc and url_doc != "N/A" and str(url_doc).startswith("http"):
+                    st.success(f"Documento asociado para el ECO **{fila_sel['ECO']}** (Oficio: **{fila_sel.get('No. Oficio', 'S/N')}**):")
+                    
+                    # Comprobar la extensión para renderizar acorde al tipo de archivo
+                    if url_doc.lower().endswith((".jpg", ".jpeg", ".png")):
+                        st.image(url_doc, caption=f"Oficio de Reasignación - ECO {fila_sel['ECO']}", use_container_width=True)
+                    elif url_doc.lower().endswith(".pdf"):
+                        st.markdown(f'<iframe src="{url_doc}" width="100%" height="600px" type="application/pdf"></iframe>', unsafe_allow_html=True)
+                        st.markdown(f"[Abrir PDF en pestaña nueva]({url_doc})")
+                    else:
+                        st.markdown(f"🔗 [Enlace al documento adjunto]({url_doc})")
+                else:
+                    st.warning("Este registro no cuenta con un documento digital adjunto (N/A).")
     else:
         st.info("No hay registros de reasignaciones en el histórico.")
 # -----------------------------------------------------------------------------
