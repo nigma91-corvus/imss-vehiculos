@@ -225,6 +225,72 @@ def cargar_datos_supabase(categoria):
         return df
     except Exception as e:
         return pd.DataFrame(columns=COLUMNAS_OFICIALES)
+
+@st.cache_data(ttl=60)
+def cargar_taller_supabase():
+    if not supabase:
+        return []
+    try:
+        res = supabase.table("taller_incidencias").select("*").execute()
+        rows = res.data or []
+        mapped = []
+        for r in rows:
+            mapped.append({
+                "ECO": str(r.get("eco") or r.get("ECO", "")).strip(),
+                "Tipo": str(r.get("tipo") or r.get("Tipo", "")).strip(),
+                "Fecha_Ingreso": str(r.get("fecha_ingreso") or r.get("Fecha_Ingreso", "")).strip(),
+                "Hora": str(r.get("hora") or r.get("Hora", "")).strip(),
+                "Responsable": str(r.get("responsable") or r.get("Responsable", "")).strip(),
+                "Taller": str(r.get("taller") or r.get("Taller", "")).strip(),
+                "Sustituto": str(r.get("sustituto") or r.get("Sustituto", "")).strip(),
+                "Estatus": str(r.get("estatus") or r.get("Estatus", "")).strip(),
+                "Observaciones": str(r.get("observaciones") or r.get("Observaciones", "")).strip()
+            })
+        return mapped
+    except Exception:
+        return []
+
+@st.cache_data(ttl=60)
+def cargar_bitacora_cargas_supabase():
+    if not supabase:
+        return []
+    try:
+        res = supabase.table("bitacora_cargas").select("*").execute()
+        rows = res.data or []
+        mapped = []
+        for r in rows:
+            mapped.append({
+                "Fecha": str(r.get("fecha") or r.get("Fecha", "")).strip(),
+                "Usuario": str(r.get("usuario") or r.get("Usuario", "")).strip(),
+                "Base": str(r.get("base") or r.get("Base", "")).strip(),
+                "Archivo": str(r.get("archivo") or r.get("Archivo", "")).strip(),
+                "Registros": int(r.get("registros") or r.get("Registros", 0)),
+                "Estado": str(r.get("estado") or r.get("Estado", "Exitoso")).strip()
+            })
+        return mapped
+    except Exception:
+        return []
+
+@st.cache_data(ttl=60)
+def cargar_reasignaciones_supabase():
+    if not supabase:
+        return []
+    try:
+        res = supabase.table("reasignaciones").select("*").execute()
+        rows = res.data or []
+        mapped = []
+        for r in rows:
+            mapped.append({
+                "ECO": str(r.get("eco") or r.get("ECO", "")).strip(),
+                "Sede_Origen": str(r.get("sede_origen") or r.get("Sede_Origen", "")).strip(),
+                "Sede_Destino": str(r.get("sede_destino") or r.get("Sede_Destino", "")).strip(),
+                "Fecha": str(r.get("fecha") or r.get("Fecha", "")).strip(),
+                "Motivo": str(r.get("motivo") or r.get("Motivo", "")).strip(),
+                "Oficio_Autorizacion": str(r.get("oficio_autorizacion") or r.get("Oficio_Autorizacion", "")).strip()
+            })
+        return mapped
+    except Exception:
+        return []
 # -----------------------------------------------------------------------------
 # GESTIÓN DEL ESTADO DE SESIÓN (SINCRONIZADO CON SUPABASE)
 # -----------------------------------------------------------------------------
