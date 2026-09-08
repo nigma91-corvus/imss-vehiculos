@@ -1957,7 +1957,6 @@ if mod_actual == "Registro de Taller e Incidencias":
         )
     else:
         st.info("No hay registros en la bitácora actualmente.")
-# -----------------------------------------------------------------------------
 # 7. REASIGNACIÓN POR NECESIDAD DE SERVICIO (PERSISTIDA EN SUPABASE)
 # -----------------------------------------------------------------------------
 elif mod_actual == "Reasignación por Necesidad de Servicio":
@@ -1983,26 +1982,48 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
         else ["Aguascalientes", "Colima", "Manzanillo", "Tepic", "Mazatlán", "Zacatecas"]
     )
 
-    with st.form(key="form_reasignacion"):
-        st.markdown("##### **Formulario Oficial de Reasignación**")
-        col_r1, col_r2 = st.columns(2)
-        eco_r = col_r1.selectbox(
+    if "eco_seleccionado_r" not in st.session_state:
+        st.session_state.eco_seleccionado_r = lista_ecos_reasignacion[0] if lista_ecos_reasignacion else ""
+
+    col_r1, col_r2 = st.columns(2)
+    
+    with col_r1:
+        eco_r = st.selectbox(
             "Seleccione el ECO a Reasignar:",
-            (
-                lista_ecos_reasignacion
-                if lista_ecos_reasignacion
-                else ["Sin ECOs cargados"]
-            ),
+            lista_ecos_reasignacion if lista_ecos_reasignacion else ["Sin ECOs cargados"],
+            key="eco_seleccionado_r"
         )
 
-        sede_origen = ""
-        if not df_base.empty and eco_r in lista_ecos_reasignacion:
-            veh_r_info = df_base[df_base["eco"] == eco_r].iloc[0]
-            sede_origen = veh_r_info.get("UBICACIÓN", "")
+    # Extracción inteligente de la Sede de Origen real (catálogo + historial)
+    sede_origen = "No asignada"
+    if not df_base.empty and eco_r in lista_ecos_reasignacion:
+        veh_r_info = df_base[df_base["eco"] == eco_r]
+        if not veh_r_info.empty:
+            fila = veh_r_info.iloc[0]
+            for col in ["ubicacion", "UBICACIÓN", "Ubicación", "sede", "Sede", "delegacion", "Delegacion"]:
+                if col in df_base.columns and pd.notna(fila[col]):
+                    sede_origen = str(fila[col]).strip()
+                    break
+        
+        # Validación de reasignaciones previas registradas en Supabase
+        if "reasignaciones_historial" in st.session_state and st.session_state.reasignaciones_historial:
+            reasig_unidad = [
+                r for r in st.session_state.reasignaciones_historial 
+                if str(r.get("ECO", r.get("eco", ""))).strip() == str(eco_r).strip()
+            ]
+            if reasig_unidad:
+                ultima_reasig = reasig_unidad[-1]
+                destino_previo = ultima_reasig.get("Sede_Destino", ultima_reasig.get("sede_destino"))
+                if destino_previo and pd.notna(destino_previo):
+                    sede_origen = str(destino_previo).strip()
 
-        col_r2.text_input("Sede de Origen Actual:", value=sede_origen, disabled=True)
+    with col_r2:
+        st.text_input("Sede de Origen Actual:", value=sede_origen, disabled=True, key=f"input_sede_{eco_r}")
 
+    with st.form(key="form_reasignacion"):
+        st.markdown("##### **Formulario Oficial de Reasignación**")
         col_r3, col_r4 = st.columns(2)
+        
         sedes_dest = [s for s in lista_ciudades_dinamica if s != sede_origen]
         if not sedes_dest:
             sedes_dest = lista_ciudades_dinamica
@@ -2012,7 +2033,6 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
 
         motivo = st.text_area("Justificación Técnica / Necesidad de Servicio:")
         
-        # Campo para subir el archivo del oficio de autorización
         evidencia_oficio = st.file_uploader(
             "Subir Oficio de Autorización Escaneado (PDF/JPG):",
             type=["pdf", "jpg", "png"],
@@ -2023,8 +2043,10 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
     if submitted_reasig:
         if not lista_ecos_reasignacion:
             st.error("No hay vehículos cargados para reasignar.")
+        elif sede_origen == sede_destino:
+            st.error("⚠️ La sede de destino no puede ser igual a la sede de origen actual.")
         else:
-            # Subir archivo a Cloudinary si se adjuntó uno
+            # Subir archivo del oficio a Cloudinary
             url_oficio = (
                 subir_a_cloudinary(evidencia_oficio, folder_destino="reasignaciones_oficios")
                 if evidencia_oficio
@@ -2032,12 +2054,12 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
             )
 
             nueva_reasig = {
-                "eco": eco_r,
-                "sede_origen": sede_origen,
-                "sede_destino": sede_destino,
+                "eco": str(eco_r),
+                "sede_origen": str(sede_origen),
+                "sede_destino": str(sede_destino),
                 "fecha": str(date.today()),
-                "motivo": motivo,
-                "oficio_autorizacion": oficio,
+                "motivo": str(motivo),
+                "oficio_autorizacion": str(oficio),
                 "evidencia_url": str(url_oficio),
             }
             
@@ -2056,11 +2078,31 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
 
     st.markdown("---")
     st.markdown("##### **Histórico de Reasignaciones Realizadas**")
-    st.dataframe(
-        pd.DataFrame(st.session_state.reasignaciones_historial),
-        use_container_width=True,
-        hide_index=True,
-    )
+    
+    if "reasignaciones_historial" in st.session_state and st.session_state.reasignaciones_historial:
+        df_reasig = pd.DataFrame(st.session_state.reasignaciones_historial)
+        
+        renombrar_reasig = {
+            "eco": "ECO",
+            "sede_origen": "Sede Origen",
+            "sede_destino": "Sede Destino",
+            "fecha": "Fecha Reasignación",
+            "motivo": "Motivo",
+            "oficio_autorizacion": "No. Oficio",
+            "evidencia_url": "Enlace Oficio"
+        }
+        df_reasig = df_reasig.rename(columns=renombrar_reasig)
+        
+        cols_ordenadas_r = ["ECO", "Sede Origen", "Sede Destino", "Fecha Reasignación", "No. Oficio", "Motivo", "Enlace Oficio"]
+        cols_finales_r = [c for c in cols_ordenadas_r if c in df_reasig.columns]
+        
+        st.dataframe(
+            df_reasig[cols_finales_r],
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.info("No hay registros de reasignaciones en el histórico.")
 
 # -----------------------------------------------------------------------------
 # 8. REPORTES Y EXPORTACIÓN
