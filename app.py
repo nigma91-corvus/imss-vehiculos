@@ -1958,7 +1958,6 @@ if mod_actual == "Registro de Taller e Incidencias":
     else:
         st.info("No hay registros en la bitácora actualmente.")
 # ---------------------------------------------------------------------
-                # ---------------------------------------------------------------------
         # VISTA PREVIA Y ACCESO DIRECTO AL DOCUMENTO
         # ---------------------------------------------------------------------
         st.markdown("##### **📁 Vista Previa de Oficio Justificatorio**")
@@ -2018,6 +2017,8 @@ if mod_actual == "Registro de Taller e Incidencias":
                         st.warning("No se pudo cargar la vista previa interactiva directamente en la página, pero puedes acceder al documento mediante el enlace de arriba.")
                 else:
                     st.warning(f"Este registro no cuenta con un archivo adjunto válido. Valor en BD: `{url_doc}`.")
+        else:
+            st.info("No hay registros que coincidan con los filtros seleccionados.")
     else:
         st.info("No hay registros de reasignaciones en el histórico.")
 # -----------------------------------------------------------------------------
