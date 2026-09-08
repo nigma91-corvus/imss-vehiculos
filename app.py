@@ -1576,6 +1576,12 @@ if mod_actual == "Registro de Taller e Incidencias":
         f_ent = c3.date_input("Fecha Ingreso Taller:", value=date.today())
         h_ent = c4.time_input("Hora Ingreso Taller:")
 
+        # CAMPOS AÑADIDOS: Fecha y Hora Estimada de Entrega
+        st.markdown("###### **📅 Estimación de Entrega del Taller**")
+        ce1, ce2 = st.columns(2)
+        f_est_entrega = ce1.date_input("Fecha Estimada de Entrega:", value=date.today())
+        h_est_entrega = ce2.time_input("Hora Estimada de Entrega:")
+
         c5, c6 = st.columns(2)
         resp_t = c5.text_input("Responsable que Autoriza Ingreso:", value="")
         taller_nom = c6.text_input(
@@ -1606,7 +1612,6 @@ if mod_actual == "Registro de Taller e Incidencias":
           if not lista_ecos_taller:
             st.error("No se puede registrar sin vehículos en la base.")
           else:
-            # Subida de archivo a Cloudinary
             url_evidencia = subir_a_cloudinary(evidencia, folder_destino="taller_entradas")
             
             nuevo_reg = {
@@ -1614,12 +1619,14 @@ if mod_actual == "Registro de Taller e Incidencias":
                 "tipo": tipo_mantenimiento,
                 "fecha_ingreso": str(f_ent),
                 "hora": str(h_ent),
+                "fecha_estimada_salida": str(f_est_entrega),
+                "hora_estimada_salida": str(h_est_entrega),
                 "responsable": resp_t,
                 "taller": taller_nom,
                 "sustituto": req_sust,
                 "estatus": "Activo (En Taller)",
                 "observaciones": obs_m,
-                "evidencia_url": url_evidencia # Guardando el enlace de Cloudinary en Supabase
+                "evidencia_url": url_evidencia
             }
             if supabase:
               try:
@@ -1653,6 +1660,12 @@ if mod_actual == "Registro de Taller e Incidencias":
         f_sin = s6.date_input("Fecha del Siniestro:", value=date.today())
         taller_sin = s7.text_input("Taller Asignado por Ajustador:", value="")
 
+        # CAMPOS AÑADIDOS: Fecha y Hora Estimada para Siniestros
+        st.markdown("###### **📅 Estimación de Entrega del Taller (Siniestro)**")
+        cse1, cse2 = st.columns(2)
+        f_est_siniestro = cse1.date_input("Fecha Estimada de Entrega:", value=date.today())
+        h_est_siniestro = cse2.time_input("Hora Estimada de Entrega:")
+
         st.info(
             "ℹ️ **Siniestro:** Requiere asignación de Vehículo Sustituto (Pool"
             " 20%)."
@@ -1667,7 +1680,6 @@ if mod_actual == "Registro de Taller e Incidencias":
           if not lista_ecos_taller:
             st.error("No se puede registrar sin vehículos en la base.")
           else:
-            # Subida de archivo a Cloudinary
             url_evidencia_s = subir_a_cloudinary(evidencia_s, folder_destino="taller_siniestros")
 
             nuevo_reg_s = {
@@ -1675,6 +1687,8 @@ if mod_actual == "Registro de Taller e Incidencias":
                 "tipo": "Siniestro",
                 "fecha_ingreso": str(f_sin),
                 "hora": datetime.now().strftime("%H:%M"),
+                "fecha_estimada_salida": str(f_est_siniestro),
+                "hora_estimada_salida": str(h_est_siniestro),
                 "responsable": f"Ajustador {aseg}",
                 "taller": taller_sin,
                 "sustituto": "Sí",
@@ -1732,12 +1746,10 @@ if mod_actual == "Registro de Taller e Incidencias":
           )
 
           if st.form_submit_button("Confirmar y Liberar Salida"):
-            # Subida de comprobante de salida a Cloudinary
             url_evidencia_sal = subir_a_cloudinary(evidencia_salida, folder_destino="taller_salidas")
 
             if supabase:
               try:
-                # SE INCLUYEN FECHA Y HORA DE SALIDA PARA QUE SE GUARDEN EN SUPABASE
                 datos_salida = {
                     "estatus": "Concluido (Salida Completa)",
                     "fecha_salida": str(f_sal),
@@ -1778,6 +1790,8 @@ if mod_actual == "Registro de Taller e Incidencias":
                 "tipo": ri.get("Tipo", "Mantenimiento Correctivo"),
                 "fecha_ingreso": ri.get("Fecha_Ingreso", str(date.today())),
                 "hora": ri.get("Hora", "09:00"),
+                "fecha_estimada_salida": ri.get("Fecha_Estimada_Salida", str(date.today())),
+                "hora_estimada_salida": ri.get("Hora_Estimada_Salida", "18:00"),
                 "responsable": ri.get("Responsable", "Importación CSV"),
                 "taller": ri.get("Taller", "General"),
                 "sustituto": ri.get("Sustituto", "Sí"),
