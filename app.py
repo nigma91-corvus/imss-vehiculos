@@ -1522,7 +1522,7 @@ def subir_a_cloudinary(archivo_subido, folder_destino="taller_flotilla"):
 
 # 6. REGISTRO DE TALLER E INCIDENCIAS (PERSISTIDO EN SUPABASE)
 # -----------------------------------------------------------------------------
-elif mod_actual == "Registro de Taller e Incidencias":
+if mod_actual == "Registro de Taller e Incidencias":
   st.markdown(
       f'<p class="subtitulo-seccion">Registro de Taller, Incidencias y'
       f" Siniestros - Flotilla {cat_actual}</p>",
