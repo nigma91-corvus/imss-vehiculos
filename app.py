@@ -1737,10 +1737,20 @@ if mod_actual == "Registro de Taller e Incidencias":
 
             if supabase:
               try:
-                supabase.table("taller_incidencias").update({
+                # SE INCLUYEN FECHA Y HORA DE SALIDA PARA QUE SE GUARDEN EN SUPABASE
+                datos_salida = {
                     "estatus": "Concluido (Salida Completa)",
-                    "observaciones": f"{reg_previo.get('Observaciones', '')} | Salida: {obs_salida}"
-                }).eq("eco", eco_salida).eq("estatus", "Activo (En Taller)").execute()
+                    "fecha_salida": str(f_sal),
+                    "hora_salida": str(h_sal),
+                    "observaciones": f"{reg_previo.get('Observaciones', reg_previo.get('observaciones', ''))} | Salida: {obs_salida}"
+                }
+                
+                reg_id = reg_previo.get("id")
+                if reg_id:
+                  supabase.table("taller_incidencias").update(datos_salida).eq("id", reg_id).execute()
+                else:
+                  supabase.table("taller_incidencias").update(datos_salida).eq("eco", eco_salida).eq("estatus", "Activo (En Taller)").execute()
+
               except Exception as err:
                 st.error(f"Error al actualizar en Supabase: {err}")
 
