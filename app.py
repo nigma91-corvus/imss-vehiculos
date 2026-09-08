@@ -1151,7 +1151,7 @@ if mod_actual == "Expediente por ECO y Documental":
         eco_input = st.text_input(
             "Escriba el Número de ECO a Consultar:",
             value="",
-            placeholder="Ej. ECO-101",
+            placeholder="Ej. 101 o AA-101",
         )
 
         if not eco_input.strip():
@@ -1159,18 +1159,33 @@ if mod_actual == "Expediente por ECO y Documental":
                 "Por favor, escriba un número de ECO en el campo superior para ver su expediente."
             )
         else:
-            vehiculo_sel = df_base[
-                df_base["eco"].astype(str).str.strip().str.lower()
-                == eco_input.strip().lower()
-            ]
+            busqueda_limpia = eco_input.strip().lower()
+
+            # Búsqueda flexible: si el usuario escribe solo números, busca coincidencia parcial; si escribe completo, busca exacto
+            if busqueda_limpia.isdigit():
+                # Filtra si el ECO contiene los dígitos ingresados (ej. buscar "1" o "001")
+                vehiculo_sel = df_base[
+                    df_base["eco"].astype(str).str.lower().str.contains(busqueda_limpia)
+                ]
+            else:
+                # Búsqueda exacta limpia de espacios por si escriben letras y números (ej. "aa001")
+                vehiculo_sel = df_base[
+                    df_base["eco"].astype(str).str.strip().str.lower()
+                    == busqueda_limpia
+                ]
 
             if vehiculo_sel.empty:
                 st.error(
-                    f"No se encontró ningún vehículo con el ECO '{eco_input}' en la flotilla **{cat_actual}**."
+                    f"No se encontró ningún vehículo con el criterio '{eco_input}' en la flotilla **{cat_actual}**."
                 )
+            elif len(vehiculo_sel) > 1 and busqueda_limpia.isdigit():
+                st.warning(f"Se encontraron varios vehículos que coinciden con '{eco_input}'. Por favor, sé más específico:")
+                st.dataframe(vehiculo_sel[["eco", "Tipo", "Linea", "Placas"]], use_container_width=True, hide_index=True)
             else:
+                # Si arroja solo uno (o si se hizo búsqueda exacta), toma el registro
                 eco_search = vehiculo_sel.iloc[0]["eco"]
                 v_data = vehiculo_sel.iloc[0]
+                # (Aquí continúa todo el despliegue normal de tu expediente...)
 
                 st.markdown("---")
                 st.markdown(
@@ -1317,9 +1332,9 @@ if mod_actual == "Expediente por ECO y Documental":
                                         url_final = upload_result.get("secure_url")
 
                                         tabla_map = {
-                                            "Administrativos": "vehiculos_administrativos",
-                                            "Ambulancias": "vehiculos_ambulancias",
-                                            "Institucionales": "vehiculos_institucionales",
+                                        "Administrativos": "vehiculos_administrativos",
+                                        "Ambulancias": "vehiculos_ambulancias",
+                                        "Institucionales": "vehiculos_institucionales",
                                         }
                                         nombre_tabla_vehiculos = tabla_map.get(cat_actual, "vehiculos_administrativos")
 
