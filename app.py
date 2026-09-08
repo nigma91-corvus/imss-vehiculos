@@ -2078,12 +2078,10 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
     st.markdown("##### **Histórico de Reasignaciones Realizadas**")
     
     if "reasignaciones_historial" in st.session_state and st.session_state.reasignaciones_historial:
+        # Creamos una copia limpia para mostrar en la tabla principal
         df_reasig = pd.DataFrame(st.session_state.reasignaciones_historial)
         
-        # Normalizar nombres de columnas del DataFrame sin importar cómo vengan de Supabase
-        df_reasig.columns = [str(c).strip().lower() for c in df_reasig.columns]
-        
-        # Mapeo a nombres amigables
+        # Mapeo a nombres amigables para la tabla
         renombrar_reasig = {
             "eco": "ECO",
             "sede_origen": "Sede Origen",
@@ -2124,35 +2122,36 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
         )
 
         # ---------------------------------------------------------------------
-        # VISTA PREVIA DEL DOCUMENTO JUSTIFICATORIO
+        # VISTA PREVIA DEL DOCUMENTO JUSTIFICATORIO (CONECTADA AL HISTORIAL REAL)
         # ---------------------------------------------------------------------
         st.markdown("##### **📁 Vista Previa de Oficio Justificatorio**")
         if not df_filtrado_r.empty:
+            # Mapeamos usando directamente la lista original en st.session_state.reasignaciones_historial
             lista_opciones_prev = []
-            for _, row in df_filtrado_r.iterrows():
-                e_val = row.get("ECO", "N/A")
-                o_val = row.get("No. Oficio", "S/N")
-                d_val = row.get("Sede Destino", "N/A")
-                lista_opciones_prev.append(f"ECO: {e_val} | Oficio: {o_val} | Destino: {d_val}")
+            mapeo_indices = []
+            
+            for original_idx, item in enumerate(st.session_state.reasignaciones_historial):
+                e_val = item.get("eco", item.get("ECO", "N/A"))
+                o_val = item.get("oficio_autorizacion", item.get("No. Oficio", "S/N"))
+                d_val = item.get("sede_destino", item.get("Sede Destino", "N/A"))
+                
+                # Opcional: filtrar si coincide con el filtro actual de la tabla
+                etiqueta = f"ECO: {e_val} | Oficio: {o_val} | Destino: {d_val}"
+                lista_opciones_prev.append(etiqueta)
+                mapeo_indices.append(original_idx)
             
             sel_prev = st.selectbox("Seleccione el movimiento para visualizar su documento:", lista_opciones_prev)
             
             if sel_prev:
-                idx_sel = lista_opciones_prev.index(sel_prev)
-                fila_sel = df_filtrado_r.iloc[idx_sel]
+                idx_seleccionado = lista_opciones_prev.index(sel_prev)
+                dict_original = st.session_state.reasignaciones_historial[mapeo_indices[idx_seleccionado]]
                 
-                # Búsqueda infalible de la URL revisando cualquier columna que contenga texto de enlace o http
-                url_doc = "N/A"
-                for col_name in fila_sel.index:
-                    val_col = str(fila_sel[col_name]).strip()
-                    if val_col.startswith("http://") or val_col.startswith("https://"):
-                        url_doc = val_col
-                        break
-                
-                eco_actual = fila_sel.get("ECO", "N/A")
-                oficio_actual = fila_sel.get("No. Oficio", "S/N")
+                # Extracción directa y segura de la URL desde el diccionario original de Supabase
+                url_doc = str(dict_original.get("evidencia_url", dict_original.get("Enlace Oficio", "N/A"))).strip()
+                eco_actual = dict_original.get("eco", dict_original.get("ECO", "N/A"))
+                oficio_actual = dict_original.get("oficio_autorizacion", dict_original.get("No. Oficio", "S/N"))
 
-                if url_doc != "N/A":
+                if url_doc and url_doc != "N/A" and url_doc.startswith("http"):
                     st.success(f"Documento asociado para el ECO **{eco_actual}** (Oficio: **{oficio_actual}**):")
                     
                     if url_doc.lower().endswith((".jpg", ".jpeg", ".png")) or "image/upload" in url_doc or "cloudinary.com" in url_doc:
@@ -2164,7 +2163,7 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
                         st.image(url_doc, caption=f"Oficio - ECO {eco_actual}", use_container_width=True)
                         st.markdown(f"🔗 [Enlace directo al documento]({url_doc})")
                 else:
-                    st.warning("Este registro no cuenta con un documento digital adjunto válido en la base de datos.")
+                    st.warning(f"Este registro no cuenta con un documento digital adjunto válido (Valor en BD: `{url_doc}`).")
     else:
         st.info("No hay registros de reasignaciones en el histórico.")
 # -----------------------------------------------------------------------------
