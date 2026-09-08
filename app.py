@@ -198,8 +198,26 @@ def cargar_datos_supabase(categoria):
             if "id" in df.columns:
                 df = df.drop(columns=["id"])
             
-            # Limpiar espacios en los nombres de las columnas pero respetando mayúsculas originales
+            # Limpiar espacios en los nombres de las columnas
             df.columns = df.columns.str.strip()
+            
+            # 💡 TRUCO CLAVE: Creamos un respaldo de las columnas originales si es necesario, 
+            # pero pasamos una copia con minúsculas estandarizadas para que las gráficas no fallen.
+            # Mapeamos variaciones comunes de Supabase a minúsculas estándar:
+            renombres = {}
+            for col in df.columns:
+                c_low = col.lower()
+                if c_low in ["estatus", "status"]:
+                    renombres[col] = "estatus"
+                elif c_low in ["tipo", "tipo_vehiculo", "tipovehiculo"]:
+                    renombres[col] = "tipo"
+                elif c_low in ["eco", "no_eco", "noecco", "no eco"]:
+                    renombres[col] = "eco"
+                elif c_low in ["ubicacion", "ubicación"]:
+                    renombres[col] = "ubicación"
+            
+            if renombres:
+                df = df.rename(columns=renombres)
             
             # Convertir a texto para evitar errores de tipo en Streamlit
             df = df.astype(str)
