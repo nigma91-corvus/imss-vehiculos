@@ -1958,12 +1958,47 @@ if mod_actual == "Registro de Taller e Incidencias":
     else:
         st.info("No hay registros en la bitácora actualmente.")
 # ---------------------------------------------------------------------
-                # VISTA PREVIA Y ACCESO DIRECTO AL DOCUMENTO
                 # ---------------------------------------------------------------------
+        # VISTA PREVIA Y ACCESO DIRECTO AL DOCUMENTO
+        # ---------------------------------------------------------------------
+        st.markdown("##### **📁 Vista Previa de Oficio Justificatorio**")
+        if not df_filtrado_r.empty:
+            lista_opciones_prev = []
+            mapeo_indices = []
+            
+            for original_idx, item in enumerate(st.session_state.reasignaciones_historial):
+                e_val = item.get("eco", item.get("ECO", "N/A"))
+                o_val = item.get("oficio_autorizacion", item.get("No. Oficio", "S/N"))
+                d_val = item.get("sede_destino", item.get("Sede Destino", "N/A"))
+                
+                etiqueta = f"ECO: {e_val} | Oficio: {o_val} | Destino: {d_val}"
+                lista_opciones_prev.append(etiqueta)
+                mapeo_indices.append(original_idx)
+            
+            sel_prev = st.selectbox("Seleccione el movimiento para visualizar su documento:", lista_opciones_prev)
+            
+            if sel_prev:
+                idx_seleccionado = lista_opciones_prev.index(sel_prev)
+                dict_original = st.session_state.reasignaciones_historial[mapeo_indices[idx_seleccionado]]
+                
+                # --- LÍNEA DE DEPURACIÓN ---
+                with st.expander("🛠️ Depurar contenido exacto en Supabase para este registro", expanded=False):
+                    st.write(dict_original)
+                # ---------------------------
+
+                url_doc = "N/A"
+                for clave_posible in ["evidencia_url", "url_oficio", "enlace_oficio", "Enlace Oficio", "evidencia"]:
+                    val = dict_original.get(clave_posible)
+                    if val and pd.notna(val) and str(val).strip() != "" and str(val).strip() != "N/A":
+                        url_doc = str(val).strip()
+                        break
+
+                eco_actual = dict_original.get("eco", dict_original.get("ECO", "N/A"))
+                oficio_actual = dict_original.get("oficio_autorizacion", dict_original.get("No. Oficio", "S/N"))
+
                 if url_doc != "N/A" and url_doc.startswith("http"):
                     st.success(f"Documento asociado para el ECO **{eco_actual}** (Oficio: **{oficio_actual}**):")
                     
-                    # Botones de acción rápida siempre visibles para garantizar acceso
                     col_v1, col_v2 = st.columns(2)
                     with col_v1:
                         st.markdown(f"📥 [Abrir / Descargar Archivo Original]({url_doc})", unsafe_allow_html=True)
@@ -1972,20 +2007,19 @@ if mod_actual == "Registro de Taller e Incidencias":
 
                     st.markdown("---")
 
-                    # Intentamos renderizar según el tipo de archivo
                     try:
                         if any(ext in url_doc.lower() for ext in [".jpg", ".jpeg", ".png", "image/upload"]):
                             st.image(url_doc, caption=f"Oficio de Reasignación - ECO {eco_actual}", use_container_width=True)
                         elif ".pdf" in url_doc.lower() or "raw/upload" in url_doc or "pdf" in url_doc.lower():
-                            # Usamos un contenedor seguro para PDFs con fallback
                             st.markdown(f'<iframe src="{url_doc}" width="100%" height="600px" style="border:none;"></iframe>', unsafe_allow_html=True)
                         else:
-                            # Vista genérica si la extensión no es explícita
                             st.image(url_doc, caption=f"Oficio - ECO {eco_actual}", use_container_width=True)
                     except Exception as e:
                         st.warning("No se pudo cargar la vista previa interactiva directamente en la página, pero puedes acceder al documento mediante el enlace de arriba.")
                 else:
                     st.warning(f"Este registro no cuenta con un archivo adjunto válido. Valor en BD: `{url_doc}`.")
+    else:
+        st.info("No hay registros de reasignaciones en el histórico.")
 # -----------------------------------------------------------------------------
 # 8. REPORTES Y EXPORTACIÓN
 # -----------------------------------------------------------------------------
