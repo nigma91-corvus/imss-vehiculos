@@ -2045,11 +2045,18 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
         elif sede_origen == sede_destino:
             st.error("⚠️ La sede de destino no puede ser igual a la sede de origen actual.")
         else:
-            url_oficio = (
-                subir_a_cloudinary(evidencia_oficio, folder_destino="reasignaciones_oficios")
-                if evidencia_oficio
-                else "N/A"
-            )
+            # --- EXTRACCIÓN BLINDADA DE LA URL DE CLOUDINARY ---
+            url_oficio = "N/A"
+            if evidencia_oficio:
+                res_subida = subir_a_cloudinary(evidencia_oficio, folder_destino="reasignaciones_oficios")
+                
+                if isinstance(res_subida, dict):
+                    url_oficio = res_subida.get("secure_url", res_subida.get("url", res_subida.get("path", "N/A")))
+                elif isinstance(res_subida, str) and res_subida.startswith("http"):
+                    url_oficio = res_subida
+                elif res_subida:
+                    url_oficio = str(res_subida)
+            # ---------------------------------------------------
 
             nueva_reasig = {
                 "eco": str(eco_r),
