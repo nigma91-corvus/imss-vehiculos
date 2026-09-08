@@ -193,12 +193,11 @@ def cargar_datos_supabase(categoria):
 
         df = pd.DataFrame(all_rows)
         if not df.empty:
-            df = df.astype(str)
             df.columns = df.columns.str.strip()
             if "id" in df.columns:
                 df = df.drop(columns=["id"])
             
-            # Mapeo flexible y seguro para estandarizar columnas clave manteniendo compatibilidad total
+            # Mapeo flexible para estandarizar nombres de columnas clave
             columnas_mapeo = {}
             for col in df.columns:
                 c_clean = col.lower().replace(".", "").replace("_", " ").strip()
@@ -214,93 +213,28 @@ def cargar_datos_supabase(categoria):
             if columnas_mapeo:
                 df = df.rename(columns=columnas_mapeo)
             
-            # Asegurar duplicados de respaldo en minúscula/mayúscula para que ninguna gráfica falle
-            if "Estatus" in df.columns and "estatus" not in df.columns:
+            # Limpieza profunda de strings en columnas de texto asegurando conservar los valores reales ("Activo", etc.)
+            for col in df.columns:
+                if df[col].dtype == object:
+                    df[col] = df[col].fillna("").astype(str).str.strip()
+                    df[col] = df[col].replace({"nan": "", "None": "", "NAT": ""})
+
+            # Respaldo cruzado en minúsculas y mayúsculas para evitar fallos en filtros y gráficas
+            if "Estatus" in df.columns:
                 df["estatus"] = df["Estatus"]
-            elif "estatus" in df.columns and "Estatus" not in df.columns:
+            elif "estatus" in df.columns:
                 df["Estatus"] = df["estatus"]
 
-            if "Tipo" in df.columns and "tipo" not in df.columns:
+            if "Tipo" in df.columns:
                 df["tipo"] = df["Tipo"]
-            elif "tipo" in df.columns and "Tipo" not in df.columns:
+            elif "tipo" in df.columns:
                 df["Tipo"] = df["tipo"]
-
-            # Limpiar espacios en blanco en los valores de texto para un conteo exacto en las gráficas
-            for col in df.select_dtypes(include=["object", "string"]).columns:
-                df[col] = df[col].astype(str).str.strip()
-                df[col] = df[col].replace({"nan": "", "None": "", "NAT": ""})
 
         else:
             return pd.DataFrame(columns=COLUMNAS_OFICIALES)
         return df
     except Exception as e:
         return pd.DataFrame(columns=COLUMNAS_OFICIALES)
-
-@st.cache_data(ttl=60)
-def cargar_taller_supabase():
-    if not supabase:
-        return []
-    try:
-        res = supabase.table("taller_incidencias").select("*").execute()
-        rows = res.data or []
-        mapped = []
-        for r in rows:
-            mapped.append({
-                "ECO": r.get("eco") or r.get("ECO", ""),
-                "Tipo": r.get("tipo") or r.get("Tipo", ""),
-                "Fecha_Ingreso": r.get("fecha_ingreso") or r.get("Fecha_Ingreso", ""),
-                "Hora": r.get("hora") or r.get("Hora", ""),
-                "Responsable": r.get("responsable") or r.get("Responsable", ""),
-                "Taller": r.get("taller") or r.get("Taller", ""),
-                "Sustituto": r.get("sustituto") or r.get("Sustituto", ""),
-                "Estatus": r.get("estatus") or r.get("Estatus", ""),
-                "Observaciones": r.get("observaciones") or r.get("Observaciones", "")
-            })
-        return mapped
-    except Exception:
-        return []
-
-@st.cache_data(ttl=60)
-def cargar_bitacora_cargas_supabase():
-    if not supabase:
-        return []
-    try:
-        res = supabase.table("bitacora_cargas").select("*").execute()
-        rows = res.data or []
-        mapped = []
-        for r in rows:
-            mapped.append({
-                "Fecha": r.get("fecha") or r.get("Fecha", ""),
-                "Usuario": r.get("usuario") or r.get("Usuario", ""),
-                "Base": r.get("base") or r.get("Base", ""),
-                "Archivo": r.get("archivo") or r.get("Archivo", ""),
-                "Registros": int(r.get("registros") or r.get("Registros", 0)),
-                "Estado": r.get("estado") or r.get("Estado", "Exitoso")
-            })
-        return mapped
-    except Exception:
-        return []
-
-@st.cache_data(ttl=60)
-def cargar_reasignaciones_supabase():
-    if not supabase:
-        return []
-    try:
-        res = supabase.table("reasignaciones").select("*").execute()
-        rows = res.data or []
-        mapped = []
-        for r in rows:
-            mapped.append({
-                "ECO": r.get("eco") or r.get("ECO", ""),
-                "Sede_Origen": r.get("sede_origen") or r.get("Sede_Origen", ""),
-                "Sede_Destino": r.get("sede_destino") or r.get("Sede_Destino", ""),
-                "Fecha": r.get("fecha") or r.get("Fecha", ""),
-                "Motivo": r.get("motivo") or r.get("Motivo", ""),
-                "Oficio_Autorizacion": r.get("oficio_autorizacion") or r.get("Oficio_Autorizacion", "")
-            })
-        return mapped
-    except Exception:
-        return []
 # -----------------------------------------------------------------------------
 # GESTIÓN DEL ESTADO DE SESIÓN (SINCRONIZADO CON SUPABASE)
 # -----------------------------------------------------------------------------
