@@ -1982,19 +1982,22 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
         else ["Aguascalientes", "Colima", "Manzanillo", "Tepic", "Mazatlán", "Zacatecas"]
     )
 
+    # Inicializar el estado del ECO seleccionado si no existe
     if "eco_seleccionado_r" not in st.session_state:
         st.session_state.eco_seleccionado_r = lista_ecos_reasignacion[0] if lista_ecos_reasignacion else ""
 
     col_r1, col_r2 = st.columns(2)
     
     with col_r1:
+        # El selectbox actualiza la sesión y fuerza el redibujado de la interfaz
         eco_r = st.selectbox(
             "Seleccione el ECO a Reasignar:",
             lista_ecos_reasignacion if lista_ecos_reasignacion else ["Sin ECOs cargados"],
-            key="eco_seleccionado_r"
+            key="eco_seleccionado_r",
+            on_change=lambda: st.rerun()
         )
 
-    # Extracción inteligente de la Sede de Origen real (catálogo + historial)
+    # Cálculo dinámico de la Sede de Origen según el ECO activo
     sede_origen = "No asignada"
     if not df_base.empty and eco_r in lista_ecos_reasignacion:
         veh_r_info = df_base[df_base["eco"] == eco_r]
@@ -2005,7 +2008,7 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
                     sede_origen = str(fila[col]).strip()
                     break
         
-        # Validación de reasignaciones previas registradas en Supabase
+        # Validación opcional del histórico de reasignaciones en Supabase
         if "reasignaciones_historial" in st.session_state and st.session_state.reasignaciones_historial:
             reasig_unidad = [
                 r for r in st.session_state.reasignaciones_historial 
@@ -2018,7 +2021,8 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
                     sede_origen = str(destino_previo).strip()
 
     with col_r2:
-        st.text_input("Sede de Origen Actual:", value=sede_origen, disabled=True, key=f"input_sede_{eco_r}")
+        # Mostramos la sede correspondiente al vehículo seleccionado
+        st.text_input("Sede de Origen Actual:", value=sede_origen, disabled=True)
 
     with st.form(key="form_reasignacion"):
         st.markdown("##### **Formulario Oficial de Reasignación**")
@@ -2046,7 +2050,6 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
         elif sede_origen == sede_destino:
             st.error("⚠️ La sede de destino no puede ser igual a la sede de origen actual.")
         else:
-            # Subir archivo del oficio a Cloudinary
             url_oficio = (
                 subir_a_cloudinary(evidencia_oficio, folder_destino="reasignaciones_oficios")
                 if evidencia_oficio
