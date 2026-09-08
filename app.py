@@ -198,24 +198,29 @@ def cargar_datos_supabase(categoria):
             if "id" in df.columns:
                 df = df.drop(columns=["id"])
             
-            # Limpiar espacios en los nombres de las columnas
-            df.columns = df.columns.str.strip()
+            # Limpiar espacios en los nombres de las columnas y pasarlas a minúsculas uniformemente
+            df.columns = df.columns.str.strip().str.lower()
             
-            # Duplicar o mapear columnas clave para asegurar compatibilidad con minúsculas/mayúsculas
-            for col in list(df.columns):
-                c_low = col.lower()
-                if c_low == "estatus" and "estatus" not in df.columns:
-                    df["estatus"] = df[col]
-                elif c_low == "tipo" and "tipo" not in df.columns:
-                    df["tipo"] = df[col]
-                elif c_low in ["ubicacion", "ubicación"]:
-                    if "ubicación" not in df.columns:
-                        df["ubicación"] = df[col]
-                    if "ubicacion" not in df.columns:
-                        df["ubicacion"] = df[col]
+            # Mapeo universal de columnas clave para evitar cualquier desajuste
+            renombres = {}
+            for col in df.columns:
+                if col in ["estatus", "status"]:
+                    renombres[col] = "estatus"
+                elif col in ["tipo", "tipo_vehiculo", "tipovehiculo"]:
+                    renombres[col] = "tipo"
+                elif col in ["eco", "no_eco", "noecco", "no eco"]:
+                    renombres[col] = "eco"
+                elif col in ["ubicacion", "ubicación"]:
+                    renombres[col] = "ubicación"
+            
+            if renombres:
+                df = df.rename(columns=renombres)
 
-            # Reemplazar valores nulos por strings vacíos reales
-            df = df.fillna("")
+            # Limpiar espacios en blanco en los valores de texto para que los grupos coincidan perfectamente
+            for col in df.select_dtypes(include=["object", "string"]).columns:
+                df[col] = df[col].astype(str).str.strip()
+                df[col] = df[col].replace({"nan": "", "None": "", "NAT": ""})
+
         else:
             return pd.DataFrame(columns=COLUMNAS_OFICIALES)
         return df
@@ -232,15 +237,15 @@ def cargar_taller_supabase():
         mapped = []
         for r in rows:
             mapped.append({
-                "ECO": r.get("eco") or r.get("ECO", ""),
-                "Tipo": r.get("tipo") or r.get("Tipo", ""),
-                "Fecha_Ingreso": r.get("fecha_ingreso") or r.get("Fecha_Ingreso", ""),
-                "Hora": r.get("hora") or r.get("Hora", ""),
-                "Responsable": r.get("responsable") or r.get("Responsable", ""),
-                "Taller": r.get("taller") or r.get("Taller", ""),
-                "Sustituto": r.get("sustituto") or r.get("Sustituto", ""),
-                "Estatus": r.get("estatus") or r.get("Estatus", ""),
-                "Observaciones": r.get("observaciones") or r.get("Observaciones", "")
+                "ECO": str(r.get("eco") or r.get("ECO", "")).strip(),
+                "Tipo": str(r.get("tipo") or r.get("Tipo", "")).strip(),
+                "Fecha_Ingreso": str(r.get("fecha_ingreso") or r.get("Fecha_Ingreso", "")).strip(),
+                "Hora": str(r.get("hora") or r.get("Hora", "")).strip(),
+                "Responsable": str(r.get("responsable") or r.get("Responsable", "")).strip(),
+                "Taller": str(r.get("taller") or r.get("Taller", "")).strip(),
+                "Sustituto": str(r.get("sustituto") or r.get("Sustituto", "")).strip(),
+                "Estatus": str(r.get("estatus") or r.get("Estatus", "")).strip(),
+                "Observaciones": str(r.get("observaciones") or r.get("Observaciones", "")).strip()
             })
         return mapped
     except Exception:
@@ -256,12 +261,12 @@ def cargar_bitacora_cargas_supabase():
         mapped = []
         for r in rows:
             mapped.append({
-                "Fecha": r.get("fecha") or r.get("Fecha", ""),
-                "Usuario": r.get("usuario") or r.get("Usuario", ""),
-                "Base": r.get("base") or r.get("Base", ""),
-                "Archivo": r.get("archivo") or r.get("Archivo", ""),
+                "Fecha": str(r.get("fecha") or r.get("Fecha", "")).strip(),
+                "Usuario": str(r.get("usuario") or r.get("Usuario", "")).strip(),
+                "Base": str(r.get("base") or r.get("Base", "")).strip(),
+                "Archivo": str(r.get("archivo") or r.get("Archivo", "")).strip(),
                 "Registros": int(r.get("registros") or r.get("Registros", 0)),
-                "Estado": r.get("estado") or r.get("Estado", "Exitoso")
+                "Estado": str(r.get("estado") or r.get("Estado", "Exitoso")).strip()
             })
         return mapped
     except Exception:
@@ -277,12 +282,12 @@ def cargar_reasignaciones_supabase():
         mapped = []
         for r in rows:
             mapped.append({
-                "ECO": r.get("eco") or r.get("ECO", ""),
-                "Sede_Origen": r.get("sede_origen") or r.get("Sede_Origen", ""),
-                "Sede_Destino": r.get("sede_destino") or r.get("Sede_Destino", ""),
-                "Fecha": r.get("fecha") or r.get("Fecha", ""),
-                "Motivo": r.get("motivo") or r.get("Motivo", ""),
-                "Oficio_Autorizacion": r.get("oficio_autorizacion") or r.get("Oficio_Autorizacion", "")
+                "ECO": str(r.get("eco") or r.get("ECO", "")).strip(),
+                "Sede_Origen": str(r.get("sede_origen") or r.get("Sede_Origen", "")).strip(),
+                "Sede_Destino": str(r.get("sede_destino") or r.get("Sede_Destino", "")).strip(),
+                "Fecha": str(r.get("fecha") or r.get("Fecha", "")).strip(),
+                "Motivo": str(r.get("motivo") or r.get("Motivo", "")).strip(),
+                "Oficio_Autorizacion": str(r.get("oficio_autorizacion") or r.get("Oficio_Autorizacion", "")).strip()
             })
         return mapped
     except Exception:
