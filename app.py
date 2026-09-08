@@ -1129,9 +1129,9 @@ import cloudinary.uploader
 # CONFIGURACIÓN DE CLOUDINARY (Asegúrate de tener tus credenciales en st.secrets)
 # -----------------------------------------------------------------------------
 cloudinary.config(
-    cloud_name=st.secrets["cloudinary"]["cloud_name"],
-    api_key=st.secrets["cloudinary"]["api_key"],
-    api_secret=st.secrets["cloudinary"]["api_secret"],
+    cloud_name=st.secrets["CLOUDINARY_CLOUD_NAME"],
+    api_key=st.secrets["CLOUDINARY_API_KEY"],
+    api_secret=st.secrets["CLOUDINARY_API_SECRET"],
     secure=True
 )
 
