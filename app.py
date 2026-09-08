@@ -1918,11 +1918,42 @@ if mod_actual == "Registro de Taller e Incidencias":
 
     st.markdown("---")
     st.markdown("##### **Bitácora de Control de Taller e Incidencias**")
-    st.dataframe(
-        pd.DataFrame(st.session_state.taller_registros),
-        use_container_width=True,
-        hide_index=True,
-    )
+    
+    if st.session_state.taller_registros:
+        df_bitacora = pd.DataFrame(st.session_state.taller_registros)
+        
+        # Mapeo opcional para renombrar columnas si vienen en minúsculas desde Supabase
+        columnas_renombrar = {
+            "eco": "ECO",
+            "tipo": "Tipo",
+            "fecha_ingreso": "Fecha Ingreso",
+            "hora": "Hora Ingreso",
+            "fecha_estimada_salida": "Fecha Est. Entrega",
+            "hora_estimada_salida": "Hora Est. Entrega",
+            "responsable": "Responsable",
+            "taller": "Taller",
+            "sustituto": "Sustituto",
+            "estatus": "Estatus",
+            "observaciones": "Observaciones"
+        }
+        df_bitacora = df_bitacora.rename(columns=columnas_renombrar)
+        
+        # Seleccionar y ordenar las columnas principales si existen
+        cols_ordenadas = [
+            "ECO", "Tipo", "Fecha Ingreso", "Hora Ingreso", 
+            "Fecha Est. Entrega", "Hora Est. Entrega", 
+            "Responsable", "Taller", "Sustituto", "Estatus", "Observaciones"
+        ]
+        # Filtrar solo las columnas que realmente existan en el dataframe
+        cols_finales = [c for c in cols_ordenadas if c in df_bitacora.columns]
+        
+        st.dataframe(
+            df_bitacora[cols_finales],
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.info("No hay registros en la bitácora actualmente.")
 # -----------------------------------------------------------------------------
 # 7. REASIGNACIÓN POR NECESIDAD DE SERVICIO (PERSISTIDA EN SUPABASE)
 # -----------------------------------------------------------------------------
