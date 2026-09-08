@@ -162,79 +162,56 @@ os.makedirs("data", exist_ok=True)
 os.makedirs("expedientes", exist_ok=True)
 os.makedirs("assets", exist_ok=True)
 
-# -----------------------------------------------------------------------------
 # CARGA DE DATOS DESDE SUPABASE (FLOTILLAS, TALLER, BITÁCORAS, REASIGNACIONES)
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=60)
 def cargar_datos_supabase(categoria):
-    if not supabase:
-        return pd.DataFrame(columns=COLUMNAS_OFICIALES)
-    try:
-        tabla_map = {
-            "Administrativos": "vehiculos_administrativos",
-            "Ambulancias": "vehiculos_ambulancias",
-            "Institucionales": "vehiculos_institucionales"
-        }
-        nombre_tabla = tabla_map.get(categoria, "vehiculos_administrativos")
-        
-        all_rows = []
-        batch_size = 1000
-        offset = 0
-        
-        while True:
-            response = supabase.table(nombre_tabla).select("*").range(offset, offset + batch_size - 1).execute()
-            data = response.data
-            if not data:
-                break
-            all_rows.extend(data)
-            if len(data) < batch_size:
-                break
-            offset += batch_size
+  if not supabase:
+    return pd.DataFrame(columns=COLUMNAS_OFICIALES)
+  try:
+    tabla_map = {
+        "Administrativos": "vehiculos_administrativos",
+        "Ambulancias": "vehiculos_ambulancias",
+        "Institucionales": "vehiculos_institucionales"
+    }
+    nombre_tabla = tabla_map.get(categoria, "vehiculos_administrativos")
+    
+    all_rows = []
+    batch_size = 1000
+    offset = 0
+    
+    while True:
+      response = supabase.table(nombre_tabla).select("*").range(offset, offset + batch_size - 1).execute()
+      data = response.data
+      if not data:
+        break
+      all_rows.extend(data)
+      if len(data) < batch_size:
+        break
+      offset += batch_size
 
-        df = pd.DataFrame(all_rows)
-        if not df.empty:
-            df.columns = df.columns.str.strip()
-            if "id" in df.columns:
-                df = df.drop(columns=["id"])
-            
-            # Mapeo flexible para estandarizar nombres de columnas clave
-            columnas_mapeo = {}
-            for col in df.columns:
-                c_clean = col.lower().replace(".", "").replace("_", " ").strip()
-                if c_clean in ["eco", "no eco", "noecco", "no_ecco"]:
-                    columnas_mapeo[col] = "eco"
-                elif c_clean in ["ubicacion", "ubicación"]:
-                    columnas_mapeo[col] = "UBICACIÓN"
-                elif c_clean in ["estatus", "status"]:
-                    columnas_mapeo[col] = "Estatus"
-                elif c_clean in ["tipo", "tipo vehiculo", "tipovehiculo"]:
-                    columnas_mapeo[col] = "Tipo"
-
-            if columnas_mapeo:
-                df = df.rename(columns=columnas_mapeo)
-            
-            # Limpieza profunda de strings en columnas de texto asegurando conservar los valores reales ("Activo", etc.)
-            for col in df.columns:
-                if df[col].dtype == object:
-                    df[col] = df[col].fillna("").astype(str).str.strip()
-                    df[col] = df[col].replace({"nan": "", "None": "", "NAT": ""})
-
-            # Respaldo cruzado en minúsculas y mayúsculas para evitar fallos en filtros y gráficas
-            if "Estatus" in df.columns:
-                df["estatus"] = df["Estatus"]
-            elif "estatus" in df.columns:
-                df["Estatus"] = df["estatus"]
-
-            if "Tipo" in df.columns:
-                df["tipo"] = df["Tipo"]
-            elif "tipo" in df.columns:
-                df["Tipo"] = df["tipo"]
-
-        else:
-            return pd.DataFrame(columns=COLUMNAS_OFICIALES)
-        return df
-    except Exception as e:
-        return pd.DataFrame(columns=COLUMNAS_OFICIALES)
+    df = pd.DataFrame(all_rows)
+    if not df.empty:
+      df = df.astype(str)
+      df.columns = df.columns.str.strip()
+      if "id" in df.columns:
+        df = df.drop(columns=["id"])
+      
+      # Mapeo flexible para estandarizar columnas de identificación (eco, eco, etc.)
+      columnas_mapeo = {}
+      for col in df.columns:
+        c_clean = col.lower().replace(".", "").replace("_", " ").strip()
+        if c_clean in ["eco", "no eco", "noecco", "no_ecco"]:
+          columnas_mapeo[col] = "eco"
+        elif c_clean in ["ubicacion", "ubicación"]:
+          columnas_mapeo[col] = "UBICACIÓN"
+      if columnas_mapeo:
+        df = df.rename(columns=columnas_mapeo)
+    else:
+      return pd.DataFrame(columns=COLUMNAS_OFICIALES)
+    return df
+  except Exception as e:
+    return pd.DataFrame(columns=COLUMNAS_OFICIALES)
 
 @st.cache_data(ttl=60)
 def cargar_taller_supabase():
@@ -301,6 +278,7 @@ def cargar_reasignaciones_supabase():
         return mapped
     except Exception:
         return []
+
 # -----------------------------------------------------------------------------
 # GESTIÓN DEL ESTADO DE SESIÓN (SINCRONIZADO CON SUPABASE)
 # -----------------------------------------------------------------------------
