@@ -1075,12 +1075,12 @@ elif mod_actual == "Carga Inicial":
     if st.session_state.get("admin_autenticado", False):
         st.markdown("##### **1. Descargar Plantilla Oficial**")
         
-        # Columnas reales basadas en la estructura que ya tenemos en Supabase
+        # Columnas exactamente en minúsculas tal como están en Supabase
         columnas_plantilla = [
             "eco",
             "tipo",
             "linea",
-            "UBICACIÓN",
+            "ubicacion",
             "arrendadora",
             "estatus",
             "placas",
@@ -1092,17 +1092,22 @@ elif mod_actual == "Carga Inicial":
             "costo_mensual_sin_iva",
             "total_deduccion",
             "total_a_pagar",
+            "foto_frontal",
+            "foto_trasera",
+            "foto_lateral_der",
+            "foto_lateral_izq",
+            "documentos",
         ]
         
         df_plantilla = pd.DataFrame(columns=columnas_plantilla)
-        csv_plantilla = df_plantilla.to_csv(index=False).encode("utf-8")
+        csv_plantilla = df_plantilla.to_csv(index=False).encode("utf-8-sig")
 
         st.download_button(
             label="📥 Descargar Plantilla CSV Oficial",
             data=csv_plantilla,
             file_name=f"plantilla_carga_{cat_actual.lower()}.csv",
             mime="text/csv",
-            help="Descarga el archivo modelo con las columnas exactas de la base de datos.",
+            help="Descarga el archivo modelo con los nombres exactos de las columnas de la base de datos.",
         )
 
         st.markdown("---")
@@ -1123,8 +1128,8 @@ elif mod_actual == "Carga Inicial":
                     else:
                         df_subido = pd.read_excel(up_file, dtype=str)
 
-                    # Normalizar nombres de columnas (quitar espacios sobrantes)
-                    df_subido.columns = df_subido.columns.str.strip()
+                    # Normalizar nombres de columnas (quitar espacios y pasar todo a minúsculas por seguridad)
+                    df_subido.columns = df_subido.columns.str.strip().str.lower()
 
                     # Validar existencia de la columna clave "eco" para control de duplicados
                     if "eco" not in df_subido.columns:
@@ -1189,7 +1194,6 @@ elif mod_actual == "Carga Inicial":
             use_container_width=True,
             hide_index=True,
         )
-        
 # 5. EXPEDIENTE POR ECO Y DOCUMENTAL (CON CARGA REAL DE FOTOS Y DOCUMENTOS)
 # -----------------------------------------------------------------------------
 import json
