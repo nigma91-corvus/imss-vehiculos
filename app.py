@@ -1220,7 +1220,7 @@ import streamlit as st
 
 # 5. EXPEDIENTE POR ECO Y DOCUMENTAL
 # -----------------------------------------------------------------------------
-elif mod_actual == "Expediente por ECO y Documental":
+if mod_actual == "Expediente por ECO y Documental":
   st.markdown(
       f'<p class="subtitulo-seccion">Expediente Técnico y Documental por ECO -'
       f" {cat_actual}</p>",
