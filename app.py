@@ -1229,26 +1229,21 @@ if mod_actual == "Expediente por ECO y Documental":
 
         # --- PEGA ESTO JUSTO AQUÍ ABAJO ---
         if eco_input:
-            # 1. Quitamos espacios y pasamos a minúsculas lo que escribiste
             busqueda_usuario = eco_input.strip().lower()
 
-            # 2. Extraemos solo los números de lo que el usuario escribió (ej. "101")
-            import re
-            solo_numeros_input = "".join(re.findall(r'\d+', busqueda_usuario))
+            # 1. Buscamos de manera directa y sencilla (ignorando mayúsculas/minúsculas y espacios)
+            # Esto busca si el texto escrito está en cualquier parte del ECO del Excel
+            condicion = df_base["eco"].astype(str).str.lower().str.contains(busqueda_usuario, na=False)
+            vehiculo_sel = df_base[condicion]
 
-            # 3. Creamos una columna temporal extrayendo también solo los números del Excel
-            # Esto sirve para que sin importar si es A101, ECO-101 o 101, comparemos peras con peras
-            temp_df = df_base.copy()
-            temp_df["temp_nums"] = temp_df["eco"].astype(str).str.findall(r'\d+').str.join('')
+            # --- CHIVATO TEMPORAL PARA VER QUÉ TIENE TU BASE DE DATOS ---
+            with st.expander("🔍 Ver qué está leyendo el buscador (Depuración)"):
+                st.write(f"Buscando texto: '{busqueda_usuario}'")
+                st.write("ECOs disponibles en esta categoría actual:")
+                st.write(df_base["eco"].tolist())
+                st.write("Resultados encontrados:", len(vehiculo_sel))
+            # -------------------------------------------------------------
 
-            # 4. Buscamos coincidencia con los números ingresados
-            if solo_numeros_input:
-                vehiculo_sel = temp_df[temp_df["temp_nums"] == solo_numeros_input]
-            else:
-                # Si escribió puras letras o algo distinto, buscamos por texto normal
-                vehiculo_sel = df_base[df_base["eco"].astype(str).str.lower().str.contains(busqueda_usuario, na=False)]
-
-            # 5. Validamos el resultado
             if vehiculo_sel.empty:
                 st.error(
                     f"No se encontró ningún vehículo con el ECO '{eco_input}' en la flotilla **{cat_actual}**."
@@ -1259,7 +1254,7 @@ if mod_actual == "Expediente por ECO y Documental":
                 v_data = vehiculo_sel.iloc[0]
         else:
             vehiculo_sel = pd.DataFrame()
-            v_data = None
+            v_data = NoneNone
 
         # Normalizamos o filtramos dependiendo de lo que el usuario escriba
         if not eco_input.strip():
