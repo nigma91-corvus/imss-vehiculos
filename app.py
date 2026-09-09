@@ -1218,6 +1218,8 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
+# 5. EXPEDIENTE POR ECO Y DOCUMENTAL (CON CARGA REAL DE FOTOS Y DOCUMENTOS)
+# -----------------------------------------------------------------------------
 # # 5. EXPEDIENTE POR ECO Y DOCUMENTAL (CON CARGA REAL DE FOTOS Y DOCUMENTOS)
 # # -----------------------------------------------------------------------------
 if mod_actual == "Expediente por ECO y Documental":
@@ -1273,20 +1275,17 @@ if mod_actual == "Expediente por ECO y Documental":
                 tipo_v = str(v_data.get("tipo", "")).strip()
                 linea_v = str(v_data.get("linea", "")).strip()
                 
-                # Intentamos obtener la imagen apuntando a Cloudinary (carpeta 'vehiculos_fotos')
-                # Si tienes una función personalizada, la llamamos, de lo contrario armamos la URL segura
-                url_cat = obtener_imagen_catalogo_supabase(tipo_v, linea_v)
-                
-                # Respaldo directo por si la función no encuentra la carpeta 'vehiculos_fotos'
-                if not url_cat:
-                    # Creamos un identificador limpio basado en la línea o tipo para buscar en Cloudinary
-                    nombre_foto_limpio = f"{tipo_v}_{linea_v}".lower().replace(" ", "_").replace("/", "-")
-                    # O puedes usar directamente la estructura de Cloudinary si conoces tu Cloud Name:
-                    # url_cat = f"https://res.cloudinary.com/TU_CLOUD_NAME/image/upload/v1/vehiculos_fotos/{nombre_foto_limpio}.jpg"
+                # Obtenemos el cloud_name directamente de tus secrets de Streamlit
+                try:
+                    cloud_name = st.secrets["cloudinary"]["cloud_name"]
+                    nombre_foto_limpio = f"{tipo_v}_{linea_v}".lower().replace(" ", "_").replace("/", "-").replace(".", "")
+                    url_cat = f"https://res.cloudinary.com/{cloud_name}/image/upload/v1/vehiculos_fotos/{nombre_foto_limpio}.jpg"
+                except Exception:
+                    url_cat = ""
 
                 if url_cat:
                     st.markdown(
-                        f'<div class="image-container-full"><img src="{url_cat}" alt="Vehículo"></div>',
+                        f'<div class="image-container-full"><img src="{url_cat}" alt="Vehículo" onerror="this.onerror=null;this.src=\'https://via.placeholder.com/300x200?text=Sin+Foto+Catalogo\';"></div>',
                         unsafe_allow_html=True,
                     )
                     st.caption(f"Catálogo: {tipo_v} - {linea_v}")
