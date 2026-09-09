@@ -1274,35 +1274,31 @@ if mod_actual == "Expediente por ECO y Documental":
             with col_img_cat:
                 import unicodedata
 
-                tipo_v = str(v_data.get("tipo", "")).strip()
                 linea_v = str(v_data.get("linea", "")).strip()
                 
+                # Limpiamos la línea exactamente como la nombraste en Cloudinary (minúsculas, guiones en vez de espacios)
                 def limpiar_para_url(texto):
                     nfkd_form = unicodedata.normalize('NFKD', texto)
                     solo_ascii = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
-                    return solo_ascii.lower().strip().replace(" ", "_").replace("/", "-").replace(".", "")
+                    return solo_ascii.lower().strip().replace(" ", "-").replace("/", "-").replace(".", "")
 
-                tipo_limpio = limpiar_para_url(tipo_v)
-                linea_limpio = limpiar_para_url(linea_v)
-                nombre_foto_limpio = f"{tipo_limpio}_{linea_limpio}"
+                nombre_foto_limpio = limpiar_para_url(linea_v)
                 
                 try:
                     cloud_name = st.secrets["cloudinary"]["cloud_name"]
-                    url_cat = f"https://res.cloudinary.com/{cloud_name}/image/upload/v1/vehiculos_fotos/{nombre_foto_limpio}.jpg"
+                    # Nota que aquí la extensión es .png y la ruta usa tu nombre exacto de archivo
+                    url_cat = f"https://res.cloudinary.com/{cloud_name}/image/upload/v1/vehiculos_fotos/{nombre_foto_limpio}.png"
                 except Exception:
                     url_cat = ""
 
-                # Ponemos un enlace directo para que puedas darle clic y ver qué responde Cloudinary
-                st.markdown(f"🔗 [Probar enlace directo en navegador]({url_cat})", unsafe_allow_html=True)
-
                 if url_cat:
                     st.markdown(
-                        f'<div class="image-container-full"><img src="{url_cat}" alt="Vehículo"></div>',
+                        f'<div class="image-container-full"><img src="{url_cat}" alt="Vehículo" onerror="this.onerror=null;this.src=\'https://via.placeholder.com/300x200?text=Sin+Foto+Catalogo\';"></div>',
                         unsafe_allow_html=True,
                     )
-                    st.caption(f"Catálogo: {tipo_v} - {linea_v}")
+                    st.caption(f"Catálogo: {linea_v}")
                 else:
-                    st.info(f"📷 [Sin foto en carpeta 'vehiculos_fotos' para: {linea_v}]")
+                    st.info(f"📷 [Sin foto en catálogo para: {linea_v}]")
                 
                 # Obtenemos el cloud_name directamente de tus secrets de Streamlit
                 try:
