@@ -1270,10 +1270,20 @@ if mod_actual == "Expediente por ECO y Documental":
             col_img_cat, col_info_cat = st.columns([1, 2.2], gap="small")
 
             with col_img_cat:
-                # Usamos minúsculas 'tipo' y 'linea' para que coincidan con la BD/CSV y muestre la foto de catálogo
-                tipo_v = v_data.get("tipo", "")
-                linea_v = v_data.get("linea", "")
+                tipo_v = str(v_data.get("tipo", "")).strip()
+                linea_v = str(v_data.get("linea", "")).strip()
+                
+                # Intentamos obtener la imagen apuntando a Cloudinary (carpeta 'vehiculos_fotos')
+                # Si tienes una función personalizada, la llamamos, de lo contrario armamos la URL segura
                 url_cat = obtener_imagen_catalogo_supabase(tipo_v, linea_v)
+                
+                # Respaldo directo por si la función no encuentra la carpeta 'vehiculos_fotos'
+                if not url_cat:
+                    # Creamos un identificador limpio basado en la línea o tipo para buscar en Cloudinary
+                    nombre_foto_limpio = f"{tipo_v}_{linea_v}".lower().replace(" ", "_").replace("/", "-")
+                    # O puedes usar directamente la estructura de Cloudinary si conoces tu Cloud Name:
+                    # url_cat = f"https://res.cloudinary.com/TU_CLOUD_NAME/image/upload/v1/vehiculos_fotos/{nombre_foto_limpio}.jpg"
+
                 if url_cat:
                     st.markdown(
                         f'<div class="image-container-full"><img src="{url_cat}" alt="Vehículo"></div>',
@@ -1281,7 +1291,7 @@ if mod_actual == "Expediente por ECO y Documental":
                     )
                     st.caption(f"Catálogo: {tipo_v} - {linea_v}")
                 else:
-                    st.info(f"📷 [Sin foto en catálogo: {linea_v}]")
+                    st.info(f"📷 [Sin foto en carpeta 'vehiculos_fotos' para: {linea_v}]")
 
             with col_info_cat:
                 en_taller = any(
