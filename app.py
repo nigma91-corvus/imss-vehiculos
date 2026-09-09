@@ -84,22 +84,21 @@ COLORES_PANTONE = {
 
 COLUMNAS_OFICIALES = [
     "eco",
-    "Tipo",
-    "Linea",
-    "UBICACIÓN",
-    "Arrendadora",
-    "Estatus",
-    "Placas",
-    "VIN",
-    "No_TC",
-    "Ultimo_Servicio",
-    "CUOTA DIARIA",
-    "TOTAL DÍAS DE SERVICIO",
-    "COSTO MENSUAL SIN IVA (a)",
-    "TOTAL DE DEDUCCIÓN",
-    "TOTAL A PAGAR (b)",
+    "tipo",
+    "linea",
+    "ubicacion",
+    "arrendadora",
+    "estatus",
+    "placas",
+    "vin",
+    "no_tc",
+    "ultimo_servicio",
+    "cuota_diaria",
+    "total_dias_servicio",
+    "costo_mensual_sin_iva",
+    "total_deduccion",
+    "total_a_pagar",
 ]
-
 # -----------------------------------------------------------------------------
 # FUNCIÓN AUXILIAR PARA CONVERSIÓN SEGURA DE NÚMEROS
 # -----------------------------------------------------------------------------
@@ -372,98 +371,103 @@ st.markdown(
 """,
     unsafe_allow_html=True,
 )
-
 # -----------------------------------------------------------------------------
 # BARRA LATERAL (SIDEBAR)
 # -----------------------------------------------------------------------------
 with st.sidebar:
-  if url_logo_supa:
-    st.image(url_logo_supa, use_container_width=True)
-  else:
+    # Contenedor centrado para el logo para evitar desbordamientos
+    if url_logo_supa:
+        st.markdown(
+            f"""
+            <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 5px;">
+                <img src="{url_logo_supa}" style="max-height: 70px; width: auto; object-fit: contain;">
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            f"<h2 style='color:{COLORES_PANTONE['468']}; text-align:center; margin:0;'>IMSS</h2>",
+            unsafe_allow_html=True,
+        )
+
+    color_468 = COLORES_PANTONE["468"]
+
     st.markdown(
-        f"<h2 style='color:{COLORES_PANTONE['468']}; text-align:center;'>IMSS</h2>",
+        "<div style='text-align: center; font-size: 10px; margin-bottom: 2px; line-height: 1.1;'>"
+        "<b>Coordinación Técnica de Servicios Generales</b><br>"
+        f"<span style='font-size:9px; color:{color_468};'>"
+        "División de Transportes y Operación</span></div>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("<hr style='margin: 5px 0;'>", unsafe_allow_html=True)
+    st.markdown(
+        "<p style='font-size: 11px; margin-bottom: 4px;'><b>SELECCIONAR FLOTILLA:</b></p>",
         unsafe_allow_html=True,
     )
 
-  color_468 = COLORES_PANTONE["468"]
+    st.button(
+        "ADMINISTRATIVOS",
+        use_container_width=True,
+        type=(
+            "primary"
+            if st.session_state.categoria_seleccionada == "Administrativos"
+            else "secondary"
+        ),
+        on_click=cambiar_categoria,
+        args=("Administrativos",),
+    )
+    st.button(
+        "AMBULANCIAS",
+        use_container_width=True,
+        type=(
+            "primary"
+            if st.session_state.categoria_seleccionada == "Ambulancias"
+            else "secondary"
+        ),
+        on_click=cambiar_categoria,
+        args=("Ambulancias",),
+    )
+    st.button(
+        "INSTITUCIONALES",
+        use_container_width=True,
+        type=(
+            "primary"
+            if st.session_state.categoria_seleccionada == "Institucionales"
+            else "secondary"
+        ),
+        on_click=cambiar_categoria,
+        args=("Institucionales",),
+    )
 
-  st.markdown(
-    "<div style='text-align: center; font-size: 11px; margin-bottom: 10px;'>"
-    "<b>Coordinación Técnica de Servicios Generales</b><br>"
-    f"<span style='font-size:9px; color:{color_468};'>"
-    "División de Transportes y Operación</span></div>",
-    unsafe_allow_html=True,
-)
-  st.markdown("---")
-  st.markdown(
-      "<p style='font-size: 12px; margin-bottom: 8px;'><b>SELECCIONAR"
-      " FLOTILLA:</b></p>",
-      unsafe_allow_html=True,
-  )
+    st.markdown("<hr style='margin: 5px 0;'>", unsafe_allow_html=True)
 
-  st.button(
-      "ADMINISTRATIVOS",
-      use_container_width=True,
-      type=(
-          "primary"
-          if st.session_state.categoria_seleccionada == "Administrativos"
-          else "secondary"
-      ),
-      on_click=cambiar_categoria,
-      args=("Administrativos",),
-  )
-  st.button(
-      "AMBULANCIAS",
-      use_container_width=True,
-      type=(
-          "primary"
-          if st.session_state.categoria_seleccionada == "Ambulancias"
-          else "secondary"
-      ),
-      on_click=cambiar_categoria,
-      args=("Ambulancias",),
-  )
-  st.button(
-      "INSTITUCIONALES",
-      use_container_width=True,
-      type=(
-          "primary"
-          if st.session_state.categoria_seleccionada == "Institucionales"
-          else "secondary"
-      ),
-      on_click=cambiar_categoria,
-      args=("Institucionales",),
-  )
+    modulos = [
+        "Dashboard General",
+        "Semáforo de Movilidad por Ciudad",
+        "Control del Pool de Sustitutos (20%)",
+        "Carga Inicial",
+        "Expediente por ECO y Documental",
+        "Registro de Taller e Incidencias",
+        "Reasignación por Necesidad de Servicio",
+        "Reportes y Exportación",
+        "Conciliación Financiera y Pagos",
+    ]
 
-  st.markdown("---")
+    if st.session_state.modulo_activo not in modulos:
+        st.session_state.modulo_activo = "Dashboard General"
 
-  modulos = [
-      "Dashboard General",
-      "Semáforo de Movilidad por Ciudad",
-      "Control del Pool de Sustitutos (20%)",
-      "Carga Inicial",
-      "Expediente por ECO y Documental",
-      "Registro de Taller e Incidencias",
-      "Reasignación por Necesidad de Servicio",
-      "Reportes y Exportación",
-      "Conciliación Financiera y Pagos",
-  ]
+    st.session_state.modulo_activo = st.radio(
+        "Módulos del Sistema:",
+        modulos,
+        index=modulos.index(st.session_state.modulo_activo),
+    )
 
-  if st.session_state.modulo_activo not in modulos:
-    st.session_state.modulo_activo = "Dashboard General"
-
-  st.session_state.modulo_activo = st.radio(
-      "Módulos del Sistema:",
-      modulos,
-      index=modulos.index(st.session_state.modulo_activo),
-  )
-
-  st.markdown("---")
-  st.markdown(
-      "<div style='text-align: center; font-size: 10px; color: #CCCCCC;'>Desarrollado por:<br><b>eduardo.casas@imss.gob.mx</b></div>",
-      unsafe_allow_html=True,
-  )
-
+    st.markdown("<hr style='margin: 5px 0;'>", unsafe_allow_html=True)
+    st.markdown(
+        "<div style='text-align: center; font-size: 9px; color: #CCCCCC; line-height: 1.0;'>Desarrollado por:<br><b>eduardo.casas@imss.gob.mx</b></div>",
+        unsafe_allow_html=True,
+    )
 # -----------------------------------------------------------------------------
 # ENCABEZADO INSTITUCIONAL ÚNICO
 # -----------------------------------------------------------------------------
@@ -1912,90 +1916,224 @@ if mod_actual == "Registro de Taller e Incidencias":
 # 7. REASIGNACIÓN POR NECESIDAD DE SERVICIO (PERSISTIDA EN SUPABASE)
 # -----------------------------------------------------------------------------
 elif mod_actual == "Reasignación por Necesidad de Servicio":
-  st.markdown(
-      f'<p class="subtitulo-seccion">Reasignación Geográfica de Vehículos por'
-      " Necesidad de Servicio</p>",
-      unsafe_allow_html=True,
-  )
-  st.info(
-      "Permite la transferencia oficial de unidades entre sedes u OOAD por"
-      " necesidades operativas o de cobertura."
-  )
-
-  lista_ecos_reasignacion = (
-      list(df_base["eco"].unique())
-      if not df_base.empty and "eco" in df_base.columns
-      else []
-  )
-  
-  lista_ciudades_dinamica = (
-      sorted(list(df_base["UBICACIÓN"].dropna().unique()))
-      if not df_base.empty and "UBICACIÓN" in df_base.columns
-      else ["Aguascalientes", "Colima", "Manzanillo", "Tepic", "Mazatlán", "Zacatecas"]
-  )
-
-  with st.form(key="form_reasignacion"):
-    st.markdown("##### **Formulario Oficial de Reasignación**")
-    col_r1, col_r2 = st.columns(2)
-    eco_r = col_r1.selectbox(
-        "Seleccione el ECO a Reasignar:",
-        (
-            lista_ecos_reasignacion
-            if lista_ecos_reasignacion
-            else ["Sin ECOs cargados"]
-        ),
+    st.markdown(
+        f'<p class="subtitulo-seccion">Reasignación Geográfica de Vehículos por'
+        f" Necesidad de Servicio</p>",
+        unsafe_allow_html=True,
+    )
+    st.info(
+        "Permite la transferencia oficial de unidades entre sedes u OOAD por"
+        " necesidades operativas o de cobertura."
     )
 
-    sede_origen = ""
-    if not df_base.empty and eco_r in lista_ecos_reasignacion:
-      veh_r_info = df_base[df_base["eco"] == eco_r].iloc[0]
-      sede_origen = veh_r_info.get("UBICACIÓN", "")
+    lista_ecos_reasignacion = (
+        list(df_base["eco"].astype(str).unique())
+        if not df_base.empty and "eco" in df_base.columns
+        else []
+    )
+    
+    lista_ciudades_dinamica = (
+        sorted(list(df_base["UBICACIÓN"].dropna().unique()))
+        if not df_base.empty and "UBICACIÓN" in df_base.columns
+        else ["Aguascalientes", "Colima", "Manzanillo", "Tepic", "Mazatlán", "Zacatecas"]
+    )
 
-    col_r2.text_input("Sede de Origen Actual:", value=sede_origen, disabled=True)
+    if "eco_seleccionado_r" not in st.session_state:
+        st.session_state.eco_seleccionado_r = lista_ecos_reasignacion[0] if lista_ecos_reasignacion else ""
 
-    col_r3, col_r4 = st.columns(2)
-    sedes_dest = [s for s in lista_ciudades_dinamica if s != sede_origen]
-    if not sedes_dest:
-      sedes_dest = lista_ciudades_dinamica
-      
-    sede_destino = col_r3.selectbox("Sede de Destino / Nueva OOAD:", sedes_dest)
-    oficio = col_r4.text_input("Número de Oficio de Autorización:", value="")
-
-    motivo = st.text_area("Justificación Técnica / Necesidad de Servicio:")
-
-    if st.form_submit_button("Registrar y Transferir Unidad"):
-      if not lista_ecos_reasignacion:
-        st.error("No hay vehículos cargados para reasignar.")
-      else:
-        nueva_reasig = {
-            "eco": eco_r,
-            "sede_origen": sede_origen,
-            "sede_destino": sede_destino,
-            "fecha": str(date.today()),
-            "motivo": motivo,
-            "oficio_autorizacion": oficio,
-        }
-        if supabase:
-          try:
-            supabase.table("reasignaciones").insert(nueva_reasig).execute()
-          except Exception as err:
-            st.error(f"Error al guardar reasignación en Supabase: {err}")
-
-        st.session_state.reasignaciones_historial = cargar_reasignaciones_supabase()
-        st.success(
-            f"La unidad {eco_r} ha sido reasignada exitosamente de"
-            f" {sede_origen} a {sede_destino}."
+    col_r1, col_r2 = st.columns(2)
+    
+    with col_r1:
+        eco_r = st.selectbox(
+            "Seleccione el ECO a Reasignar:",
+            lista_ecos_reasignacion if lista_ecos_reasignacion else ["Sin ECOs cargados"],
+            key="eco_seleccionado_r"
         )
-        st.rerun()
 
-  st.markdown("---")
-  st.markdown("##### **Histórico de Reasignaciones Realizadas**")
-  st.dataframe(
-      pd.DataFrame(st.session_state.reasignaciones_historial),
-      use_container_width=True,
-      hide_index=True,
-  )
+    sede_origen = "No asignada"
+    if not df_base.empty and eco_r in lista_ecos_reasignacion:
+        match_veh = df_base[df_base["eco"].astype(str).str.strip() == str(eco_r).strip()]
+        
+        if not match_veh.empty:
+            fila = match_veh.iloc[0]
+            for col in ["UBICACIÓN", "ubicacion", "Ubicación", "sede", "Sede", "delegacion", "Delegacion"]:
+                if col in df_base.columns and pd.notna(fila[col]):
+                    sede_origen = str(fila[col]).strip()
+                    break
+        
+        if "reasignaciones_historial" in st.session_state and st.session_state.reasignaciones_historial:
+            reasig_unidad = [
+                r for r in st.session_state.reasignaciones_historial 
+                if str(r.get("eco", r.get("ECO", ""))).strip() == str(eco_r).strip()
+            ]
+            if reasig_unidad:
+                ultima_reasig = reasig_unidad[-1]
+                destino_previo = ultima_reasig.get("sede_destino", ultima_reasig.get("Sede Destino"))
+                if destino_previo and pd.notna(destino_previo):
+                    sede_origen = str(destino_previo).strip()
 
+    with col_r2:
+        st.text_input("Sede de Origen Actual:", value=sede_origen, disabled=True, key=f"txt_orig_{eco_r}")
+
+    with st.form(key="form_reasignacion"):
+        st.markdown("##### **Formulario Oficial de Reasignación**")
+        col_r3, col_r4 = st.columns(2)
+        
+        sedes_dest = [s for s in lista_ciudades_dinamica if s != sede_origen]
+        if not sedes_dest:
+            sedes_dest = lista_ciudades_dinamica
+            
+        sede_destino = col_r3.selectbox("Sede de Destino / Nueva OOAD:", sedes_dest)
+        oficio = col_r4.text_input("Número de Oficio de Autorización:", value="")
+
+        motivo = st.text_area("Justificación Técnica / Necesidad de Servicio:")
+        
+        evidencia_oficio = st.file_uploader(
+            "Subir Oficio de Autorización Escaneado (PDF/JPG):",
+            type=["pdf", "jpg", "png"],
+        )
+
+        submitted_reasig = st.form_submit_button("Registrar y Transferir Unidad")
+
+    if submitted_reasig:
+        if not lista_ecos_reasignacion:
+            st.error("No hay vehículos cargados para reasignar.")
+        elif sede_origen == sede_destino:
+            st.error("⚠️ La sede de destino no puede ser igual a la sede de origen actual.")
+        else:
+            # --- EXTRACCIÓN BLINDADA DE LA URL DE CLOUDINARY ---
+            url_oficio = "N/A"
+            if evidencia_oficio:
+                res_subida = subir_a_cloudinary(evidencia_oficio, folder_destino="reasignaciones_oficios")
+                
+                if isinstance(res_subida, dict):
+                    url_oficio = res_subida.get("secure_url", res_subida.get("url", res_subida.get("path", "N/A")))
+                elif isinstance(res_subida, str) and res_subida.startswith("http"):
+                    url_oficio = res_subida
+                elif res_subida:
+                    url_oficio = str(res_subida)
+            # ---------------------------------------------------
+
+            nueva_reasig = {
+                "eco": str(eco_r),
+                "sede_origen": str(sede_origen),
+                "sede_destino": str(sede_destino),
+                "fecha": str(date.today()),
+                "motivo": str(motivo),
+                "oficio_autorizacion": str(oficio),
+                "evidencia_url": str(url_oficio),
+            }
+            
+            if supabase:
+                try:
+                    supabase.table("reasignaciones").insert(nueva_reasig).execute()
+                except Exception as err:
+                    st.error(f"Error al guardar reasignación en Supabase: {err}")
+
+            st.session_state.reasignaciones_historial = cargar_reasignaciones_supabase()
+            st.success(
+                f"La unidad {eco_r} ha sido reasignada exitosamente de"
+                f" {sede_origen} a {sede_destino}. Oficio respaldado."
+            )
+            st.rerun()
+
+    st.markdown("---")
+    st.markdown("##### **Histórico de Reasignaciones Realizadas**")
+    
+    if "reasignaciones_historial" in st.session_state and st.session_state.reasignaciones_historial:
+        df_reasig = pd.DataFrame(st.session_state.reasignaciones_historial)
+        
+        renombrar_reasig = {
+            "eco": "ECO",
+            "sede_origen": "Sede Origen",
+            "sede_destino": "Sede Destino",
+            "fecha": "Fecha Reasignación",
+            "motivo": "Motivo",
+            "oficio_autorizacion": "No. Oficio",
+            "evidencia_url": "Enlace Oficio",
+            "url_oficio": "Enlace Oficio"
+        }
+        df_reasig = df_reasig.rename(columns=renombrar_reasig)
+        
+        with st.expander("🔍 Filtrar Historial de Reasignaciones", expanded=False):
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                filtro_eco = st.text_input("Filtrar por ECO:", value="", placeholder="Ej. A001 o dejar vacío")
+            with col_f2:
+                sedes_disponibles_hist = ["Todas"] + sorted(df_reasig["Sede Destino"].dropna().unique().tolist()) if "Sede Destino" in df_reasig.columns else ["Todas"]
+                filtro_sede_dest = st.selectbox("Filtrar por Sede de Destino:", sedes_disponibles_hist)
+
+        df_filtrado_r = df_reasig.copy()
+        
+        if filtro_eco.strip() and "ECO" in df_filtrado_r.columns:
+            df_filtrado_r = df_filtrado_r[df_filtrado_r["ECO"].astype(str).str.contains(filtro_eco.strip(), case=False, na=False)]
+            
+        if filtro_sede_dest != "Todas" and "Sede Destino" in df_filtrado_r.columns:
+            df_filtrado_r = df_filtrado_r[df_filtrado_r["Sede Destino"] == filtro_sede_dest]
+        
+        cols_ordenadas_r = ["ECO", "Sede Origen", "Sede Destino", "Fecha Reasignación", "No. Oficio", "Motivo", "Enlace Oficio"]
+        cols_finales_r = [c for c in cols_ordenadas_r if c in df_filtrado_r.columns]
+        
+        st.dataframe(
+            df_filtrado_r[cols_finales_r],
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        # ---------------------------------------------------------------------
+        # VISTA PREVIA DEL DOCUMENTO JUSTIFICATORIO (CON DEPURO VISIBLE)
+        # ---------------------------------------------------------------------
+        st.markdown("##### **📁 Vista Previa de Oficio Justificatorio**")
+        if not df_filtrado_r.empty:
+            lista_opciones_prev = []
+            mapeo_indices = []
+            
+            for original_idx, item in enumerate(st.session_state.reasignaciones_historial):
+                e_val = item.get("eco", item.get("ECO", "N/A"))
+                o_val = item.get("oficio_autorizacion", item.get("No. Oficio", "S/N"))
+                d_val = item.get("sede_destino", item.get("Sede Destino", "N/A"))
+                
+                etiqueta = f"ECO: {e_val} | Oficio: {o_val} | Destino: {d_val}"
+                lista_opciones_prev.append(etiqueta)
+                mapeo_indices.append(original_idx)
+            
+            sel_prev = st.selectbox("Seleccione el movimiento para visualizar su documento:", lista_opciones_prev)
+            
+            if sel_prev:
+                idx_seleccionado = lista_opciones_prev.index(sel_prev)
+                dict_original = st.session_state.reasignaciones_historial[mapeo_indices[idx_seleccionado]]
+                
+                # --- LÍNEA DE DEPURACIÓN (Muestra exactamente qué contiene Supabase en este registro) ---
+                with st.expander("🛠️ Depurar contenido exacto en Supabase para este registro", expanded=False):
+                    st.write(dict_original)
+                # --------------------------------------------------------------------------------------
+
+                # Buscamos la URL probando múltiples posibles nombres de columnas en la BD
+                url_doc = "N/A"
+                for clave_posible in ["evidencia_url", "url_oficio", "enlace_oficio", "Enlace Oficio", "evidencia"]:
+                    val = dict_original.get(clave_posible)
+                    if val and pd.notna(val) and str(val).strip() != "" and str(val).strip() != "N/A":
+                        url_doc = str(val).strip()
+                        break
+
+                eco_actual = dict_original.get("eco", dict_original.get("ECO", "N/A"))
+                oficio_actual = dict_original.get("oficio_autorizacion", dict_original.get("No. Oficio", "S/N"))
+
+                if url_doc != "N/A" and url_doc.startswith("http"):
+                    st.success(f"Documento asociado para el ECO **{eco_actual}** (Oficio: **{oficio_actual}**):")
+                    
+                    if url_doc.lower().endswith((".jpg", ".jpeg", ".png")) or "image/upload" in url_doc or "cloudinary.com" in url_doc:
+                        st.image(url_doc, caption=f"Oficio de Reasignación - ECO {eco_actual}", use_container_width=True)
+                    elif url_doc.lower().endswith(".pdf"):
+                        st.markdown(f'<iframe src="{url_doc}" width="100%" height="600px" type="application/pdf"></iframe>', unsafe_allow_html=True)
+                        st.markdown(f"[Abrir PDF en pestaña nueva]({url_doc})")
+                    else:
+                        st.image(url_doc, caption=f"Oficio - ECO {eco_actual}", use_container_width=True)
+                        st.markdown(f"🔗 [Enlace directo al documento]({url_doc})")
+                else:
+                    st.warning(f"Este registro no cuenta con un archivo adjunto válido. El valor guardado en Supabase es: `{url_doc}`. Asegúrate de haber subido un archivo al registrar la reasignación.")
+    else:
+        st.info("No hay registros de reasignaciones en el histórico.")
 # -----------------------------------------------------------------------------
 # 8. REPORTES Y EXPORTACIÓN
 # -----------------------------------------------------------------------------
