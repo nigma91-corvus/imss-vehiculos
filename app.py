@@ -2058,9 +2058,10 @@ elif mod_actual == "Registro de Taller e Incidencias":
                     ["Mantenimiento Preventivo", "Mantenimiento Correctivo"],
                 )
 
-                c3, c4 = st.columns(2)
+                c3, c4, c_fsal = st.columns(3)
                 f_ent = c3.date_input("Fecha Ingreso Taller:", value=date.today())
                 h_ent = c4.time_input("Hora Ingreso Taller:")
+                f_sal_est = c_fsal.date_input("Fecha Salida (Estimada):", value=date.today())
 
                 c5, c6 = st.columns(2)
                 resp_t = c5.text_input("Responsable que Autoriza Ingreso:", value="")
@@ -2091,7 +2092,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
                             "eco": str(eco_t),
                             "tipo": str(tipo_mantenimiento),
                             "fecha_ingreso": str(f_ent),
-                            "fecha_salida": None,
+                            "fecha_salida": str(f_sal_est),
                             "hora": str(h_ent),
                             "responsable": str(resp_t),
                             "taller": str(taller_nom),
@@ -2125,9 +2126,10 @@ elif mod_actual == "Registro de Taller e Incidencias":
                 poliza_s = s3.text_input("Número de Póliza:", value="")
                 folio_s = s4.text_input("Número de Folio / Siniestro:", value="")
 
-                s6, s7 = st.columns(2)
+                s6, s7, s_fsals = st.columns(3)
                 f_sin = s6.date_input("Fecha del Siniestro:", value=date.today())
                 taller_sin = s7.text_input("Taller Asignado por Ajustador:", value="")
+                f_sal_sin_est = s_fsals.date_input("Fecha Salida Estimada:", value=date.today())
 
                 st.info("ℹ️ **Siniestro:** Requiere asignación de Vehículo Sustituto (Pool 20%).")
                 evidencia_s = st.file_uploader(
@@ -2149,7 +2151,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
                             "eco": str(eco_s),
                             "tipo": "Siniestro",
                             "fecha_ingreso": str(f_sin),
-                            "fecha_salida": None,
+                            "fecha_salida": str(f_sal_sin_est),
                             "hora": datetime.now().strftime("%H:%M"),
                             "responsable": f"Ajustador {aseg} (Póliza: {poliza_s}, Folio: {folio_s})",
                             "taller": str(taller_sin),
@@ -2309,13 +2311,12 @@ elif mod_actual == "Registro de Taller e Incidencias":
                 idx_est = estatus_list.index(est_actual) if est_actual in estatus_list else 0
                 e_estatus = st.selectbox("Estatus del Registro:", estatus_list, index=idx_est)
 
-                # Campo para corregir fecha de salida si ya está concluido
                 f_salida_val = reg_actual.get("fecha_salida", reg_actual.get("Fecha_Salida", None))
                 try:
                     parsed_date = date.fromisoformat(f_salida_val) if f_salida_val else date.today()
                 except Exception:
                     parsed_date = date.today()
-                e_f_salida = st.date_input("Fecha de Salida (Opcional):", value=parsed_date)
+                e_f_salida = st.date_input("Fecha de Salida (Modificable):", value=parsed_date)
 
                 e_obs = st.text_area(
                     "Observaciones o notas de la corrección:",
@@ -2329,7 +2330,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
                         "responsable": str(e_resp),
                         "taller": str(e_taller),
                         "estatus": str(e_estatus),
-                        "fecha_salida": str(e_f_salida) if e_estatus == "Concluido (Salida Completa)" else None,
+                        "fecha_salida": str(e_f_salida),
                         "observaciones": str(e_obs),
                     }
                     if supabase:
