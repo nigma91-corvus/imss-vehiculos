@@ -1270,6 +1270,7 @@ if mod_actual == "Expediente por ECO y Documental":
             col_img_cat, col_info_cat = st.columns([1, 2.2], gap="small")
 
             with col_img_cat:
+                # Usamos minúsculas 'tipo' y 'linea' para que coincidan con la BD/CSV y muestre la foto de catálogo
                 tipo_v = v_data.get("tipo", "")
                 linea_v = v_data.get("linea", "")
                 url_cat = obtener_imagen_catalogo_supabase(tipo_v, linea_v)
