@@ -385,6 +385,9 @@ st.markdown(
 # -----------------------------------------------------------------------------
 # BARRA LATERAL (SIDEBAR)
 # -----------------------------------------------------------------------------
+# Definición de la URL fija del logo institucional en Cloudinary
+# (Asegúrate de colocar esto justo antes de la barra lateral)
+url_logo_supa = "https://res.cloudinary.com/apg9jptd/image/upload/v1788891026/logo_imss.png"
 with st.sidebar:
     # Bloque de estilos CSS para controlar la separación y los botones
     st.markdown(
