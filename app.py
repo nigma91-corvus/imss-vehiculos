@@ -415,7 +415,7 @@ with st.sidebar:
     color_468 = COLORES_PANTONE["468"]
 
     st.markdown(
-        "<div style='text-align: center; font-size: 13px; margin-bottom: 0px; line-height: 1.0;'>"
+        f"<div style='text-align: center; font-size: 13px; margin-top: -155px; margin-bottom: 0px; line-height: 1.0;'>"
         "<b>Coordinación Técnica de Servicios Generales</b><br>"
         f"<span style='font-size:11px; color:{color_468};'>"
         "División de Transportes y Operación</span></div>",
