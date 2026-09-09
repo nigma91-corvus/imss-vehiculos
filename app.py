@@ -379,25 +379,34 @@ with st.sidebar:
     st.markdown(
         """
         <style>
-            /* Reduce la separación vertical general entre todos los bloques y elementos dentro del sidebar */
+            /* Reduce la separación vertical general entre todos los bloques dentro del sidebar */
             [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-                gap: 2px !important;
+                gap: 0px !important;
             }
-            /* Aplica un margen negativo arriba y abajo de cada contenedor de botón para acercarlos entre sí */
+            
+            /* Compacta de forma agresiva el margen superior e inferior de los contenedores de los botones de flotilla */
             [data-testid="stSidebar"] .stButton {
-                margin-top: -6px !important;
-                margin-bottom: -6px !important;
+                margin-top: -12px !important;
+                margin-bottom: -12px !important;
             }
-            /* Compacta la altura mínima interna y el relleno de los botones (Administrativos, Ambulancias, etc.) */
+            
+            /* Reduce el área interna y la altura de los botones para que no ocupen espacio vertical extra */
             [data-testid="stSidebar"] .stButton button {
-                min-height: 30px !important;
-                padding-top: 2px !important;
-                padding-bottom: 2px !important;
+                min-height: 24px !important;
+                padding-top: 1px !important;
+                padding-bottom: 1px !important;
             }
-            /* Elimina el margen por defecto en párrafos y etiquetas de texto para evitar espacios vacíos */
+            
+            /* Elimina los márgenes predeterminados de párrafos y etiquetas para juntar los títulos con los elementos */
             [data-testid="stSidebar"] p, [data-testid="stSidebar"] label {
                 margin-bottom: 0px !important;
-                margin-top: 2px !important;
+                margin-top: 0px !important;
+            }
+            
+            /* Compacta la separación específica del componente radio (Módulos del Sistema) */
+            [data-testid="stSidebar"] div.stRadio {
+                margin-top: -10px !important;
+                margin-bottom: -10px !important;
             }
         </style>
         """,
