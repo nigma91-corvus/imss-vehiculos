@@ -1272,19 +1272,29 @@ if mod_actual == "Expediente por ECO y Documental":
             col_img_cat, col_info_cat = st.columns([1, 2.2], gap="small")
 
             with col_img_cat:
+                import unicodedata
+                import urllib.parse
+
                 tipo_v = str(v_data.get("tipo", "")).strip()
                 linea_v = str(v_data.get("linea", "")).strip()
                 
+                # Función para quitar acentos y limpiar caracteres para que la URL sea 100% compatible con Cloudinary
+                def limpiar_para_url(texto):
+                    # Normaliza y quita acentos (ej: 'sedán' -> 'sedan')
+                    nfkd_form = unicodedata.normalize('NFKD', texto)
+                    solo_ascii = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
+                    return solo_ascii.lower().strip().replace(" ", "_").replace("/", "-").replace(".", "")
+
+                tipo_limpio = limpiar_para_url(tipo_v)
+                linea_limpio = limpiar_para_url(linea_v)
+                
+                nombre_foto_limpio = f"{tipo_limpio}_{linea_limpio}"
+                
                 try:
                     cloud_name = st.secrets["cloudinary"]["cloud_name"]
-                    nombre_foto_limpio = f"{tipo_v}_{linea_v}".lower().replace(" ", "_").replace("/", "-").replace(".", "")
                     url_cat = f"https://res.cloudinary.com/{cloud_name}/image/upload/v1/vehiculos_fotos/{nombre_foto_limpio}.jpg"
-                except Exception as e:
+                except Exception:
                     url_cat = ""
-                    st.error(f"Error con los secrets: {e}")
-
-                # ESTA LÍNEA ES CLAVE: Muestra el enlace en pantalla para que veamos qué dirección intenta abrir
-                st.write(f"URL generada: `{url_cat}`")
 
                 if url_cat:
                     st.markdown(
