@@ -1226,11 +1226,10 @@ def limpiar_texto(texto):
     ).lower()
 
 def obtener_imagen_catalogo_supabase(tipo_v, linea_v):
-    """Función que retorna la URL exacta de Cloudinary para el catálogo."""
+    """Función definitiva con las URLs exactas y versiones de Cloudinary."""
     texto_busqueda = limpiar_texto(f"{tipo_v} {linea_v}")
     cloud_name = st.secrets["cloudinary"]["cloud_name"]
 
-    # Mapeo directo con las URLs reales que Cloudinary te dio
     if "transit" in texto_busqueda:
         return f"https://res.cloudinary.com/{cloud_name}/image/upload/v1788891028/FORD_TRANSIT_GENERICA.png"
     elif "promaster" in texto_busqueda or "ram 2500" in texto_busqueda:
@@ -1242,8 +1241,7 @@ def obtener_imagen_catalogo_supabase(tipo_v, linea_v):
     elif "f-150" in texto_busqueda:
         return f"https://res.cloudinary.com/{cloud_name}/image/upload/v1788891030/f-150-xl.png"
     elif "v-drive" in texto_busqueda:
-        # Aquí puedes usar la versión que gustes o la estándar de Cloudinary
-        return f"https://res.cloudinary.com/{cloud_name}/image/upload/vehiculos_fotos/v-drive-tm-ac.png" 
+        return f"https://res.cloudinary.com/{cloud_name}/image/upload/v1788891031/v-drive-tm-ac.png"
     elif "creta" in texto_busqueda:
         return f"https://res.cloudinary.com/{cloud_name}/image/upload/v1788891030/creta-1-5l-gls-ivt.png"
 
