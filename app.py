@@ -400,7 +400,7 @@ with st.sidebar:
     if url_logo_supa:
         st.markdown(
             f"""
-            <div style="display: flex; justify-content: center; align-items: center; margin-top: -5px; margin-bottom: 0px;">
+            <div style="display: flex; justify-content: center; align-items: center; margin-top: -55px; margin-bottom: 0px;">
                 <img src="{url_logo_supa}" style="max-height: 160px; width: auto; object-fit: contain;">
             </div>
             """,
