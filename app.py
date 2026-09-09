@@ -521,18 +521,6 @@ st.markdown(
 )
 
 st.markdown(
-    """
-    <style>
-        .block-container {
-            padding-top: 1rem !important;
-            padding-bottom: 1rem !important;
-        }
-    </style>
-""",
-    unsafe_allow_html=True,
-)
-
-st.markdown(
     f"""
     <div style="display: flex; align-items: flex-end; gap: 15px; width: 100%; margin: 0 0 15px 0;">
         <div style="max-width: 65px; flex-shrink: 0;">
@@ -554,8 +542,7 @@ st.markdown(
 mod_actual = st.session_state.modulo_activo
 
 # -----------------------------------------------------------------------------
-# # -----------------------------------------------------------------------------
-# 1. FUNCIÓN AUXILIAR DE ESTILIZACIÓN (Colócala arriba en tu app o antes del dashboard)
+# 1. FUNCIÓN AUXILIAR DE ESTILIZACIÓN DE TABLAS
 # -----------------------------------------------------------------------------
 def aplicar_estilo_tabla(df):
   def estilo_filas(row):
@@ -785,7 +772,6 @@ if mod_actual == "Dashboard General":
       )
       df_mostrar_res = pd.concat([resumen_tipo, df_totales], ignore_index=True)
 
-      # --- APLICAMOS EL ESTILO DE FILAS CEBRA A LA TABLA DE RESUMEN ---
       st.dataframe(
           aplicar_estilo_tabla(df_mostrar_res),
           hide_index=True,
@@ -820,7 +806,6 @@ if mod_actual == "Dashboard General":
       else pd.DataFrame(columns=cols_mostrar)
   )
 
-  # --- APLICAMOS EL ESTILO DE FILAS CEBRA A LA TABLA DETALLADA ---
   st.dataframe(
       aplicar_estilo_tabla(df_detallado),
       use_container_width=True,
