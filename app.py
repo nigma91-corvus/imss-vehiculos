@@ -1075,7 +1075,6 @@ elif mod_actual == "Carga Inicial":
     if st.session_state.get("admin_autenticado", False):
         st.markdown("##### **1. Descargar Plantilla Oficial**")
         
-        # Columnas exactamente en minúsculas tal como están en Supabase
         columnas_plantilla = [
             "eco",
             "tipo",
@@ -1128,62 +1127,68 @@ elif mod_actual == "Carga Inicial":
                     else:
                         df_subido = pd.read_excel(up_file, dtype=str)
 
-                    # Normalizar nombres de columnas (quitar espacios y pasar todo a minúsculas por seguridad)
                     df_subido.columns = df_subido.columns.str.strip().str.lower()
 
-                    # Validar existencia de la columna clave "eco" para control de duplicados
                     if "eco" not in df_subido.columns:
                         st.error("⚠️ El archivo cargado no contiene la columna obligatoria 'eco'.")
                     else:
-                        # Control de ECOS duplicados dentro del propio archivo cargado
+                        df_subido["eco"] = df_subido["eco"].astype(str).str.strip()
+
                         duplicados_en_archivo = df_subido[df_subido.duplicated(subset=["eco"], keep=False)]
                         if not duplicados_en_archivo.empty:
-                            st.warning(
-                                f"⚠️ Se encontraron {len(duplicados_en_archivo)} registros con ECOS duplicados dentro del archivo. "
-                                "Se conservará únicamente la última aparición de cada ECO."
+                            ecos_dup_lista = duplicados_en_archivo["eco"].unique().tolist()
+                            st.error(
+                                f"⚠️ **ECOs duplicados dentro de tu archivo:** Se encontraron repetidos los siguientes ECOS: {', '.join(ecos_dup_lista)}. "
+                                "Corrige el archivo antes de subirlos para evitar conflictos."
                             )
-                            df_subido = df_subido.drop_duplicates(subset=["eco"], keep="last")
-
-                        tabla_map = {
-                            "Administrativos": "vehiculos_administrativos",
-                            "Ambulancias": "vehiculos_ambulancias",
-                            "Institucionales": "vehiculos_institucionales",
-                        }
-                        nombre_tabla = tabla_map.get(cat_actual, "vehiculos_administrativos")
-
-                        if supabase:
-                            # 1. Limpiar la tabla actual por completo antes de reinsertar la base validada
-                            supabase.table(nombre_tabla).delete().neq("id", 0).execute()
-                            
-                            # 2. Preparar registros y limpiar valores NaN/NaT a None para Supabase
-                            df_subido = df_subido.where(pd.notnull(df_subido), None)
-                            registros = df_subido.to_dict(orient="records")
-                            
-                            # 3. Inserción por lotes (chunks) para evitar límites de tamaño
-                            chunk_size = 500
-                            for i in range(0, len(registros), chunk_size):
-                                chunk = registros[i : i + chunk_size]
-                                supabase.table(nombre_tabla).insert(chunk).execute()
-
-                            # 4. Guardar bitácora en Supabase
-                            nueva_bitacora = {
-                                "fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                                "usuario": st.session_state.get("admin_user_input", "admin"),
-                                "base": cat_actual,
-                                "archivo": up_file.name,
-                                "registros": len(df_subido),
-                                "estado": "Exitoso",
+                        else:
+                            tabla_map = {
+                                "Administrativos": "vehiculos_administrativos",
+                                "Ambulancias": "vehiculos_ambulancias",
+                                "Institucionales": "vehiculos_institucionales",
                             }
-                            supabase.table("bitacora_cargas").insert(nueva_bitacora).execute()
+                            nombre_tabla = tabla_map.get(cat_actual, "vehiculos_administrativos")
 
-                        st.session_state.bitacora_cargas = cargar_bitacora_cargas_supabase()
-                        st.cache_data.clear()
-                        st.success(
-                            f"¡Base de datos sincronizada con éxito en Supabase! Se "
-                            f"guardaron {len(df_subido)} unidades únicas en la tabla "
-                            f"'{nombre_tabla}'."
-                        )
-                        st.rerun()
+                            if supabase:
+                                response = supabase.table(nombre_tabla).select("eco").execute()
+                                ecos_existentes_db = {str(row["eco"]) for row in response.data} if response.data else set()
+
+                                ecos_en_archivo = set(df_subido["eco"])
+                                ya_registrados = ecos_en_archivo.intersection(ecos_existentes_db)
+
+                                if ya_registrados:
+                                    st.error(
+                                        f"⚠️ **Error de Duplicidad con la Base de Datos:** Los siguientes ECOS ya se encuentran registrados en Supabase ({cat_actual}): "
+                                        f"**{', '.join(list(ya_registrados))}**. "
+                                        "No se puede realizar la carga para evitar duplicar vehículos existentes."
+                                    )
+                                else:
+                                    df_subido = df_subido.where(pd.notnull(df_subido), None)
+                                    registros = df_subido.to_dict(orient="records")
+                                    
+                                    chunk_size = 500
+                                    for i in range(0, len(registros), chunk_size):
+                                        chunk = registros[i : i + chunk_size]
+                                        supabase.table(nombre_tabla).insert(chunk).execute()
+
+                                    nueva_bitacora = {
+                                        "fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                        "usuario": st.session_state.get("admin_user_input", "admin"),
+                                        "base": cat_actual,
+                                        "archivo": up_file.name,
+                                        "registros": len(df_subido),
+                                        "estado": "Exitoso",
+                                    }
+                                    supabase.table("bitacora_cargas").insert(nueva_bitacora).execute()
+
+                                    st.session_state.bitacora_cargas = cargar_bitacora_cargas_supabase()
+                                    st.cache_data.clear()
+                                    st.success(
+                                        f"¡Base de datos actualizada con éxito en Supabase! Se "
+                                        f"agregaron {len(df_subido)} unidades nuevas en la tabla "
+                                        f"'{nombre_tabla}'."
+                                    )
+                                    st.rerun()
                 except Exception as e:
                     st.error(f"Error al procesar y subir el archivo: {e}")
 
