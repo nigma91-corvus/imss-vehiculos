@@ -392,13 +392,13 @@ with st.sidebar:
 
             /* 3. Reduce el espacio vertical específico entre un botón y otro */
             [data-testid="stSidebar"] .stButton {
-                margin-top: -100px !important;
-                margin-bottom: -100px !important;
+                margin-top: -120px !important;
+                margin-bottom: -50px !important;
             }
 
             /* 4. Sube el bloque completo de los Módulos del Sistema */
             [data-testid="stSidebar"] div.stRadio {
-                margin-top: -100px !important;
+                margin-top: -120px !important;
             }
         </style>
         """,
