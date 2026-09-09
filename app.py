@@ -1273,21 +1273,17 @@ if mod_actual == "Expediente por ECO y Documental":
 
             with col_img_cat:
                 import unicodedata
-                import urllib.parse
 
                 tipo_v = str(v_data.get("tipo", "")).strip()
                 linea_v = str(v_data.get("linea", "")).strip()
                 
-                # Función para quitar acentos y limpiar caracteres para que la URL sea 100% compatible con Cloudinary
                 def limpiar_para_url(texto):
-                    # Normaliza y quita acentos (ej: 'sedán' -> 'sedan')
                     nfkd_form = unicodedata.normalize('NFKD', texto)
                     solo_ascii = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
                     return solo_ascii.lower().strip().replace(" ", "_").replace("/", "-").replace(".", "")
 
                 tipo_limpio = limpiar_para_url(tipo_v)
                 linea_limpio = limpiar_para_url(linea_v)
-                
                 nombre_foto_limpio = f"{tipo_limpio}_{linea_limpio}"
                 
                 try:
@@ -1296,9 +1292,12 @@ if mod_actual == "Expediente por ECO y Documental":
                 except Exception:
                     url_cat = ""
 
+                # Ponemos un enlace directo para que puedas darle clic y ver qué responde Cloudinary
+                st.markdown(f"🔗 [Probar enlace directo en navegador]({url_cat})", unsafe_allow_html=True)
+
                 if url_cat:
                     st.markdown(
-                        f'<div class="image-container-full"><img src="{url_cat}" alt="Vehículo" onerror="this.onerror=null;this.src=\'https://via.placeholder.com/300x200?text=Sin+Foto+Catalogo\';"></div>',
+                        f'<div class="image-container-full"><img src="{url_cat}" alt="Vehículo"></div>',
                         unsafe_allow_html=True,
                     )
                     st.caption(f"Catálogo: {tipo_v} - {linea_v}")
