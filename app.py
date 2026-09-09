@@ -2076,9 +2076,17 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
         else []
     )
     
+    # Búsqueda automática flexible de la columna de ubicación (sin importar mayúsculas/minúsculas)
+    col_ubicacion_key = None
+    if not df_base.empty:
+        for col in df_base.columns:
+            if col.strip().lower() in ["ubicacion", "ubicación", "sede"]:
+                col_ubicacion_key = col
+                break
+
     lista_ciudades_dinamica = (
-        sorted(list(df_base["ubicacion"].dropna().unique()))
-        if not df_base.empty and "ubicacion" in df_base.columns
+        sorted(list(df_base[col_ubicacion_key].dropna().unique()))
+        if not df_base.empty and col_ubicacion_key
         else ["Aguascalientes", "Colima", "Manzanillo", "Tepic", "Mazatlán", "Zacatecas"]
     )
 
@@ -2094,16 +2102,16 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
             key="select_eco_reasignacion"
         )
 
-        # Extracción limpia y exacta usando la columna "ubicacion"
+        # Extracción segura usando la columna localizada dinámicamente
         sede_origen = "Sin asignar"
-        if not df_base.empty and "eco" in df_base.columns and "ubicacion" in df_base.columns:
+        if not df_base.empty and "eco" in df_base.columns and col_ubicacion_key:
             df_temp = df_base.copy()
             df_temp["eco_clean"] = df_temp["eco"].astype(str).str.strip()
             eco_buscado = str(eco_r).strip()
             
             veh_info = df_temp[df_temp["eco_clean"] == eco_buscado]
             if not veh_info.empty:
-                val_ubi = veh_info.iloc[0].get("ubicacion", "Sin asignar")
+                val_ubi = veh_info.iloc[0].get(col_ubicacion_key, "Sin asignar")
                 if pd.notna(val_ubi) and str(val_ubi).strip() != "":
                     sede_origen = str(val_ubi).strip()
 
