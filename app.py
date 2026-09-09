@@ -2058,10 +2058,13 @@ elif mod_actual == "Registro de Taller e Incidencias":
                     ["Mantenimiento Preventivo", "Mantenimiento Correctivo"],
                 )
 
-                c3, c4, c_fsal = st.columns(3)
+                c3, c4 = st.columns(2)
                 f_ent = c3.date_input("Fecha Ingreso Taller:", value=date.today())
                 h_ent = c4.time_input("Hora Ingreso Taller:")
-                f_sal_est = c_fsal.date_input("Fecha Salida (Estimada):", value=date.today())
+
+                st.markdown("---")
+                f_sal_est = st.date_input("📅 Fecha Estimada de Entrega / Salida del Vehículo:", value=date.today())
+                st.markdown("---")
 
                 c5, c6 = st.columns(2)
                 resp_t = c5.text_input("Responsable que Autoriza Ingreso:", value="")
@@ -2126,10 +2129,13 @@ elif mod_actual == "Registro de Taller e Incidencias":
                 poliza_s = s3.text_input("Número de Póliza:", value="")
                 folio_s = s4.text_input("Número de Folio / Siniestro:", value="")
 
-                s6, s7, s_fsals = st.columns(3)
+                s6, s7 = st.columns(2)
                 f_sin = s6.date_input("Fecha del Siniestro:", value=date.today())
                 taller_sin = s7.text_input("Taller Asignado por Ajustador:", value="")
-                f_sal_sin_est = s_fsals.date_input("Fecha Salida Estimada:", value=date.today())
+
+                st.markdown("---")
+                f_sal_sin_est = st.date_input("📅 Fecha Estimada de Entrega / Salida del Siniestro:", value=date.today())
+                st.markdown("---")
 
                 st.info("ℹ️ **Siniestro:** Requiere asignación de Vehículo Sustituto (Pool 20%).")
                 evidencia_s = st.file_uploader(
