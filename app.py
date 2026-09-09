@@ -1296,16 +1296,15 @@ if mod_actual == "Expediente por ECO y Documental":
                 try:
                     cloud_name = st.secrets["cloudinary"]["cloud_name"]
                     if nombre_foto_limpio:
-                        url_cat = f"https://res.cloudinary.com/{cloud_name}/image/upload/v1/vehiculos_fotos/{nombre_foto_limpio}.png"
+                        # Omitimos el "v1/" para que Cloudinary entregue la imagen de forma limpia por su CDN
+                        url_cat = f"https://res.cloudinary.com/{cloud_name}/image/upload/vehiculos_fotos/{nombre_foto_limpio}.png"
                 except Exception:
                     url_cat = ""
 
                 if url_cat:
-                    st.markdown(
-                        f'<div class="image-container-full"><img src="{url_cat}" alt="Vehículo"></div>',
-                        unsafe_allow_html=True,
-                    )
-                    st.caption(f"Catálogo: {tipo_v} - {linea_v}")
+                    st.image(url_cat, caption=f"Catálogo: {tipo_v} - {linea_v}", use_container_width=True)
+                else:
+                    st.info(f"📷 [Sin foto en catálogo: {linea_v}]")
                 else:
                     st.info(f"📷 [Sin foto en catálogo: {linea_v}]")
 
@@ -1418,7 +1417,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
         st.session_state.ultimo_envio_taller = None
 
     lista_ecos_taller = (
-        sorted(df_base["eco"].dropna().astype(str).unique().tolist())
+        sorted(df_base["eco"].dropna().astype(str).unique().tolist()))
         if not df_base.empty and "eco" in df_base.columns
         else []
     )
