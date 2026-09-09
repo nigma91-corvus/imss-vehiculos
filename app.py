@@ -375,7 +375,7 @@ st.markdown(
 # BARRA LATERAL (SIDEBAR)
 # -----------------------------------------------------------------------------
 with st.sidebar:
-    # CSS específico para compactar al máximo los elementos del sidebar
+    # Bloque de estilos CSS para controlar la separación y los botones
     st.markdown(
         """
         <style>
@@ -389,12 +389,18 @@ with st.sidebar:
                 min-height: 32px !important;
                 padding: 2px 8px !important;
             }
+
+            /* 3. Reduce el espacio vertical específico entre un botón y otro */
+            [data-testid="stSidebar"] .stButton {
+                margin-top: -6px !important;
+                margin-bottom: -6px !important;
+            }
         </style>
         """,
         unsafe_allow_html=True,
     )
     
-    # Logo compacto y centrado
+    # Logo compacto y centrado (con su margen superior negativo ya autorizado)
     if url_logo_supa:
         st.markdown(
             f"""
@@ -412,6 +418,7 @@ with st.sidebar:
 
     color_468 = COLORES_PANTONE["468"]
 
+    # Texto institucional debajo del logo (mantiene tu ajuste de posición)
     st.markdown(
         f"<div style='text-align: center; font-size: 11px; margin-top: -50px; margin-bottom: 0px; line-height: 1.0;'>"
         "<b>Coordinación Técnica de Servicios Generales</b><br>"
@@ -420,11 +427,13 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     
+    # Etiqueta de selección de flotilla (mantiene tu ajuste de posición)
     st.markdown(
         "<p style='font-size: 11px; margin-top: -45px; margin-bottom: 2px;'><b>SELECCIONAR FLOTILLA:</b></p>",
         unsafe_allow_html=True,
     )
 
+    # Botón Administrativos
     st.button(
         "ADMINISTRATIVOS",
         use_container_width=True,
@@ -436,6 +445,7 @@ with st.sidebar:
         on_click=cambiar_categoria,
         args=("Administrativos",),
     )
+    # Botón Ambulancias
     st.button(
         "AMBULANCIAS",
         use_container_width=True,
@@ -447,6 +457,7 @@ with st.sidebar:
         on_click=cambiar_categoria,
         args=("Ambulancias",),
     )
+    # Botón Institucionales
     st.button(
         "INSTITUCIONALES",
         use_container_width=True,
@@ -459,6 +470,7 @@ with st.sidebar:
         args=("Institucionales",),
     )
 
+    # Definición de los módulos del sistema
     modulos = [
         "Dashboard General",
         "Semáforo de Movilidad por Ciudad",
@@ -474,12 +486,14 @@ with st.sidebar:
     if st.session_state.modulo_activo not in modulos:
         st.session_state.modulo_activo = "Dashboard General"
 
+    # Menú desplegable tipo radio para los módulos
     st.session_state.modulo_activo = st.radio(
         "Módulos del Sistema:",
         modulos,
         index=modulos.index(st.session_state.modulo_activo),
     )
 
+    # Pie de página con créditos del sistema
     st.markdown(
         "<div style='text-align: center; font-size: 9px; color: #CCCCCC; line-height: 1.0; margin-top: 2px;'>Desarrollado por:<br><b>eduardo.casas@imss.gob.mx</b></div>",
         unsafe_allow_html=True,
