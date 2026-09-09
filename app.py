@@ -838,29 +838,29 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
     )
 
     if not df_base.empty and "ubicacion" in df_base.columns:
-        # Mapeo dinámico considerando registros en taller desde la sesión
+        # Obtener eco en taller desde la sesión
         ecos_en_taller = {
             r.get("eco", r.get("ECO"))
             for r in st.session_state.get("taller_registros", [])
             if r.get("estatus", r.get("Estatus")) == "Activo (En Taller)"
         }
 
+        # Crear una copia para procesar de forma segura sin romper índices
+        df_temp = df_base.copy()
+        df_temp["en_taller"] = df_temp["eco"].isin(ecos_en_taller)
+        
+        # Banderas condicionales vectorizadas
+        df_temp["es_titular_activo"] = (df_temp["estatus"] == "Titular Activo") & (~df_temp["en_taller"])
+        df_temp["es_sustituto"] = df_temp["estatus"] == "Sustituto Entregado"
+        df_temp["es_inoperativo"] = df_temp["estatus"] == "Inoperativo / Baja"
+
         df_ciudades = (
-            df_base.groupby("ubicacion")
+            df_temp.groupby("ubicacion")
             .agg(
                 Flotilla_Asignada=("eco", "count"),
-                Titulares_Activos=(
-                    "estatus",
-                    lambda x: sum(1 for eco, est in zip(x.index, x) if est == "Titular Activo" and df_base.loc[eco, "eco"] not in ecos_en_taller),
-                ),
-                Sustitutos_Entregados=(
-                    "estatus",
-                    lambda x: sum(1 for est in x if est == "Sustituto Entregado"),
-                ),
-                En_Taller_Inoperativos=(
-                    "estatus",
-                    lambda x: sum(1 for est in x if est == "Inoperativo / Baja"),
-                ),
+                Titulares_Activos=("es_titular_activo", "sum"),
+                Sustitutos_Entregados=("es_sustituto", "sum"),
+                En_Taller_Inoperativos=("es_inoperativo", "sum"),
             )
             .reset_index()
         )
