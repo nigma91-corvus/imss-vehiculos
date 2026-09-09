@@ -403,8 +403,7 @@ with st.sidebar:
         """,
         unsafe_allow_html=True,
     )
-    )
-
+    
     # Logo compacto y centrado
     if url_logo_supa:
         st.markdown(
