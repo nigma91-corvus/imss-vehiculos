@@ -11,6 +11,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from supabase import create_client
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
+
+# Configura tus credenciales aquí (puedes leerlas desde st.secrets si las tienes ahí guardadas)
+cloudinary.config(
+  cloud_name = st.secrets["cloudinary"]["cloud_name"],
+  api_key = st.secrets["cloudinary"]["api_key"],
+  api_secret = st.secrets["cloudinary"]["api_secret"],
+  secure = True
+)
 
 # -----------------------------------------------------------------------------
 # CONFIGURACIÓN DE PÁGINA
