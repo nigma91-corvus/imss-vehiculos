@@ -2060,7 +2060,8 @@ elif mod_actual == "Registro de Taller e Incidencias":
 
 # -----------------------------------------------------------------------------
 # 7. REASIGNACIÓN POR NECESIDAD DE SERVICIO (PERSISTIDA EN SUPABASE)
-# -------------------------------------------------------------------------elif mod_actual == "Reasignación por Necesidad de Servicio":
+# -----------------------------------------------------------------------------
+elif mod_actual == "Reasignación por Necesidad de Servicio":
     st.markdown(
         '<p class="subtitulo-seccion">Reasignación Geográfica de Vehículos por Necesidad de Servicio</p>',
         unsafe_allow_html=True,
