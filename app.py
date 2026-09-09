@@ -1249,6 +1249,7 @@ if mod_actual == "Expediente por ECO y Documental":
 
             if vehiculo_sel.empty:
                 v_data = None
+                eco_search = None
             else:
                 eco_search = vehiculo_sel.iloc[0]["eco"]
                 v_data = vehiculo_sel.iloc[0]
@@ -1257,354 +1258,326 @@ if mod_actual == "Expediente por ECO y Documental":
             vehiculo_sel = pd.DataFrame()
             v_data = None
             eco_seleccionado = None
+            eco_search = None
 
-        # Normalizamos o filtramos dependiendo de lo que el usuario escriba
-        if not eco_seleccionado:
-            st.info(
-                "Por favor, escriba un número de ECO en el campo superior para"
-                " ver su expediente."
+        # Si se seleccionó o encontró un ECO válido, mostramos toda su información y pestañas
+        if eco_seleccionado and not vehiculo_sel.empty and v_data is not None:
+            st.markdown("---")
+            st.markdown(
+                f"#### 📋 Ficha Técnica y Descriptiva — ECO: `{v_data['eco']}`"
             )
-        else:
-            # Filtramos buscando coincidencia exacta (puedes usar .str.contains() si prefieres búsqueda parcial)
-            vehiculo_sel = df_base[
-                df_base["eco"].astype(str).str.strip().str.lower()
-                == eco_seleccionado.strip().lower()
-            ]
 
-            if vehiculo_sel.empty:
-                st.error(
-                    f"No se encontró ningún vehículo con el ECO '{eco_input}' en"
-                    f" la flotilla **{cat_actual}**."
-                )
-            else:
-                eco_search = vehiculo_sel.iloc[0][
-                    "eco"
-                ]  # Mantiene el formato original de la BD
-                v_data = vehiculo_sel.iloc[0]
+            col_img_cat, col_info_cat = st.columns([1, 2.2], gap="small")
 
-                st.markdown("---")
-                st.markdown(
-                    f"#### 📋 Ficha Técnica y Descriptiva — ECO: `{v_data['eco']}`"
-                )
-
-                col_img_cat, col_info_cat = st.columns([1, 2.2], gap="small")
-
-                with col_img_cat:
-                    tipo_v = v_data.get("Tipo", "")
-                    linea_v = v_data.get("Linea", "")
-                    url_cat = obtener_imagen_catalogo_supabase(tipo_v, linea_v)
-                    if url_cat:
-                        st.markdown(
-                            f'<div class="image-container-full"><img src="{url_cat}" alt="Vehículo"></div>',
-                            unsafe_allow_html=True,
-                        )
-                        st.caption(f"Catálogo: {tipo_v} - {linea_v}")
-                    else:
-                        st.info(f"📷 [Sin foto en catálogo: {linea_v}]")
-
-                with col_info_cat:
-                    en_taller = any(
-                        r["ECO"] == v_data["eco"]
-                        and r["Estatus"] == "Activo (En Taller)"
-                        for r in st.session_state.taller_registros
-                    )
-                    estatus_veh = (
-                        "En Taller"
-                        if en_taller
-                        else str(v_data.get("Estatus", "Titular Activo"))
-                    )
-                    badge_class = (
-                        "badge-verde"
-                        if "Activo" in estatus_veh
-                        else (
-                            "badge-amarillo"
-                            if "Taller" in estatus_veh
-                            else "badge-rojo"
-                        )
-                    )
-
+            with col_img_cat:
+                tipo_v = v_data.get("Tipo", "")
+                linea_v = v_data.get("Linea", "")
+                url_cat = obtener_imagen_catalogo_supabase(tipo_v, linea_v)
+                if url_cat:
                     st.markdown(
-                        f"""
-                        <div class="card-resumen">
-                            <div style="margin-bottom: 6px;">
-                                <b>Estatus Operativo:</b> <span class="{badge_class}">{estatus_veh.upper()}</span>
-                            </div>
-                            <hr style="margin: 6px 0;">
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
-                                <div>
-                                    <p><b>Placas:</b> {v_data.get('Placas', 'N/A')}</p>
-                                    <p><b>Número de Serie (VIN):</b> {v_data.get('VIN', 'N/A')}</p>
-                                    <p><b>No. Tarjeta Circulación:</b> {v_data.get('No_TC', 'N/A')}</p>
-                                    <p><b>Arrendadora:</b> {v_data.get('Arrendadora', 'N/A')}</p>
-                                </div>
-                                <div>
-                                    <p><b>Tipo / Línea:</b> {v_data.get('Tipo', 'N/A')} - {v_data.get('Linea', 'N/A')}</p>
-                                    <p><b>Ubicación / OOAD:</b> {v_data.get('UBICACIÓN', 'N/A')}</p>
-                                    <p><b>Último Servicio:</b> {v_data.get('Ultimo_Servicio', 'N/A')}</p>
-                                    <p><b>Cuota Diaria:</b> ${parse_float(v_data.get('CUOTA DIARIA', 0.0)):,.2f}</p>
-                                </div>
-                            </div>
-                        </div>
-                        """,
+                        f'<div class="image-container-full"><img src="{url_cat}" alt="Vehículo"></div>',
                         unsafe_allow_html=True,
                     )
+                    st.caption(f"Catálogo: {tipo_v} - {linea_v}")
+                else:
+                    st.info(f"📷 [Sin foto en catálogo: {linea_v}]")
 
-                st.markdown("---")
-                t1, t2, t3 = st.tabs([
-                    "Galería de Inspección Física (4 Vistas)",
-                    "Expediente Documental (PDF/Visor)",
-                    "Historial de Mantenimientos",
-                ])
-
-                with t1:
-                    st.markdown(
-                        "##### **Galería de Inspección Física (Vistas Reglamentarias)**"
+            with col_info_cat:
+                en_taller = any(
+                    r["ECO"] == v_data["eco"]
+                    and r["Estatus"] == "Activo (En Taller)"
+                    for r in st.session_state.get("taller_registros", [])
+                )
+                estatus_veh = (
+                    "En Taller"
+                    if en_taller
+                    else str(v_data.get("Estatus", "Titular Activo"))
+                )
+                badge_class = (
+                    "badge-verde"
+                    if "Activo" in estatus_veh
+                    else (
+                        "badge-amarillo"
+                        if "Taller" in estatus_veh
+                        else "badge-rojo"
                     )
-                    st.info(
-                        "Sube un archivo o toma una fotografía directa. Las "
-                        "imágenes se cargan directamente a Cloudinary para optimizar espacio."
-                    )
-
-                    eco_limpio = (
-                        str(eco_search).replace(" ", "_").replace("/", "-")
-                    )
-                    vistas_inspeccion = {
-                        "Foto Frontal": "foto_frontal",
-                        "Foto Trasera": "foto_trasera",
-                        "Foto Lateral Derecho": "foto_lateral_der",
-                        "Foto Lateral Izquierdo": "foto_lateral_izq",
-                    }
-
-                    grid_cols = st.columns(2)
-
-                    for idx, (nombre_vista, campo_key) in enumerate(
-                        vistas_inspeccion.items()
-                    ):
-                        col_actual = grid_cols[idx % 2]
-
-                        with col_actual:
-                            st.markdown(f"**{nombre_vista}**")
-
-                            # 1. Extraer la URL guardada previamente en v_data (vienen de Cloudinary)
-                            foto_guardada_url = v_data.get(campo_key)
-
-                            if foto_guardada_url and str(foto_guardada_url).startswith("http"):
-                                st.markdown(
-                                    f"""
-                                    <div style="width: 100%; max-height: 220px; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 8px;">
-                                        <img src="{foto_guardada_url}" style="max-width: 100%; max-height: 210px; object-fit: contain;" alt="{nombre_vista}">
-                                    </div>
-                                    """,
-                                    unsafe_allow_html=True,
-                                )
-                                st.success("✔ Imagen cargada desde Cloudinary")
-                            else:
-                                st.warning("⚠ Sin fotografía registrada")
-
-                            metodo_captura = st.radio(
-                                f"Método para {nombre_vista}:",
-                                ["Subir Imagen", "Tomar Foto con Cámara"],
-                                key=f"radio_{campo_key}_{eco_search}",
-                                horizontal=True,
-                            )
-
-                            imagen_a_guardar = None
-
-                            if metodo_captura == "Subir Imagen":
-                                imagen_a_guardar = st.file_uploader(
-                                    f"Cargar {nombre_vista}",
-                                    type=["jpg", "jpeg", "png"],
-                                    key=f"upl_{campo_key}_{eco_search}",
-                                )
-                            else:
-                                imagen_a_guardar = st.camera_input(
-                                    f"Tomar {nombre_vista}",
-                                    key=f"cam_{campo_key}_{eco_search}",
-                                )
-
-                            if imagen_a_guardar is not None:
-                                if st.button(
-                                    f"Guardar {nombre_vista}",
-                                    key=f"btn_save_{campo_key}_{eco_search}",
-                                ):
-                                    try:
-                                        bytes_f = imagen_a_guardar.getvalue()
-                                        public_id_nube = f"vehiculos/{eco_limpio}_{campo_key}"
-
-                                        # Subir el archivo binario directamente a Cloudinary
-                                        import cloudinary.uploader
-                                        
-                                        upload_result = cloudinary.uploader.upload(
-                                            bytes_f,
-                                            public_id=public_id_nube,
-                                            folder="tallercorvus/vehiculos", # O ajusta el folder según tu estructura en Cloudinary
-                                            overwrite=True,
-                                            resource_type="image"
-                                        )
-
-                                        # Obtener la URL segura de Cloudinary
-                                        url_cloudinary = upload_result.get("secure_url")
-
-                                        if url_cloudinary and supabase:
-                                            tabla_map = {
-                                                "Administrativos": "vehiculos_administrativos",
-                                                "Ambulancias": "vehiculos_ambulancias",
-                                                "Institucionales": "vehiculos_institucionales",
-                                            }
-                                            nombre_tabla_vehiculos = tabla_map.get(
-                                                cat_actual, "vehiculos_administrativos"
-                                            )
-
-                                            # Guardar la URL de Cloudinary en la tabla de Supabase correspondiente
-                                            supabase.table(
-                                                nombre_tabla_vehiculos
-                                            ).update(
-                                                {campo_key: url_cloudinary}
-                                            ).eq(
-                                                "eco", eco_search
-                                            ).execute()
-
-                                            st.success(
-                                                f"✅ {nombre_vista} subida a Cloudinary y vinculada correctamente."
-                                            )
-
-                                            # Limpieza de caché para reflejar los cambios de inmediato
-                                            st.cache_data.clear()
-                                            if "df_base" in st.session_state:
-                                                del st.session_state["df_base"]
-
-                                            st.rerun()
-                                        else:
-                                            st.error("No se pudo obtener la URL de Cloudinary.")
-                                    except Exception as e:
-                                        st.error(
-                                            f"Error al subir la imagen a Cloudinary: {e}"
-                                        )
-
-                            st.markdown("---")
-
-                # ... (aquí arriba tienes tus pestañas, por ejemplo, el t1 de fotos, y luego viene la sección de documentos)
-
-with t2: # O la pestaña/sección donde manejes los documentos del vehículo
-    st.markdown("### Expediente y Documentación")
-    
-    # ----------------------------------------------------
-    # AQUÍ ES EXACTAMENTE DONDE VA EL CÓDIGO NUEVO DEL VISOR:
-    # ----------------------------------------------------
-    st.markdown("##### **Póliza de Seguro**")
-    
-    poliza_url = v_data.get("poliza_seguro") # <-- Asegúrate de que "poliza_seguro" sea el nombre real de tu columna en Supabase
-
-    if poliza_url and str(poliza_url).startswith("http"):
-        es_pdf = poliza_url.lower().endswith(".pdf") or "pdf" in poliza_url.lower()
-
-        if es_pdf:
-            st.markdown(
-                f"""
-                <div style="width: 100%; height: 400px; border-radius: 8px; border: 1px solid #dee2e6; overflow: hidden; margin-bottom: 10px;">
-                    <iframe src="{poliza_url}" width="100%" height="100%" style="border: none;"></iframe>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        else:
-            st.markdown(
-                f"""
-                <div style="width: 100%; max-height: 280px; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 10px;">
-                    <img src="{poliza_url}" style="max-width: 100%; max-height: 270px; object-fit: contain;" alt="Póliza de Seguro">
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        
-        st.markdown(
-            f'<div style="text-align: right; margin-bottom: 10px;"><a href="{poliza_url}" target="_blank" style="font-size: 13px; text-decoration: none;">🔍 Abrir documento en pantalla completa</a></div>',
-            unsafe_allow_html=True,
-        )
-        st.success("✔ Documento cargado en el visor")
-    else:
-        st.warning("⚠ Sin póliza de seguro registrada actualmente")
-
-    archivo_poliza = st.file_uploader(
-        "Actualizar o subir Póliza de Seguro (PDF o Imagen)",
-        type=["pdf", "png", "jpg", "jpeg"],
-        key=f"upl_poliza_{eco_search}",
-    )
-
-    if archivo_poliza is not None:
-        if st.button("Guardar Póliza", key=f"btn_save_poliza_{eco_search}"):
-            try:
-                bytes_poliza = archivo_poliza.getvalue()
-                nombre_original = getattr(archivo_poliza, "name", "poliza.pdf")
-                extension = nombre_original.split(".")[-1].lower()
-                
-                eco_limpio = str(eco_search).replace(" ", "_").replace("/", "-")
-                public_id_nube = f"vehiculos/{eco_limpio}_poliza_seguro"
-
-                import cloudinary.uploader
-                
-                res_type = "raw" if extension == "pdf" else "image"
-
-                upload_result = cloudinary.uploader.upload(
-                    bytes_poliza,
-                    public_id=public_id_nube,
-                    folder="tallercorvus/vehiculos",
-                    overwrite=True,
-                    resource_type=res_type
                 )
 
-                url_cloudinary = upload_result.get("secure_url")
+                st.markdown(
+                    f"""
+                    <div class="card-resumen">
+                        <div style="margin-bottom: 6px;">
+                            <b>Estatus Operativo:</b> <span class="{badge_class}">{estatus_veh.upper()}</span>
+                        </div>
+                        <hr style="margin: 6px 0;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
+                            <div>
+                                <p><b>Placas:</b> {v_data.get('Placas', 'N/A')}</p>
+                                <p><b>Número de Serie (VIN):</b> {v_data.get('VIN', 'N/A')}</p>
+                                <p><b>No. Tarjeta Circulación:</b> {v_data.get('No_TC', 'N/A')}</p>
+                                <p><b>Arrendadora:</b> {v_data.get('Arrendadora', 'N/A')}</p>
+                            </div>
+                            <div>
+                                <p><b>Tipo / Línea:</b> {v_data.get('Tipo', 'N/A')} - {v_data.get('Linea', 'N/A')}</p>
+                                <p><b>Ubicación / OOAD:</b> {v_data.get('UBICACIÓN', 'N/A')}</p>
+                                <p><b>Último Servicio:</b> {v_data.get('Ultimo_Servicio', 'N/A')}</p>
+                                <p><b>Cuota Diaria:</b> ${parse_float(v_data.get('CUOTA DIARIA', 0.0)):,.2f}</p>
+                            </div>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
-                if url_cloudinary and supabase:
-                    tabla_map = {
-                        "Administrativos": "vehiculos_administrativos",
-                        "Ambulancias": "vehiculos_ambulancias",
-                        "Institucionales": "vehiculos_institucionales",
-                    }
-                    nombre_tabla_vehiculos = tabla_map.get(cat_actual, "vehiculos_administrativos")
+            st.markdown("---")
+            t1, t2, t3 = st.tabs([
+                "Galería de Inspección Física (4 Vistas)",
+                "Expediente Documental (PDF/Visor)",
+                "Historial de Mantenimientos",
+            ])
 
-                    supabase.table(nombre_tabla_vehiculos).update(
-                        {"poliza_seguro": url_cloudinary}
-                    ).eq("eco", eco_search).execute()
+            with t1:
+                st.markdown(
+                    "##### **Galería de Inspección Física (Vistas Reglamentarias)**"
+                )
+                st.info(
+                    "Sube un archivo o toma una fotografía directa. Las "
+                    "imágenes se cargan directamente a Cloudinary para optimizar espacio."
+                )
 
-                    st.success("✅ Póliza de seguro actualizada correctamente en Cloudinary.")
-                    
-                    st.cache_data.clear()
-                    if "df_base" in st.session_state:
-                        del st.session_state["df_base"]
-                    st.rerun()
+                eco_limpio = (
+                    str(eco_search).replace(" ", "_").replace("/", "-")
+                )
+                vistas_inspeccion = {
+                    "Foto Frontal": "foto_frontal",
+                    "Foto Trasera": "foto_trasera",
+                    "Foto Lateral Derecho": "foto_lateral_der",
+                    "Foto Lateral Izquierdo": "foto_lateral_izq",
+                }
 
-            except Exception as e:
-                st.error(f"Error al subir la póliza: {e}")
-    # ----------------------------------------------------
+                grid_cols = st.columns(2)
 
-                    with col_d2:
-                        docs_guardados = st.session_state.expedientes_docs.get(eco_actual_str, [])
-                        if docs_guardados:
-                            df_docs_view = pd.DataFrame([
-                                {
-                                    "Tipo": d.get("Tipo"),
-                                    "Archivo en Servidor": d.get("NombreArchivoSistema", d.get("Nombre")),
-                                    "Fecha": d.get("Fecha")
-                                } for d in docs_guardados
-                            ])
-                            
-                            st.dataframe(
-                                df_docs_view,
-                                use_container_width=True,
-                                hide_index=True,
+                for idx, (nombre_vista, campo_key) in enumerate(
+                    vistas_inspeccion.items()
+                ):
+                    col_actual = grid_cols[idx % 2]
+
+                    with col_actual:
+                        st.markdown(f"**{nombre_vista}**")
+
+                        foto_guardada_url = v_data.get(campo_key)
+
+                        if foto_guardada_url and str(foto_guardada_url).startswith("http"):
+                            st.markdown(
+                                f"""
+                                <div style="width: 100%; max-height: 220px; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 8px;">
+                                    <img src="{foto_guardada_url}" style="max-width: 100%; max-height: 210px; object-fit: contain;" alt="{nombre_vista}">
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+                            st.success("✔ Imagen cargada desde Cloudinary")
+                        else:
+                            st.warning("⚠ Sin fotografía registrada")
+
+                        metodo_captura = st.radio(
+                            f"Método para {nombre_vista}:",
+                            ["Subir Imagen", "Tomar Foto con Cámara"],
+                            key=f"radio_{campo_key}_{eco_search}",
+                            horizontal=True,
+                        )
+
+                        imagen_a_guardar = None
+
+                        if metodo_captura == "Subir Imagen":
+                            imagen_a_guardar = st.file_uploader(
+                                f"Cargar {nombre_vista}",
+                                type=["jpg", "jpeg", "png"],
+                                key=f"upl_{campo_key}_{eco_search}",
+                            )
+                        else:
+                            imagen_a_guardar = st.camera_input(
+                                f"Tomar {nombre_vista}",
+                                key=f"cam_{campo_key}_{eco_search}",
                             )
 
-                            st.markdown("##### **Visor Rápido de Enlaces**")
-                            for idx, doc in enumerate(docs_guardados):
-                                nombre_etiqueta = doc.get("NombreArchivoSistema", doc.get('Nombre'))
-                                st.markdown(
-                                    f"📄 **{doc['Tipo']}** — `[{nombre_etiqueta}]({doc['URL']})`"
-                                    f" <small style='color:gray;'>({doc['Fecha']})</small>",
-                                    unsafe_allow_html=True
-                                )
-                        else:
-                            st.info("Sin documentos registrados para este vehículo.")
+                        if imagen_a_guardar is not None:
+                            if st.button(
+                                f"Guardar {nombre_vista}",
+                                key=f"btn_save_{campo_key}_{eco_search}",
+                            ):
+                                try:
+                                    bytes_f = imagen_a_guardar.getvalue()
+                                    public_id_nube = f"vehiculos/{eco_limpio}_{campo_key}"
+
+                                    import cloudinary.uploader
+
+                                    upload_result = cloudinary.uploader.upload(
+                                        bytes_f,
+                                        public_id=public_id_nube,
+                                        folder="tallercorvus/vehiculos",
+                                        overwrite=True,
+                                        resource_type="image"
+                                    )
+
+                                    url_cloudinary = upload_result.get("secure_url")
+
+                                    if url_cloudinary and supabase:
+                                        tabla_map = {
+                                            "Administrativos": "vehiculos_administrativos",
+                                            "Ambulancias": "vehiculos_ambulancias",
+                                            "Institucionales": "vehiculos_institucionales",
+                                        }
+                                        nombre_tabla_vehiculos = tabla_map.get(
+                                            cat_actual, "vehiculos_administrativos"
+                                        )
+
+                                        supabase.table(
+                                            nombre_tabla_vehiculos
+                                        ).update(
+                                            {campo_key: url_cloudinary}
+                                        ).eq(
+                                            "eco", eco_search
+                                        ).execute()
+
+                                        st.success(
+                                            f"✅ {nombre_vista} subida a Cloudinary y vinculada correctamente."
+                                        )
+
+                                        st.cache_data.clear()
+                                        if "df_base" in st.session_state:
+                                            del st.session_state["df_base"]
+
+                                        st.rerun()
+                                    else:
+                                        st.error("No se pudo obtener la URL de Cloudinary.")
+                                except Exception as e:
+                                    st.error(
+                                        f"Error al subir la imagen a Cloudinary: {e}"
+                                    )
+
+                        st.markdown("---")
+
+            with t2:
+                st.markdown("### Expediente y Documentación")
+                st.markdown("##### **Póliza de Seguro**")
+
+                poliza_url = v_data.get("poliza_seguro")
+
+                if poliza_url and str(poliza_url).startswith("http"):
+                    es_pdf = poliza_url.lower().endswith(".pdf") or "pdf" in poliza_url.lower()
+
+                    if es_pdf:
+                        st.markdown(
+                            f"""
+                            <div style="width: 100%; height: 400px; border-radius: 8px; border: 1px solid #dee2e6; overflow: hidden; margin-bottom: 10px;">
+                                <iframe src="{poliza_url}" width="100%" height="100%" style="border: none;"></iframe>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        st.markdown(
+                            f"""
+                            <div style="width: 100%; max-height: 280px; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 10px;">
+                                <img src="{poliza_url}" style="max-width: 100%; max-height: 270px; object-fit: contain;" alt="Póliza de Seguro">
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+
+                    st.markdown(
+                        f'<div style="text-align: right; margin-bottom: 10px;"><a href="{poliza_url}" target="_blank" style="font-size: 13px; text-decoration: none;">🔍 Abrir documento en pantalla completa</a></div>',
+                        unsafe_allow_html=True,
+                    )
+                    st.success("✔ Documento cargado en el visor")
+                else:
+                    st.warning("⚠ Sin póliza de seguro registrada actualmente")
+
+                archivo_poliza = st.file_uploader(
+                    "Actualizar o subir Póliza de Seguro (PDF o Imagen)",
+                    type=["pdf", "png", "jpg", "jpeg"],
+                    key=f"upl_poliza_{eco_search}",
+                )
+
+                if archivo_poliza is not None:
+                    if st.button("Guardar Póliza", key=f"btn_save_poliza_{eco_search}"):
+                        try:
+                            bytes_poliza = archivo_poliza.getvalue()
+                            nombre_original = getattr(archivo_poliza, "name", "poliza.pdf")
+                            extension = nombre_original.split(".")[-1].lower()
+
+                            eco_limpio = str(eco_search).replace(" ", "_").replace("/", "-")
+                            public_id_nube = f"vehiculos/{eco_limpio}_poliza_seguro"
+
+                            import cloudinary.uploader
+
+                            res_type = "raw" if extension == "pdf" else "image"
+
+                            upload_result = cloudinary.uploader.upload(
+                                bytes_poliza,
+                                public_id=public_id_nube,
+                                folder="tallercorvus/vehiculos",
+                                overwrite=True,
+                                resource_type=res_type
+                            )
+
+                            url_cloudinary = upload_result.get("secure_url")
+
+                            if url_cloudinary and supabase:
+                                tabla_map = {
+                                    "Administrativos": "vehiculos_administrativos",
+                                    "Ambulancias": "vehiculos_ambulancias",
+                                    "Institucionales": "vehiculos_institucionales",
+                                }
+                                nombre_tabla_vehiculos = tabla_map.get(cat_actual, "vehiculos_administrativos")
+
+                                supabase.table(nombre_tabla_vehiculos).update(
+                                    {"poliza_seguro": url_cloudinary}
+                                ).eq("eco", eco_search).execute()
+
+                                st.success("✅ Póliza de seguro actualizada correctamente en Cloudinary.")
+
+                                st.cache_data.clear()
+                                if "df_base" in st.session_state:
+                                    del st.session_state["df_base"]
+                                st.rerun()
+
+                        except Exception as e:
+                            st.error(f"Error al subir la póliza: {e}")
+
+                st.markdown("---")
+                eco_actual_str = str(eco_search)
+                docs_guardados = st.session_state.get("expedientes_docs", {}).get(eco_actual_str, [])
+                if docs_guardados:
+                    df_docs_view = pd.DataFrame([
+                        {
+                            "Tipo": d.get("Tipo"),
+                            "Archivo en Servidor": d.get("NombreArchivoSistema", d.get("Nombre")),
+                            "Fecha": d.get("Fecha")
+                        } for d in docs_guardados
+                    ])
+
+                    st.dataframe(
+                        df_docs_view,
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+                    st.markdown("##### **Visor Rápido de Enlaces**")
+                    for doc in docs_guardados:
+                        nombre_etiqueta = doc.get("NombreArchivoSistema", doc.get('Nombre'))
+                        st.markdown(
+                            f"📄 **{doc['Tipo']}** — `[{nombre_etiqueta}]({doc['URL']})`"
+                            f" <small style='color:gray;'>({doc['Fecha']})</small>",
+                            unsafe_allow_html=True
+                        )
+                else:
+                    st.info("Sin documentos registrados para este vehículo.")
+
+            with t3:
+                st.markdown("##### **Historial de Mantenimientos**")
+                st.info("Consulta los servicios y reparaciones registradas para este vehículo.")
 
 # 6. REGISTRO DE TALLER E INCIDENCIAS (PERSISTIDO EN SUPABASE)
 # -----------------------------------------------------------------------------
