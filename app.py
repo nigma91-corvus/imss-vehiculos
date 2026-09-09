@@ -1229,11 +1229,16 @@ if mod_actual == "Expediente por ECO y Documental":
 
         # --- PEGA ESTO JUSTO AQUÍ ABAJO ---
         if eco_input:
-            busqueda_usuario = eco_input.strip().lower()
+            # 1. Limpiamos lo que escribe el usuario: quitamos espacios, guiones y pasamos a minúsculas
+            import re
+            busqueda_limpia = re.sub(r'[^a-z0-9]', '', eco_input.strip().lower())
 
-            # Búsqueda flexible en el texto del ECO
-            condicion = df_base["eco"].astype(str).str.lower().str.contains(busqueda_usuario, na=False)
-            vehiculo_sel = df_base[condicion]
+            # 2. Creamos una columna temporal en el DataFrame haciendo exactamente lo mismo con los ECOs del Excel
+            temp_df = df_base.copy()
+            temp_df["eco_limpio"] = temp_df["eco"].astype(str).str.lower().apply(lambda x: re.sub(r'[^a-z0-9]', '', x))
+
+            # 3. Comparamos los textos limpios (si la búsqueda está contenida en el ECO del Excel)
+            vehiculo_sel = temp_df[temp_df["eco_limpio"].str.contains(busqueda_limpia, na=False)]
 
             if vehiculo_sel.empty:
                 st.error(
@@ -1241,6 +1246,7 @@ if mod_actual == "Expediente por ECO y Documental":
                 )
                 v_data = None
             else:
+                # Recuperamos el ECO original de la base de datos para que mantenga su formato correcto
                 eco_search = vehiculo_sel.iloc[0]["eco"]
                 v_data = vehiculo_sel.iloc[0]
         else:
