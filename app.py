@@ -1254,7 +1254,7 @@ if mod_actual == "Expediente por ECO y Documental":
                 v_data = vehiculo_sel.iloc[0]
         else:
             vehiculo_sel = pd.DataFrame()
-            v_data = NoneNone
+            v_data = None
 
         # Normalizamos o filtramos dependiendo de lo que el usuario escriba
         if not eco_input.strip():
