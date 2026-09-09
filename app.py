@@ -465,7 +465,7 @@ with st.sidebar:
 
     st.markdown("<hr style='margin: 3px 0;'>", unsafe_allow_html=True)
     st.markdown(
-        "<div style='text-align: center; font-size: 13px; color: #CCCCCC; line-height: 1.0;'>Desarrollado por:<br><b>eduardo.casas@imss.gob.mx</b></div>",
+        "<div style='text-align: center; font-size: 10px; color: #CCCCCC; line-height: 1.0;'>Desarrollado por:<br><b>eduardo.casas@imss.gob.mx</b></div>",
         unsafe_allow_html=True,
     )
 # -----------------------------------------------------------------------------
