@@ -392,13 +392,13 @@ with st.sidebar:
 
             /* 3. Reduce el espacio vertical específico entre un botón y otro */
             [data-testid="stSidebar"] .stButton {
-                margin-top: -120px !important;
-                margin-bottom: -120px !important;
+                margin-top: -110px !important;
+                margin-bottom: -110px !important;
             }
 
             /* 4. Sube el bloque completo de los Módulos del Sistema */
             [data-testid="stSidebar"] div.stRadio {
-                margin-top: -120px !important;
+                margin-top: -110px !important;
             }
         </style>
         """,
@@ -409,7 +409,7 @@ with st.sidebar:
     if url_logo_supa:
         st.markdown(
             f"""
-            <div style="display: flex; justify-content: center; align-items: center; margin-top: -155px; margin-bottom: 0px;">
+            <div style="display: flex; justify-content: center; align-items: center; margin-top: -185px; margin-bottom: 0px;">
                 <img src="{url_logo_supa}" style="max-height: 180px; width: auto; object-fit: contain;">
             </div>
             """,
