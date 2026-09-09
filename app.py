@@ -1403,8 +1403,7 @@ if mod_actual == "Expediente por ECO y Documental":
                     )
                 else:
                     st.caption("No se registran mantenimientos o siniestros previos para este ECO.")
-          )
-
+          
 # 6. REGISTRO DE TALLER E INCIDENCIAS (PERSISTIDO EN SUPABASE)
 # -----------------------------------------------------------------------------
 elif mod_actual == "Registro de Taller e Incidencias":
