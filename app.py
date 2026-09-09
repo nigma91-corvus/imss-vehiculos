@@ -375,12 +375,33 @@ st.markdown(
 # BARRA LATERAL (SIDEBAR)
 # -----------------------------------------------------------------------------
 with st.sidebar:
-    # Contenedor con tamaño equilibrado para el logo
+    # CSS específico para compactar al máximo los elementos del sidebar
+    st.markdown(
+        """
+        <style>
+            [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+                gap: 3px !important;
+            }
+            [data-testid="stSidebar"] .stButton button {
+                margin-bottom: -12px !important;
+                min-height: 32px !important;
+                padding-top: 2px !important;
+                padding-bottom: 2px !important;
+            }
+            [data-testid="stSidebar"] div.stRadio > label {
+                margin-bottom: -5px !important;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # Logo compacto y centrado
     if url_logo_supa:
         st.markdown(
             f"""
-            <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 2px;">
-                <img src="{url_logo_supa}" style="max-height: 150px; width: auto; object-fit: contain;">
+            <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 0px;">
+                <img src="{url_logo_supa}" style="max-height: 85px; width: auto; object-fit: contain;">
             </div>
             """,
             unsafe_allow_html=True,
@@ -394,15 +415,15 @@ with st.sidebar:
     color_468 = COLORES_PANTONE["468"]
 
     st.markdown(
-        "<div style='text-align: center; font-size: 10px; margin-bottom: 2px; line-height: 1.1;'>"
+        "<div style='text-align: center; font-size: 10px; margin-bottom: 0px; line-height: 1.0;'>"
         "<b>Coordinación Técnica de Servicios Generales</b><br>"
         f"<span style='font-size:9px; color:{color_468};'>"
         "División de Transportes y Operación</span></div>",
         unsafe_allow_html=True,
     )
-    st.markdown("<hr style='margin: 3px 0;'>", unsafe_allow_html=True)
+    
     st.markdown(
-        "<p style='font-size: 11px; margin-bottom: 3px;'><b>SELECCIONAR FLOTILLA:</b></p>",
+        "<p style='font-size: 11px; margin-top: 4px; margin-bottom: 2px;'><b>SELECCIONAR FLOTILLA:</b></p>",
         unsafe_allow_html=True,
     )
 
@@ -440,8 +461,6 @@ with st.sidebar:
         args=("Institucionales",),
     )
 
-    st.markdown("<hr style='margin: 3px 0;'>", unsafe_allow_html=True)
-
     modulos = [
         "Dashboard General",
         "Semáforo de Movilidad por Ciudad",
@@ -463,9 +482,8 @@ with st.sidebar:
         index=modulos.index(st.session_state.modulo_activo),
     )
 
-    st.markdown("<hr style='margin: 3px 0;'>", unsafe_allow_html=True)
     st.markdown(
-        "<div style='text-align: center; font-size: 12px; color: #CCCCCC; line-height: 1.0;'>Desarrollado por:<br><b>eduardo.casas@imss.gob.mx</b></div>",
+        "<div style='text-align: center; font-size: 9px; color: #CCCCCC; line-height: 1.0; margin-top: 2px;'>Desarrollado por:<br><b>eduardo.casas@imss.gob.mx</b></div>",
         unsafe_allow_html=True,
     )
 # -----------------------------------------------------------------------------
