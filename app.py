@@ -822,11 +822,11 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
             Flotilla_Asignada=("eco", "count"),
             Titulares_Activos=(
                 "Estatus",
-                lambda x: (x == "Activo").sum(),
+                lambda x: (x == "Titular Activo").sum(),
             ),
             Sustitutos_Entregados=(
                 "Estatus",
-                lambda x: (x == "Sustituto").sum(),
+                lambda x: (x == "Sustituto Entregado").sum(),
             ),
             En_Taller_Inoperativos=(
                 "Estatus",
@@ -1124,23 +1124,13 @@ elif mod_actual == "Carga Inicial":
         use_container_width=True,
         hide_index=True,
     )
+# 5. EXPEDIENTE POR ECO Y DOCUMENTAL (CON CARGA REAL DE FOTOS Y DOCUMENTOS)
+# -----------------------------------------------------------------------------
 import json
 import unicodedata
 from datetime import datetime
 import pandas as pd
 import streamlit as st
-import cloudinary
-import cloudinary.uploader
-
-# -----------------------------------------------------------------------------
-# CONFIGURACIÓN DE CLOUDINARY (Asegúrate de tener tus credenciales en st.secrets)
-# -----------------------------------------------------------------------------
-cloudinary.config(
-    cloud_name=st.secrets["cloudinary"]["cloud_name"],
-    api_key=st.secrets["cloudinary"]["api_key"],
-    api_secret=st.secrets["cloudinary"]["api_secret"],
-    secure=True
-)
 
 # 5. EXPEDIENTE POR ECO Y DOCUMENTAL (CON CARGA REAL DE FOTOS Y DOCUMENTOS)
 # -----------------------------------------------------------------------------
@@ -1155,44 +1145,37 @@ if mod_actual == "Expediente por ECO y Documental":
             f"No hay vehículos cargados en la base de datos para la flotilla **{cat_actual}**."
         )
     else:
+        # Cambio de selectbox a text_input para escribir directamente el ECO
         eco_input = st.text_input(
             "Escriba el Número de ECO a Consultar:",
             value="",
-            placeholder="Ej. 101 o AA-101",
+            placeholder="Ej. ECO-101",
         )
 
+        # Normalizamos o filtramos dependiendo de lo que el usuario escriba
         if not eco_input.strip():
             st.info(
-                "Por favor, escriba un número de ECO en el campo superior para ver su expediente."
+                "Por favor, escriba un número de ECO en el campo superior para"
+                " ver su expediente."
             )
         else:
-            busqueda_limpia = eco_input.strip().lower()
-
-            # Búsqueda flexible: si el usuario escribe solo números, busca coincidencia parcial; si escribe completo, busca exacto
-            if busqueda_limpia.isdigit():
-                # Filtra si el ECO contiene los dígitos ingresados (ej. buscar "1" o "001")
-                vehiculo_sel = df_base[
-                    df_base["eco"].astype(str).str.lower().str.contains(busqueda_limpia)
-                ]
-            else:
-                # Búsqueda exacta limpia de espacios por si escriben letras y números (ej. "aa001")
-                vehiculo_sel = df_base[
-                    df_base["eco"].astype(str).str.strip().str.lower()
-                    == busqueda_limpia
-                ]
+            # Filtramos buscando coincidencia exacta (puedes usar .str.contains() si prefieres búsqueda parcial)
+            vehiculo_sel = df_base[
+                df_base["eco"].astype(str).str.strip().str.lower()
+                == eco_input.strip().lower()
+            ]
 
             if vehiculo_sel.empty:
                 st.error(
-                    f"No se encontró ningún vehículo con el criterio '{eco_input}' en la flotilla **{cat_actual}**."
+                    f"No se encontró ningún vehículo con el ECO '{eco_input}' en"
+                    f" la flotilla **{cat_actual}**."
                 )
-            elif len(vehiculo_sel) > 1 and busqueda_limpia.isdigit():
-                st.warning(f"Se encontraron varios vehículos que coinciden con '{eco_input}'. Por favor, sé más específico:")
-                st.dataframe(vehiculo_sel[["eco", "Tipo", "Linea", "Placas"]], use_container_width=True, hide_index=True)
             else:
-                # Si arroja solo uno (o si se hizo búsqueda exacta), toma el registro
-                eco_search = vehiculo_sel.iloc[0]["eco"]
+                eco_search = vehiculo_sel.iloc[0][
+                    "eco"
+                ]  # Mantiene el formato original de la BD
                 v_data = vehiculo_sel.iloc[0]
-               
+
                 st.markdown("---")
                 st.markdown(
                     f"#### 📋 Ficha Técnica y Descriptiva — ECO: `{v_data['eco']}`"
@@ -1268,10 +1251,19 @@ if mod_actual == "Expediente por ECO y Documental":
                 ])
 
                 with t1:
-                    st.markdown("##### **Galería de Inspección Física (Vistas Reglamentarias)**")
-                    st.info("Sube un archivo o toma una fotografía directa. Las imágenes se guardarán en Cloudinary.")
+                    st.markdown(
+                        "##### **Galería de Inspección Física (Vistas"
+                        " Reglamentarias)**"
+                    )
+                    st.info(
+                        "Sube un archivo o toma una fotografía directa. Las"
+                        " imágenes se ajustan automáticamente para mantener un"
+                        " diseño limpio y ordenado."
+                    )
 
-                    eco_limpio = str(eco_search).replace(" ", "_").replace("/", "-")
+                    eco_limpio = (
+                        str(eco_search).replace(" ", "_").replace("/", "-")
+                    )
                     vistas_inspeccion = {
                         "Foto Frontal": "foto_frontal",
                         "Foto Trasera": "foto_trasera",
@@ -1281,14 +1273,19 @@ if mod_actual == "Expediente por ECO y Documental":
 
                     grid_cols = st.columns(2)
 
-                    for idx, (nombre_vista, campo_key) in enumerate(vistas_inspeccion.items()):
+                    for idx, (nombre_vista, campo_key) in enumerate(
+                        vistas_inspeccion.items()
+                    ):
                         col_actual = grid_cols[idx % 2]
 
                         with col_actual:
                             st.markdown(f"**{nombre_vista}**")
+
                             foto_guardada_url = v_data.get(campo_key)
 
-                            if foto_guardada_url and str(foto_guardada_url).startswith("http"):
+                            if foto_guardada_url and str(
+                                foto_guardada_url
+                            ).startswith("http"):
                                 st.markdown(
                                     f"""
                                     <div style="width: 100%; max-height: 220px; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 8px;">
@@ -1297,7 +1294,7 @@ if mod_actual == "Expediente por ECO y Documental":
                                     """,
                                     unsafe_allow_html=True,
                                 )
-                                st.success("✔ Imagen cargada en Cloudinary")
+                                st.success("✔ Imagen cargada en servidor")
                             else:
                                 st.warning("⚠ Sin fotografía registrada")
 
@@ -1309,6 +1306,7 @@ if mod_actual == "Expediente por ECO y Documental":
                             )
 
                             imagen_a_guardar = None
+
                             if metodo_captura == "Subir Imagen":
                                 imagen_a_guardar = st.file_uploader(
                                     f"Cargar {nombre_vista}",
@@ -1322,40 +1320,92 @@ if mod_actual == "Expediente por ECO y Documental":
                                 )
 
                             if imagen_a_guardar is not None:
-                                if st.button(f"Guardar {nombre_vista}", key=f"btn_save_{campo_key}_{eco_search}"):
+                                if st.button(
+                                    f"Guardar {nombre_vista}",
+                                    key=f"btn_save_{campo_key}_{eco_search}",
+                                ):
                                     try:
-                                        bytes_f = imagen_a_guardar.getvalue()
-                                        nombre_publico = f"{eco_limpio}_{campo_key}"
-
-                                        # Subida a Cloudinary en la carpeta especificada
-                                        upload_result = cloudinary.uploader.upload(
-                                            bytes_f,
-                                            folder="vehiculos_fotos",
-                                            public_id=nombre_publico,
-                                            overwrite=True,
-                                            resource_type="image"
+                                        nombre_original = getattr(
+                                            imagen_a_guardar,
+                                            "name",
+                                            "captura.jpg",
                                         )
-                                        url_final = upload_result.get("secure_url")
+                                        extension = (
+                                            nombre_original.split(".")[-1]
+                                            if "." in nombre_original
+                                            else "jpg"
+                                        )
+                                        nombre_archivo_nube = f"{eco_limpio}_{campo_key}.{extension}"
+                                        bytes_f = imagen_a_guardar.getvalue()
 
-                                        tabla_map = {
-                                        "Administrativos": "vehiculos_administrativos",
-                                        "Ambulancias": "vehiculos_ambulancias",
-                                        "Institucionales": "vehiculos_institucionales",
-                                        }
-                                        nombre_tabla_vehiculos = tabla_map.get(cat_actual, "vehiculos_administrativos")
+                                        if supabase:
+                                            supabase.storage.from_(
+                                                "vehiculos-fotos"
+                                            ).upload(
+                                                file=bytes_f,
+                                                path=nombre_archivo_nube,
+                                                file_options={
+                                                    "content-type": (
+                                                        f"image/{extension}"
+                                                    ),
+                                                    "upsert": "true",
+                                                },
+                                            )
 
-                                        # Actualizar en la base de datos
-                                        supabase.table(nombre_tabla_vehiculos).update(
-                                            {campo_key: url_final}
-                                        ).eq("eco", eco_search).execute()
+                                            pub_res = supabase.storage.from_(
+                                                "vehiculos-fotos"
+                                            ).get_public_url(
+                                                nombre_archivo_nube
+                                            )
+                                            url_base = (
+                                                pub_res
+                                                if isinstance(pub_res, str)
+                                                else pub_res.get("publicUrl")
+                                            )
+                                            url_final = f"{url_base}?t={int(datetime.now().timestamp())}"
 
-                                        st.success(f"✅ {nombre_vista} guardada en Cloudinary (carpeta vehiculos_fotos) y vinculada.")
-                                        st.cache_data.clear()
-                                        if "df_base" in st.session_state:
-                                            del st.session_state["df_base"]
-                                        st.rerun()
+                                            tabla_map = {
+                                                "Administrativos": (
+                                                    "vehiculos_administrativos"
+                                                ),
+                                                "Ambulancias": (
+                                                    "vehiculos_ambulancias"
+                                                ),
+                                                "Institucionales": (
+                                                    "vehiculos_institucionales"
+                                                ),
+                                            }
+                                            nombre_tabla_vehiculos = (
+                                                tabla_map.get(
+                                                    cat_actual,
+                                                    (
+                                                        "vehiculos_administrativos"
+                                                    ),
+                                                )
+                                            )
+
+                                            supabase.table(
+                                                nombre_tabla_vehiculos
+                                            ).update(
+                                                {campo_key: url_final}
+                                            ).eq(
+                                                "eco", eco_search
+                                            ).execute()
+
+                                            st.success(
+                                                f"✅ {nombre_vista} guardada y"
+                                                " vinculada permanentemente."
+                                            )
+
+                                            st.cache_data.clear()
+                                            if "df_base" in st.session_state:
+                                                del st.session_state["df_base"]
+
+                                            st.rerun()
                                     except Exception as e:
-                                        st.error(f"Error al subir la imagen a Cloudinary: {e}")
+                                        st.error(
+                                            f"Error al subir la imagen: {e}"
+                                        )
 
                             st.markdown("---")
 
@@ -1383,7 +1433,13 @@ if mod_actual == "Expediente por ECO y Documental":
                     with col_d1:
                         tipo_doc_sel = st.selectbox(
                             "Tipo de Documento:",
-                            ["Póliza de Seguro", "Tarjeta de Circulación", "Factura / Contrato", "Dictamen Taller", "Otro"],
+                            [
+                                "Póliza de Seguro",
+                                "Tarjeta de Circulación",
+                                "Factura / Contrato",
+                                "Dictamen Taller",
+                                "Otro",
+                            ],
                             key=f"tipo_doc_sel_{eco_search}",
                         )
 
@@ -1403,69 +1459,98 @@ if mod_actual == "Expediente por ECO y Documental":
                             )
                         else:
                             doc_a_guardar = st.camera_input(
-                                "Tomar foto del documento",
+                                f"Tomar foto del documento",
                                 key=f"doc_camera_{eco_search}",
                             )
 
                         if doc_a_guardar is not None:
                             if st.button("Guardar Documento", key=f"btn_save_doc_{eco_search}"):
-                                try:
-                                    def limpiar_nombre_archivo(texto):
-                                        nfkd_form = unicodedata.normalize("NFKD", str(texto))
-                                        solo_ascii = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
-                                        return solo_ascii.replace(" ", "_").replace("/", "_").replace("\\", "_").replace(".", "_")
+                                if supabase:
+                                    try:
+                                        def limpiar_nombre_archivo(texto):
+                                            nfkd_form = unicodedata.normalize("NFKD", str(texto))
+                                            solo_ascii = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
+                                            return (
+                                                solo_ascii.replace(" ", "_")
+                                                .replace("/", "_")
+                                                .replace("\\", "_")
+                                                .replace(".", "_")
+                                            )
 
-                                    bytes_d = doc_a_guardar.getvalue()
-                                    nombre_original = getattr(doc_a_guardar, "name", "captura_doc.jpg")
-                                    extension = nombre_original.split(".")[-1].lower() if "." in nombre_original else "jpg"
-                                    
-                                    resource_type = "raw" if extension == "pdf" else "image"
+                                        bytes_d = doc_a_guardar.getvalue()
+                                        nombre_original = getattr(doc_a_guardar, "name", "captura_doc.jpg")
+                                        
+                                        extension = (
+                                            nombre_original.split(".")[-1].lower()
+                                            if "." in nombre_original
+                                            else "jpg"
+                                        )
+                                        
+                                        if extension == "pdf":
+                                            content_type = "application/pdf"
+                                        elif extension in ["png", "jpg", "jpeg"]:
+                                            content_type = f"image/{extension if extension != 'jpg' else 'jpeg'}"
+                                        else:
+                                            content_type = "application/octet-stream"
 
-                                    eco_limpio_str = limpiar_nombre_archivo(str(eco_search))
-                                    tipo_limpio_str = limpiar_nombre_archivo(tipo_doc_sel)
-                                    timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-                                    nombre_d = f"{eco_limpio_str}_{tipo_limpio_str}_{timestamp_str}"
+                                        eco_limpio_str = limpiar_nombre_archivo(str(eco_search))
+                                        tipo_limpio_str = limpiar_nombre_archivo(tipo_doc_sel)
+                                        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-                                    upload_res_doc = cloudinary.uploader.upload(
-                                        bytes_d,
-                                        folder="vehiculos_fotos",
-                                        public_id=nombre_d,
-                                        resource_type=resource_type,
-                                        overwrite=True
-                                    )
-                                    url_doc = upload_res_doc.get("secure_url")
+                                        nombre_d = f"{eco_limpio_str}_{tipo_limpio_str}_{timestamp_str}.{extension}"
 
-                                    if eco_search not in st.session_state.expedientes_docs:
-                                        st.session_state.expedientes_docs[eco_search] = []
+                                        supabase.storage.from_("evidencias-pdf").upload(
+                                            file=bytes_d,
+                                            path=nombre_d,
+                                            file_options={
+                                                "content-type": content_type,
+                                                "upsert": "true",
+                                            },
+                                        )
 
-                                    nuevo_doc = {
-                                        "Tipo": tipo_doc_sel,
-                                        "Nombre": nombre_original,
-                                        "URL": url_doc,
-                                        "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                                    }
-                                    st.session_state.expedientes_docs[eco_search].append(nuevo_doc)
+                                        pub_res_doc = supabase.storage.from_("evidencias-pdf").get_public_url(nombre_d)
+                                        url_doc = (
+                                            pub_res_doc
+                                            if isinstance(pub_res_doc, str)
+                                            else pub_res_doc.get("publicUrl")
+                                        )
 
-                                    tabla_map = {
-                                        "Administrativos": "vehiculos_administrativos",
-                                        "Ambulancias": "vehiculos_ambulancias",
-                                        "Institucionales": "vehiculos_institucionales",
-                                    }
-                                    nombre_tabla_vehiculos = tabla_map.get(cat_actual, "vehiculos_administrativos")
-                                    docs_json_str = json.dumps(st.session_state.expedientes_docs[eco_search])
+                                        if eco_search not in st.session_state.expedientes_docs:
+                                            st.session_state.expedientes_docs[eco_search] = []
 
-                                    supabase.table(nombre_tabla_vehiculos).update(
-                                        {"documentos": docs_json_str}
-                                    ).eq("eco", eco_search).execute()
+                                        nuevo_doc = {
+                                            "Tipo": tipo_doc_sel,
+                                            "Nombre": nombre_original,
+                                            "URL": url_doc,
+                                            "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                        }
+                                        st.session_state.expedientes_docs[eco_search].append(nuevo_doc)
 
-                                    st.success("✅ Documento subido a Cloudinary (carpeta vehiculos_fotos) y guardado en la base de datos.")
-                                    st.cache_data.clear()
-                                    if "df_base" in st.session_state:
-                                        del st.session_state["df_base"]
-                                    st.rerun()
+                                        tabla_map = {
+                                            "Administrativos": "vehiculos_administrativos",
+                                            "Ambulancias": "vehiculos_ambulancias",
+                                            "Institucionales": "vehiculos_institucionales",
+                                        }
+                                        nombre_tabla_vehiculos = tabla_map.get(cat_actual, "vehiculos_administrativos")
 
-                                except Exception as e:
-                                    st.error(f"Error al subir el documento a Cloudinary: {e}")
+                                        docs_json_str = json.dumps(st.session_state.expedientes_docs[eco_search])
+
+                                        # CORREGIDO: Apunta directo a la columna "eco" de la base de datos
+                                        supabase.table(nombre_tabla_vehiculos).update(
+                                            {"documentos": docs_json_str}
+                                        ).eq("eco", eco_search).execute()
+
+                                        st.success("✅ Documento subido y guardado permanentemente en la base de datos.")
+
+                                        st.cache_data.clear()
+                                        if "df_base" in st.session_state:
+                                            del st.session_state["df_base"]
+                                        st.rerun()
+
+                                    except Exception as e:
+                                        st.error(f"Error al subir el documento: {e}")
+                                else:
+                                    st.warning("Conexión a Supabase no disponible.")
 
                     with col_d2:
                         docs_guardados = st.session_state.expedientes_docs.get(eco_search, [])
@@ -1485,10 +1570,53 @@ if mod_actual == "Expediente por ECO y Documental":
                         else:
                             st.info("Sin documentos registrados para este vehículo.")
 
+                    with col_d2:
+                        docs_guardados = st.session_state.expedientes_docs.get(eco_search, [])
+                        if docs_guardados:
+                            df_docs = pd.DataFrame(docs_guardados)
+                            st.dataframe(
+                                df_docs,
+                                use_container_width=True,
+                                hide_index=True,
+                            )
+
+                            for idx, doc in enumerate(docs_guardados):
+                                st.markdown(
+                                    f"📄 [{doc['Tipo']} - {doc['Nombre']}]({doc['URL']})"
+                                    f" (Agregado: {doc['Fecha']})"
+                                )
+                        else:
+                            st.info("Sin documentos registrados para este vehículo.")
+
+                    with col_d2:
+                        docs_guardados = st.session_state.expedientes_docs.get(
+                            eco_search, []
+                        )
+                        if docs_guardados:
+                            df_docs = pd.DataFrame(docs_guardados)
+                            st.dataframe(
+                                df_docs,
+                                use_container_width=True,
+                                hide_index=True,
+                            )
+
+                            for idx, doc in enumerate(docs_guardados):
+                                st.markdown(
+                                    f"📄 [{doc['Tipo']} - {doc['Nombre']}]({doc['URL']})"
+                                    f" (Agregado: {doc['Fecha']})"
+                                )
+                        else:
+                            st.info(
+                                "Sin documentos registrados para este vehículo."
+                            )
+
                 with t3:
-                    st.markdown("##### **Bitácora de Servicios e Intervenciones**")
+                    st.markdown(
+                        "##### **Bitácora de Servicios e Intervenciones**"
+                    )
                     hist_taller = [
-                        r for r in st.session_state.taller_registros
+                        r
+                        for r in st.session_state.taller_registros
                         if r["ECO"] == eco_search
                     ]
                     if hist_taller:
@@ -1498,38 +1626,13 @@ if mod_actual == "Expediente por ECO y Documental":
                             hide_index=True,
                         )
                     else:
-                        st.caption("No se registran mantenimientos o siniestros previos para este ECO.")
-import cloudinary
-import cloudinary.uploader
-
-# Configuración de Cloudinary (asegúrate de tener tus credenciales en st.secrets o variables de entorno)
-# cloudinary.config(
-#   cloud_name = st.secrets["cloudinary"]["cloud_name"],
-#   api_key = st.secrets["cloudinary"]["api_key"],
-#   api_secret = st.secrets["cloudinary"]["api_secret"]
-# )
-
-def subir_a_cloudinary(archivo_subido, folder_destino="taller_flotilla"):
-    """Sube un archivo de Streamlit a Cloudinary y retorna la URL segura."""
-    if archivo_subido is not None:
-        try:
-            bytes_data = archivo_subido.getvalue()
-            # resource_type="auto" detecta si es imagen, PDF o raw
-            response = cloudinary.uploader.upload(
-                bytes_data, 
-                folder=folder_destino, 
-                resource_type="auto",
-                public_id=f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{archivo_subido.name.split('.')[0]}"
-            )
-            return response.get("secure_url")
-        except Exception as e:
-            st.error(f"Error al subir archivo a Cloudinary: {e}")
-            return None
-    return "N/A"
-
+                        st.caption(
+                            "No se registran mantenimientos o siniestros"
+                            " previos para este ECO."
+                        )
 # 6. REGISTRO DE TALLER E INCIDENCIAS (PERSISTIDO EN SUPABASE)
 # -----------------------------------------------------------------------------
-if mod_actual == "Registro de Taller e Incidencias":
+elif mod_actual == "Registro de Taller e Incidencias":
   st.markdown(
       f'<p class="subtitulo-seccion">Registro de Taller, Incidencias y'
       f" Siniestros - Flotilla {cat_actual}</p>",
@@ -1583,12 +1686,6 @@ if mod_actual == "Registro de Taller e Incidencias":
         f_ent = c3.date_input("Fecha Ingreso Taller:", value=date.today())
         h_ent = c4.time_input("Hora Ingreso Taller:")
 
-        # CAMPOS AÑADIDOS: Fecha y Hora Estimada de Entrega
-        st.markdown("###### **📅 Estimación de Entrega del Taller**")
-        ce1, ce2 = st.columns(2)
-        f_est_entrega = ce1.date_input("Fecha Estimada de Entrega:", value=date.today())
-        h_est_entrega = ce2.time_input("Hora Estimada de Entrega:")
-
         c5, c6 = st.columns(2)
         resp_t = c5.text_input("Responsable que Autoriza Ingreso:", value="")
         taller_nom = c6.text_input(
@@ -1619,21 +1716,21 @@ if mod_actual == "Registro de Taller e Incidencias":
           if not lista_ecos_taller:
             st.error("No se puede registrar sin vehículos en la base.")
           else:
-            url_evidencia = subir_a_cloudinary(evidencia, folder_destino="taller_entradas")
-            
+            nombre_archivo = (
+                f"{eco_t}_ENTRADA_TALLER_{datetime.now().strftime('%Y%m%d')}.pdf"
+                if evidencia
+                else "N/A"
+            )
             nuevo_reg = {
                 "eco": eco_t,
                 "tipo": tipo_mantenimiento,
                 "fecha_ingreso": str(f_ent),
                 "hora": str(h_ent),
-                "fecha_estimada_salida": str(f_est_entrega),
-                "hora_estimada_salida": str(h_est_entrega),
                 "responsable": resp_t,
                 "taller": taller_nom,
                 "sustituto": req_sust,
                 "estatus": "Activo (En Taller)",
                 "observaciones": obs_m,
-                "evidencia_url": url_evidencia
             }
             if supabase:
               try:
@@ -1643,7 +1740,8 @@ if mod_actual == "Registro de Taller e Incidencias":
 
             st.session_state.taller_registros = cargar_taller_supabase()
             st.success(
-                f"Ingreso registrado para {eco_t}. Archivo respaldado en Cloudinary."
+                f"Ingreso registrado para {eco_t}. Documento:"
+                f" '{nombre_archivo}'."
             )
             st.rerun()
 
@@ -1667,12 +1765,6 @@ if mod_actual == "Registro de Taller e Incidencias":
         f_sin = s6.date_input("Fecha del Siniestro:", value=date.today())
         taller_sin = s7.text_input("Taller Asignado por Ajustador:", value="")
 
-        # CAMPOS AÑADIDOS: Fecha y Hora Estimada para Siniestros
-        st.markdown("###### **📅 Estimación de Entrega del Taller (Siniestro)**")
-        cse1, cse2 = st.columns(2)
-        f_est_siniestro = cse1.date_input("Fecha Estimada de Entrega:", value=date.today())
-        h_est_siniestro = cse2.time_input("Hora Estimada de Entrega:")
-
         st.info(
             "ℹ️ **Siniestro:** Requiere asignación de Vehículo Sustituto (Pool"
             " 20%)."
@@ -1687,21 +1779,21 @@ if mod_actual == "Registro de Taller e Incidencias":
           if not lista_ecos_taller:
             st.error("No se puede registrar sin vehículos en la base.")
           else:
-            url_evidencia_s = subir_a_cloudinary(evidencia_s, folder_destino="taller_siniestros")
-
+            nombre_archivo_s = (
+                f"{eco_s}_SINIESTRO_{datetime.now().strftime('%Y%m%d')}.pdf"
+                if evidencia_s
+                else "N/A"
+            )
             nuevo_reg_s = {
                 "eco": eco_s,
                 "tipo": "Siniestro",
                 "fecha_ingreso": str(f_sin),
                 "hora": datetime.now().strftime("%H:%M"),
-                "fecha_estimada_salida": str(f_est_siniestro),
-                "hora_estimada_salida": str(h_est_siniestro),
                 "responsable": f"Ajustador {aseg}",
                 "taller": taller_sin,
                 "sustituto": "Sí",
                 "estatus": "Activo (En Taller)",
                 "observaciones": obs_s,
-                "evidencia_url": url_evidencia_s
             }
             if supabase:
               try:
@@ -1711,7 +1803,8 @@ if mod_actual == "Registro de Taller e Incidencias":
 
             st.session_state.taller_registros = cargar_taller_supabase()
             st.warning(
-                f"Siniestro registrado para {eco_s}. Evidencia respaldada en Cloudinary."
+                f"Siniestro registrado para {eco_s}. Documento:"
+                f" '{nombre_archivo_s}'."
             )
             st.rerun()
 
@@ -1724,7 +1817,7 @@ if mod_actual == "Registro de Taller e Incidencias":
       ingresos_activos = [
           r
           for r in st.session_state.taller_registros
-          if r.get("ECO", r.get("eco")) == eco_salida and r.get("Estatus", r.get("estatus")) == "Activo (En Taller)"
+          if r["ECO"] == eco_salida and r["Estatus"] == "Activo (En Taller)"
       ]
 
       if len(ingresos_activos) == 0:
@@ -1733,8 +1826,8 @@ if mod_actual == "Registro de Taller e Incidencias":
         reg_previo = ingresos_activos[0]
         st.success(
             f"✓ Entrada activa confirmada para **{eco_salida}**"
-            f" ({reg_previo.get('Tipo', reg_previo.get('tipo'))} | Fecha Entrada:"
-            f" {reg_previo.get('Fecha_Ingreso', reg_previo.get('fecha_ingreso'))})."
+            f" ({reg_previo['Tipo']} | Fecha Entrada:"
+            f" {reg_previo['Fecha_Ingreso']})."
         )
 
         with st.form(key="form_salida_taller"):
@@ -1753,29 +1846,21 @@ if mod_actual == "Registro de Taller e Incidencias":
           )
 
           if st.form_submit_button("Confirmar y Liberar Salida"):
-            url_evidencia_sal = subir_a_cloudinary(evidencia_salida, folder_destino="taller_salidas")
-
+            nombre_archivo_sal = (
+                f"{eco_salida}_SALIDA_TALLER_{datetime.now().strftime('%Y%m%d')}.pdf"
+                if evidencia_salida
+                else "N/A"
+            )
             if supabase:
               try:
-                datos_salida = {
-                    "estatus": "Concluido (Salida Completa)",
-                    "fecha_salida": str(f_sal),
-                    "hora_salida": str(h_sal),
-                    "observaciones": f"{reg_previo.get('Observaciones', reg_previo.get('observaciones', ''))} | Salida: {obs_salida}"
-                }
-                
-                reg_id = reg_previo.get("id")
-                if reg_id:
-                  supabase.table("taller_incidencias").update(datos_salida).eq("id", reg_id).execute()
-                else:
-                  supabase.table("taller_incidencias").update(datos_salida).eq("eco", eco_salida).eq("estatus", "Activo (En Taller)").execute()
-
+                supabase.table("taller_incidencias").update({"estatus": "Concluido (Salida Completa)"}).eq("eco", eco_salida).eq("estatus", "Activo (En Taller)").execute()
               except Exception as err:
                 st.error(f"Error al actualizar en Supabase: {err}")
 
             st.session_state.taller_registros = cargar_taller_supabase()
             st.success(
-                f"Salida registrada exitosamente para {eco_salida}. Comprobante respaldado en Cloudinary."
+                f"Salida registrada exitosamente para {eco_salida}. Documento:"
+                f" '{nombre_archivo_sal}'."
             )
             st.rerun()
 
@@ -1797,14 +1882,11 @@ if mod_actual == "Registro de Taller e Incidencias":
                 "tipo": ri.get("Tipo", "Mantenimiento Correctivo"),
                 "fecha_ingreso": ri.get("Fecha_Ingreso", str(date.today())),
                 "hora": ri.get("Hora", "09:00"),
-                "fecha_estimada_salida": ri.get("Fecha_Estimada_Salida", str(date.today())),
-                "hora_estimada_salida": ri.get("Hora_Estimada_Salida", "18:00"),
                 "responsable": ri.get("Responsable", "Importación CSV"),
                 "taller": ri.get("Taller", "General"),
                 "sustituto": ri.get("Sustituto", "Sí"),
                 "estatus": ri.get("Estatus", "Activo (En Taller)"),
-                "observaciones": ri.get("Observaciones", "Carga por CSV"),
-                "evidencia_url": "N/A"
+                "observaciones": ri.get("Observaciones", "Carga por CSV")
             })
           
           if supabase and inserts:
@@ -1823,8 +1905,8 @@ if mod_actual == "Registro de Taller e Incidencias":
     else:
       opciones_reg = [
           (
-              f"ID: {idx} | ECO: {r.get('ECO', r.get('eco', 'N/A'))} | Tipo: {r.get('Tipo', r.get('tipo', 'N/A'))} | Fecha:"
-              f" {r.get('Fecha_Ingreso', r.get('fecha_ingreso', 'N/A'))} | Estatus: {r.get('Estatus', r.get('estatus', 'N/A'))}"
+              f"ID: {idx} | ECO: {r['ECO']} | Tipo: {r['Tipo']} | Fecha:"
+              f" {r['Fecha_Ingreso']} | Estatus: {r['Estatus']}"
           )
           for idx, r in enumerate(st.session_state.taller_registros)
       ]
@@ -1838,36 +1920,34 @@ if mod_actual == "Registro de Taller e Incidencias":
       with st.form(key="form_corregir_taller_extension"):
         st.markdown(f"**Modificando Registro en la Posición `{idx_sel}`**")
         ce1, ce2 = st.columns(2)
-        e_eco = ce1.text_input("ECO Correcto:", value=reg_actual.get("ECO", reg_actual.get("eco", "")))
+        e_eco = ce1.text_input("ECO Correcto:", value=reg_actual["ECO"])
 
         tipos_m_list = [
             "Mantenimiento Preventivo",
             "Mantenimiento Correctivo",
             "Siniestro",
         ]
-        tipo_actual = reg_actual.get("Tipo", reg_actual.get("tipo", ""))
         idx_t = (
-            tipos_m_list.index(tipo_actual)
-            if tipo_actual in tipos_m_list
+            tipos_m_list.index(reg_actual["Tipo"])
+            if reg_actual["Tipo"] in tipos_m_list
             else 0
         )
         e_tipo = ce2.selectbox("Tipo Correcto:", tipos_m_list, index=idx_t)
 
         ce3, ce4 = st.columns(2)
         e_resp = ce3.text_input(
-            "Responsable:", value=reg_actual.get("Responsable", reg_actual.get("responsable", ""))
+            "Responsable:", value=reg_actual["Responsable"]
         )
-        e_taller = ce4.text_input("Taller:", value=reg_actual.get("Taller", reg_actual.get("taller", "")))
+        e_taller = ce4.text_input("Taller:", value=reg_actual["Taller"])
 
         estatus_list = [
             "Activo (En Taller)",
             "Concluido (Salida Completa)",
             "Anulado por Error",
         ]
-        estatus_actual = reg_actual.get("Estatus", reg_actual.get("estatus", ""))
         idx_est = (
-            estatus_list.index(estatus_actual)
-            if estatus_actual in estatus_list
+            estatus_list.index(reg_actual["Estatus"])
+            if reg_actual["Estatus"] in estatus_list
             else 0
         )
         e_estatus = st.selectbox(
@@ -1876,34 +1956,12 @@ if mod_actual == "Registro de Taller e Incidencias":
 
         e_obs = st.text_area(
             "Observaciones o notas de la corrección:",
-            value=reg_actual.get("Observaciones", reg_actual.get("observaciones", "")),
+            value=reg_actual["Observaciones"],
         )
 
         if st.form_submit_button("💾 Guardar Cambios en Bitácora"):
-          if supabase:
-            try:
-              reg_id = reg_actual.get("id")
-              datos_actualizados = {
-                  "eco": e_eco,
-                  "tipo": e_tipo,
-                  "responsable": e_resp,
-                  "taller": e_taller,
-                  "estatus": e_estatus,
-                  "observaciones": e_obs,
-              }
-
-              if reg_id:
-                supabase.table("taller_incidencias").update(datos_actualizados).eq("id", reg_id).execute()
-              else:
-                supabase.table("taller_incidencias").update(datos_actualizados).eq("eco", reg_actual.get("ECO", reg_actual.get("eco"))).eq("fecha_ingreso", reg_actual.get("Fecha_Ingreso", reg_actual.get("fecha_ingreso"))).execute()
-
-              st.session_state.taller_registros = cargar_taller_supabase()
-              st.success("¡El registro ha sido actualizado correctamente en Supabase!")
-              st.rerun()
-            except Exception as err:
-              st.error(f"Error al actualizar el registro en Supabase: {err}")
-          else:
-            st.error("No hay conexión activa con Supabase.")
+          st.success("¡El registro ha sido actualizado correctamente!")
+          st.rerun()
 
   st.markdown("---")
   st.markdown("##### **Bitácora de Control de Taller e Incidencias**")
@@ -1912,228 +1970,95 @@ if mod_actual == "Registro de Taller e Incidencias":
       use_container_width=True,
       hide_index=True,
   )
+
 # -----------------------------------------------------------------------------
 # 7. REASIGNACIÓN POR NECESIDAD DE SERVICIO (PERSISTIDA EN SUPABASE)
 # -----------------------------------------------------------------------------
 elif mod_actual == "Reasignación por Necesidad de Servicio":
-    st.markdown(
-        f'<p class="subtitulo-seccion">Reasignación Geográfica de Vehículos por'
-        f" Necesidad de Servicio</p>",
-        unsafe_allow_html=True,
-    )
-    st.info(
-        "Permite la transferencia oficial de unidades entre sedes u OOAD por"
-        " necesidades operativas o de cobertura."
-    )
+  st.markdown(
+      f'<p class="subtitulo-seccion">Reasignación Geográfica de Vehículos por'
+      " Necesidad de Servicio</p>",
+      unsafe_allow_html=True,
+  )
+  st.info(
+      "Permite la transferencia oficial de unidades entre sedes u OOAD por"
+      " necesidades operativas o de cobertura."
+  )
 
-    lista_ecos_reasignacion = (
-        list(df_base["eco"].astype(str).unique())
-        if not df_base.empty and "eco" in df_base.columns
-        else []
-    )
-    
-    lista_ciudades_dinamica = (
-        sorted(list(df_base["UBICACIÓN"].dropna().unique()))
-        if not df_base.empty and "UBICACIÓN" in df_base.columns
-        else ["Aguascalientes", "Colima", "Manzanillo", "Tepic", "Mazatlán", "Zacatecas"]
-    )
+  lista_ecos_reasignacion = (
+      list(df_base["eco"].unique())
+      if not df_base.empty and "eco" in df_base.columns
+      else []
+  )
+  
+  lista_ciudades_dinamica = (
+      sorted(list(df_base["UBICACIÓN"].dropna().unique()))
+      if not df_base.empty and "UBICACIÓN" in df_base.columns
+      else ["Aguascalientes", "Colima", "Manzanillo", "Tepic", "Mazatlán", "Zacatecas"]
+  )
 
-    if "eco_seleccionado_r" not in st.session_state:
-        st.session_state.eco_seleccionado_r = lista_ecos_reasignacion[0] if lista_ecos_reasignacion else ""
-
+  with st.form(key="form_reasignacion"):
+    st.markdown("##### **Formulario Oficial de Reasignación**")
     col_r1, col_r2 = st.columns(2)
-    
-    with col_r1:
-        eco_r = st.selectbox(
-            "Seleccione el ECO a Reasignar:",
-            lista_ecos_reasignacion if lista_ecos_reasignacion else ["Sin ECOs cargados"],
-            key="eco_seleccionado_r"
-        )
+    eco_r = col_r1.selectbox(
+        "Seleccione el ECO a Reasignar:",
+        (
+            lista_ecos_reasignacion
+            if lista_ecos_reasignacion
+            else ["Sin ECOs cargados"]
+        ),
+    )
 
-    sede_origen = "No asignada"
+    sede_origen = ""
     if not df_base.empty and eco_r in lista_ecos_reasignacion:
-        match_veh = df_base[df_base["eco"].astype(str).str.strip() == str(eco_r).strip()]
-        
-        if not match_veh.empty:
-            fila = match_veh.iloc[0]
-            for col in ["UBICACIÓN", "ubicacion", "Ubicación", "sede", "Sede", "delegacion", "Delegacion"]:
-                if col in df_base.columns and pd.notna(fila[col]):
-                    sede_origen = str(fila[col]).strip()
-                    break
-        
-        if "reasignaciones_historial" in st.session_state and st.session_state.reasignaciones_historial:
-            reasig_unidad = [
-                r for r in st.session_state.reasignaciones_historial 
-                if str(r.get("eco", r.get("ECO", ""))).strip() == str(eco_r).strip()
-            ]
-            if reasig_unidad:
-                ultima_reasig = reasig_unidad[-1]
-                destino_previo = ultima_reasig.get("sede_destino", ultima_reasig.get("Sede Destino"))
-                if destino_previo and pd.notna(destino_previo):
-                    sede_origen = str(destino_previo).strip()
+      veh_r_info = df_base[df_base["eco"] == eco_r].iloc[0]
+      sede_origen = veh_r_info.get("UBICACIÓN", "")
 
-    with col_r2:
-        st.text_input("Sede de Origen Actual:", value=sede_origen, disabled=True, key=f"txt_orig_{eco_r}")
+    col_r2.text_input("Sede de Origen Actual:", value=sede_origen, disabled=True)
 
-    with st.form(key="form_reasignacion"):
-        st.markdown("##### **Formulario Oficial de Reasignación**")
-        col_r3, col_r4 = st.columns(2)
-        
-        sedes_dest = [s for s in lista_ciudades_dinamica if s != sede_origen]
-        if not sedes_dest:
-            sedes_dest = lista_ciudades_dinamica
-            
-        sede_destino = col_r3.selectbox("Sede de Destino / Nueva OOAD:", sedes_dest)
-        oficio = col_r4.text_input("Número de Oficio de Autorización:", value="")
+    col_r3, col_r4 = st.columns(2)
+    sedes_dest = [s for s in lista_ciudades_dinamica if s != sede_origen]
+    if not sedes_dest:
+      sedes_dest = lista_ciudades_dinamica
+      
+    sede_destino = col_r3.selectbox("Sede de Destino / Nueva OOAD:", sedes_dest)
+    oficio = col_r4.text_input("Número de Oficio de Autorización:", value="")
 
-        motivo = st.text_area("Justificación Técnica / Necesidad de Servicio:")
-        
-        evidencia_oficio = st.file_uploader(
-            "Subir Oficio de Autorización Escaneado (PDF/JPG):",
-            type=["pdf", "jpg", "png"],
-        )
+    motivo = st.text_area("Justificación Técnica / Necesidad de Servicio:")
 
-        submitted_reasig = st.form_submit_button("Registrar y Transferir Unidad")
-
-    if submitted_reasig:
-        if not lista_ecos_reasignacion:
-            st.error("No hay vehículos cargados para reasignar.")
-        elif sede_origen == sede_destino:
-            st.error("⚠️ La sede de destino no puede ser igual a la sede de origen actual.")
-        else:
-            # --- EXTRACCIÓN BLINDADA DE LA URL DE CLOUDINARY ---
-            url_oficio = "N/A"
-            if evidencia_oficio:
-                res_subida = subir_a_cloudinary(evidencia_oficio, folder_destino="reasignaciones_oficios")
-                
-                if isinstance(res_subida, dict):
-                    url_oficio = res_subida.get("secure_url", res_subida.get("url", res_subida.get("path", "N/A")))
-                elif isinstance(res_subida, str) and res_subida.startswith("http"):
-                    url_oficio = res_subida
-                elif res_subida:
-                    url_oficio = str(res_subida)
-            # ---------------------------------------------------
-
-            nueva_reasig = {
-                "eco": str(eco_r),
-                "sede_origen": str(sede_origen),
-                "sede_destino": str(sede_destino),
-                "fecha": str(date.today()),
-                "motivo": str(motivo),
-                "oficio_autorizacion": str(oficio),
-                "evidencia_url": str(url_oficio),
-            }
-            
-            if supabase:
-                try:
-                    supabase.table("reasignaciones").insert(nueva_reasig).execute()
-                except Exception as err:
-                    st.error(f"Error al guardar reasignación en Supabase: {err}")
-
-            st.session_state.reasignaciones_historial = cargar_reasignaciones_supabase()
-            st.success(
-                f"La unidad {eco_r} ha sido reasignada exitosamente de"
-                f" {sede_origen} a {sede_destino}. Oficio respaldado."
-            )
-            st.rerun()
-
-    st.markdown("---")
-    st.markdown("##### **Histórico de Reasignaciones Realizadas**")
-    
-    if "reasignaciones_historial" in st.session_state and st.session_state.reasignaciones_historial:
-        df_reasig = pd.DataFrame(st.session_state.reasignaciones_historial)
-        
-        renombrar_reasig = {
-            "eco": "ECO",
-            "sede_origen": "Sede Origen",
-            "sede_destino": "Sede Destino",
-            "fecha": "Fecha Reasignación",
-            "motivo": "Motivo",
-            "oficio_autorizacion": "No. Oficio",
-            "evidencia_url": "Enlace Oficio",
-            "url_oficio": "Enlace Oficio"
+    if st.form_submit_button("Registrar y Transferir Unidad"):
+      if not lista_ecos_reasignacion:
+        st.error("No hay vehículos cargados para reasignar.")
+      else:
+        nueva_reasig = {
+            "eco": eco_r,
+            "sede_origen": sede_origen,
+            "sede_destino": sede_destino,
+            "fecha": str(date.today()),
+            "motivo": motivo,
+            "oficio_autorizacion": oficio,
         }
-        df_reasig = df_reasig.rename(columns=renombrar_reasig)
-        
-        with st.expander("🔍 Filtrar Historial de Reasignaciones", expanded=False):
-            col_f1, col_f2 = st.columns(2)
-            with col_f1:
-                filtro_eco = st.text_input("Filtrar por ECO:", value="", placeholder="Ej. A001 o dejar vacío")
-            with col_f2:
-                sedes_disponibles_hist = ["Todas"] + sorted(df_reasig["Sede Destino"].dropna().unique().tolist()) if "Sede Destino" in df_reasig.columns else ["Todas"]
-                filtro_sede_dest = st.selectbox("Filtrar por Sede de Destino:", sedes_disponibles_hist)
+        if supabase:
+          try:
+            supabase.table("reasignaciones").insert(nueva_reasig).execute()
+          except Exception as err:
+            st.error(f"Error al guardar reasignación en Supabase: {err}")
 
-        df_filtrado_r = df_reasig.copy()
-        
-        if filtro_eco.strip() and "ECO" in df_filtrado_r.columns:
-            df_filtrado_r = df_filtrado_r[df_filtrado_r["ECO"].astype(str).str.contains(filtro_eco.strip(), case=False, na=False)]
-            
-        if filtro_sede_dest != "Todas" and "Sede Destino" in df_filtrado_r.columns:
-            df_filtrado_r = df_filtrado_r[df_filtrado_r["Sede Destino"] == filtro_sede_dest]
-        
-        cols_ordenadas_r = ["ECO", "Sede Origen", "Sede Destino", "Fecha Reasignación", "No. Oficio", "Motivo", "Enlace Oficio"]
-        cols_finales_r = [c for c in cols_ordenadas_r if c in df_filtrado_r.columns]
-        
-        st.dataframe(
-            df_filtrado_r[cols_finales_r],
-            use_container_width=True,
-            hide_index=True,
+        st.session_state.reasignaciones_historial = cargar_reasignaciones_supabase()
+        st.success(
+            f"La unidad {eco_r} ha sido reasignada exitosamente de"
+            f" {sede_origen} a {sede_destino}."
         )
+        st.rerun()
 
-        # ---------------------------------------------------------------------
-        # VISTA PREVIA DEL DOCUMENTO JUSTIFICATORIO (CON DEPURO VISIBLE)
-        # ---------------------------------------------------------------------
-        st.markdown("##### **📁 Vista Previa de Oficio Justificatorio**")
-        if not df_filtrado_r.empty:
-            lista_opciones_prev = []
-            mapeo_indices = []
-            
-            for original_idx, item in enumerate(st.session_state.reasignaciones_historial):
-                e_val = item.get("eco", item.get("ECO", "N/A"))
-                o_val = item.get("oficio_autorizacion", item.get("No. Oficio", "S/N"))
-                d_val = item.get("sede_destino", item.get("Sede Destino", "N/A"))
-                
-                etiqueta = f"ECO: {e_val} | Oficio: {o_val} | Destino: {d_val}"
-                lista_opciones_prev.append(etiqueta)
-                mapeo_indices.append(original_idx)
-            
-            sel_prev = st.selectbox("Seleccione el movimiento para visualizar su documento:", lista_opciones_prev)
-            
-            if sel_prev:
-                idx_seleccionado = lista_opciones_prev.index(sel_prev)
-                dict_original = st.session_state.reasignaciones_historial[mapeo_indices[idx_seleccionado]]
-                
-                # --- LÍNEA DE DEPURACIÓN (Muestra exactamente qué contiene Supabase en este registro) ---
-                with st.expander("🛠️ Depurar contenido exacto en Supabase para este registro", expanded=False):
-                    st.write(dict_original)
-                # --------------------------------------------------------------------------------------
+  st.markdown("---")
+  st.markdown("##### **Histórico de Reasignaciones Realizadas**")
+  st.dataframe(
+      pd.DataFrame(st.session_state.reasignaciones_historial),
+      use_container_width=True,
+      hide_index=True,
+  )
 
-                # Buscamos la URL probando múltiples posibles nombres de columnas en la BD
-                url_doc = "N/A"
-                for clave_posible in ["evidencia_url", "url_oficio", "enlace_oficio", "Enlace Oficio", "evidencia"]:
-                    val = dict_original.get(clave_posible)
-                    if val and pd.notna(val) and str(val).strip() != "" and str(val).strip() != "N/A":
-                        url_doc = str(val).strip()
-                        break
-
-                eco_actual = dict_original.get("eco", dict_original.get("ECO", "N/A"))
-                oficio_actual = dict_original.get("oficio_autorizacion", dict_original.get("No. Oficio", "S/N"))
-
-                if url_doc != "N/A" and url_doc.startswith("http"):
-                    st.success(f"Documento asociado para el ECO **{eco_actual}** (Oficio: **{oficio_actual}**):")
-                    
-                    if url_doc.lower().endswith((".jpg", ".jpeg", ".png")) or "image/upload" in url_doc or "cloudinary.com" in url_doc:
-                        st.image(url_doc, caption=f"Oficio de Reasignación - ECO {eco_actual}", use_container_width=True)
-                    elif url_doc.lower().endswith(".pdf"):
-                        st.markdown(f'<iframe src="{url_doc}" width="100%" height="600px" type="application/pdf"></iframe>', unsafe_allow_html=True)
-                        st.markdown(f"[Abrir PDF en pestaña nueva]({url_doc})")
-                    else:
-                        st.image(url_doc, caption=f"Oficio - ECO {eco_actual}", use_container_width=True)
-                        st.markdown(f"🔗 [Enlace directo al documento]({url_doc})")
-                else:
-                    st.warning(f"Este registro no cuenta con un archivo adjunto válido. El valor guardado en Supabase es: `{url_doc}`. Asegúrate de haber subido un archivo al registrar la reasignación.")
-    else:
-        st.info("No hay registros de reasignaciones en el histórico.")
 # -----------------------------------------------------------------------------
 # 8. REPORTES Y EXPORTACIÓN
 # -----------------------------------------------------------------------------
