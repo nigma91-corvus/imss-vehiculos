@@ -375,31 +375,37 @@ st.markdown(
 # BARRA LATERAL (SIDEBAR)
 # -----------------------------------------------------------------------------
 with st.sidebar:
-    # CSS específico para compactar al máximo los elementos del sidebar
+    # Bloque CSS optimizado para compactar elementos, reducir márgenes internos 
+    # y eliminar los espacios vacíos excesivos de Streamlit.
     st.markdown(
         """
         <style>
-            /* 1. Controla la separación general entre los elementos de la barra lateral */
+            /* 1. Reduce drásticamente la separación vertical entre todos los bloques del sidebar */
             [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
-                gap: 4px !important;
+                gap: 1px !important;
             }
             
-            /* 2. Mantiene los botones de flotilla compactos y ordenados */
+            /* 2. Mantiene los botones de selección de flotilla compactos y sin relleno excesivo */
             [data-testid="stSidebar"] .stButton button {
-                min-height: 32px !important;
+                min-height: 28px !important;
                 padding: 2px 8px !important;
+            }
+
+            /* 3. Compacta los espacios internos de las opciones de radio (Módulos del Sistema) */
+            [data-testid="stSidebar"] div.stRadio > div {
+                gap: 2px !important;
             }
         </style>
         """,
         unsafe_allow_html=True,
     )
     
-    # Logo compacto y centrado
+    # Logo centrado (usando un margen superior limpio en lugar de negativos extremos)
     if url_logo_supa:
         st.markdown(
             f"""
-            <div style="display: flex; justify-content: center; align-items: center; margin-top: -155px; margin-bottom: 0px;">
-                <img src="{url_logo_supa}" style="max-height: 180px; width: auto; object-fit: contain;">
+            <div style="display: flex; justify-content: center; align-items: center; margin-top: 0px; margin-bottom: 2px;">
+                <img src="{url_logo_supa}" style="max-height: 110px; width: auto; object-fit: contain;">
             </div>
             """,
             unsafe_allow_html=True,
@@ -412,19 +418,22 @@ with st.sidebar:
 
     color_468 = COLORES_PANTONE["468"]
 
+    # Texto descriptivo institucional debajo del logo
     st.markdown(
-        f"<div style='text-align: center; font-size: 11px; margin-top: -50px; margin-bottom: 0px; line-height: 1.0;'>"
+        f"<div style='text-align: center; font-size: 11px; margin-top: 0px; margin-bottom: 4px; line-height: 1.0;'>"
         "<b>Coordinación Técnica de Servicios Generales</b><br>"
         f"<span style='font-size:9px; color:{color_468};'>"
         "División de Transportes y Operación</span></div>",
         unsafe_allow_html=True,
     )
     
+    # Título de sección de flotillas
     st.markdown(
-        "<p style='font-size: 11px; margin-top: -45px; margin-bottom: 2px;'><b>SELECCIONAR FLOTILLA:</b></p>",
+        "<p style='font-size: 11px; margin-top: 2px; margin-bottom: 2px;'><b>SELECCIONAR FLOTILLA:</b></p>",
         unsafe_allow_html=True,
     )
 
+    # Botones de selección de categoría de flotilla
     st.button(
         "ADMINISTRATIVOS",
         use_container_width=True,
@@ -459,6 +468,7 @@ with st.sidebar:
         args=("Institucionales",),
     )
 
+    # Lista de módulos del sistema
     modulos = [
         "Dashboard General",
         "Semáforo de Movilidad por Ciudad",
@@ -474,12 +484,14 @@ with st.sidebar:
     if st.session_state.modulo_activo not in modulos:
         st.session_state.modulo_activo = "Dashboard General"
 
+    # Componente de radio para cambiar entre módulos
     st.session_state.modulo_activo = st.radio(
         "Módulos del Sistema:",
         modulos,
         index=modulos.index(st.session_state.modulo_activo),
     )
 
+    # Créditos y datos de desarrollo al pie del sidebar
     st.markdown(
         "<div style='text-align: center; font-size: 9px; color: #CCCCCC; line-height: 1.0; margin-top: 2px;'>Desarrollado por:<br><b>eduardo.casas@imss.gob.mx</b></div>",
         unsafe_allow_html=True,
