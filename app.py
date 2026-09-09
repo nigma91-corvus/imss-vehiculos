@@ -960,7 +960,7 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
             use_container_width=True,
             hide_index=True,
         )
-    )# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # 3. CONTROL DEL POOL DE SUSTITUTOS (20%)
 # -----------------------------------------------------------------------------
 elif mod_actual == "Control del Pool de Sustitutos (20%)":
