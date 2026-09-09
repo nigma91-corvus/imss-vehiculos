@@ -1275,6 +1275,26 @@ if mod_actual == "Expediente por ECO y Documental":
                 tipo_v = str(v_data.get("tipo", "")).strip()
                 linea_v = str(v_data.get("linea", "")).strip()
                 
+                try:
+                    cloud_name = st.secrets["cloudinary"]["cloud_name"]
+                    nombre_foto_limpio = f"{tipo_v}_{linea_v}".lower().replace(" ", "_").replace("/", "-").replace(".", "")
+                    url_cat = f"https://res.cloudinary.com/{cloud_name}/image/upload/v1/vehiculos_fotos/{nombre_foto_limpio}.jpg"
+                except Exception as e:
+                    url_cat = ""
+                    st.error(f"Error con los secrets: {e}")
+
+                # ESTA LÍNEA ES CLAVE: Muestra el enlace en pantalla para que veamos qué dirección intenta abrir
+                st.write(f"URL generada: `{url_cat}`")
+
+                if url_cat:
+                    st.markdown(
+                        f'<div class="image-container-full"><img src="{url_cat}" alt="Vehículo" onerror="this.onerror=null;this.src=\'https://via.placeholder.com/300x200?text=Sin+Foto+Catalogo\';"></div>',
+                        unsafe_allow_html=True,
+                    )
+                    st.caption(f"Catálogo: {tipo_v} - {linea_v}")
+                else:
+                    st.info(f"📷 [Sin foto en carpeta 'vehiculos_fotos' para: {linea_v}]")
+                
                 # Obtenemos el cloud_name directamente de tus secrets de Streamlit
                 try:
                     cloud_name = st.secrets["cloudinary"]["cloud_name"]
