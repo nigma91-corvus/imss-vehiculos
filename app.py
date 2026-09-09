@@ -1226,26 +1226,28 @@ def limpiar_texto(texto):
     ).lower()
 
 def obtener_imagen_catalogo_supabase(tipo_v, linea_v):
-    """Función que genera la URL exacta de la imagen en Cloudinary."""
+    """Función que retorna la URL exacta de Cloudinary para el catálogo."""
     texto_busqueda = limpiar_texto(f"{tipo_v} {linea_v}")
-    nombre_foto_limpio = ""
+    cloud_name = st.secrets["cloudinary"]["cloud_name"]
 
-    # Mapeo exacto según tus líneas y Cloudinary
+    # Mapeo directo con las URLs reales que Cloudinary te dio
     if "transit" in texto_busqueda:
-        nombre_foto_limpio = "FORD_TRANSIT_GENERICA"
+        return f"https://res.cloudinary.com/{cloud_name}/image/upload/v1788891028/FORD_TRANSIT_GENERICA.png"
     elif "promaster" in texto_busqueda or "ram 2500" in texto_busqueda:
-        nombre_foto_limpio = "RAM_PROMASTER_GENERICA"
+        return f"https://res.cloudinary.com/{cloud_name}/image/upload/v1788891029/RAM_PROMASTER_GENERICA.png"
     elif "silverado" in texto_busqueda:
-        nombre_foto_limpio = "silverado"
+        return f"https://res.cloudinary.com/{cloud_name}/image/upload/v1788993595/silverado.png"
     elif "urvan" in texto_busqueda:
-        nombre_foto_limpio = "urvan-panel"
+        return f"https://res.cloudinary.com/{cloud_name}/image/upload/v1788891027/urvan-panel.png"
     elif "f-150" in texto_busqueda:
-        nombre_foto_limpio = "f-150-xl"
+        return f"https://res.cloudinary.com/{cloud_name}/image/upload/v1788891030/f-150-xl.png"
     elif "v-drive" in texto_busqueda:
-        nombre_foto_limpio = "v-drive-tm-ac"
+        # Aquí puedes usar la versión que gustes o la estándar de Cloudinary
+        return f"https://res.cloudinary.com/{cloud_name}/image/upload/vehiculos_fotos/v-drive-tm-ac.png" 
     elif "creta" in texto_busqueda:
-        nombre_foto_limpio = "creta-1-5l-gls-ivt"
+        return f"https://res.cloudinary.com/{cloud_name}/image/upload/v1788891030/creta-1-5l-gls-ivt.png"
 
+    return ""
     try:
         cloud_name = st.secrets["cloudinary"]["cloud_name"]
         if nombre_foto_limpio:
