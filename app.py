@@ -1274,7 +1274,6 @@ if mod_actual == "Expediente por ECO y Documental":
             with col_img_cat:
                 import unicodedata
 
-                # Unimos tipo y línea para tener todo el texto disponible para buscar
                 tipo_v = str(v_data.get("tipo", "")).strip()
                 linea_v = str(v_data.get("linea", "")).strip()
                 
@@ -1284,7 +1283,7 @@ if mod_actual == "Expediente por ECO y Documental":
 
                 texto_busqueda = limpiar_texto(f"{tipo_v} {linea_v}")
 
-                # Definimos el nombre exacto del archivo en Cloudinary según lo que contenga el texto
+                # Identificamos el nombre exacto del archivo en Cloudinary
                 nombre_foto_limpio = ""
 
                 if "v-drive" in texto_busqueda:
@@ -1310,11 +1309,8 @@ if mod_actual == "Expediente por ECO y Documental":
                     url_cat = ""
 
                 if url_cat:
-                    st.markdown(
-                        f'<div class="image-container-full"><img src="{url_cat}" alt="Vehículo" onerror="this.onerror=null;this.src=\'https://via.placeholder.com/300x200?text=Sin+Foto+Catalogo\';"></div>',
-                        unsafe_allow_html=True,
-                    )
-                    st.caption(f"Catálogo: {tipo_v} - {linea_v}")
+                    # Usamos st.image nativo de Streamlit para evitar problemas de contenedores HTML
+                    st.image(url_cat, caption=f"Catálogo: {tipo_v} - {linea_v}", use_container_width=True)
                 else:
                     st.info(f"📷 [Sin foto en catálogo para: {linea_v}]")
                 
