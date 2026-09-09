@@ -838,21 +838,28 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
     )
 
     if not df_base.empty and "ubicacion" in df_base.columns:
+        # Mapeo dinámico considerando registros en taller desde la sesión
+        ecos_en_taller = {
+            r.get("eco", r.get("ECO"))
+            for r in st.session_state.get("taller_registros", [])
+            if r.get("estatus", r.get("Estatus")) == "Activo (En Taller)"
+        }
+
         df_ciudades = (
             df_base.groupby("ubicacion")
             .agg(
                 Flotilla_Asignada=("eco", "count"),
                 Titulares_Activos=(
                     "estatus",
-                    lambda x: (x == "Titular Activo").sum(),
+                    lambda x: sum(1 for eco, est in zip(x.index, x) if est == "Titular Activo" and df_base.loc[eco, "eco"] not in ecos_en_taller),
                 ),
                 Sustitutos_Entregados=(
                     "estatus",
-                    lambda x: (x == "Sustituto Entregado").sum(),
+                    lambda x: sum(1 for est in x if est == "Sustituto Entregado"),
                 ),
                 En_Taller_Inoperativos=(
                     "estatus",
-                    lambda x: (x == "Inoperativo / Baja").sum(),
+                    lambda x: sum(1 for est in x if est == "Inoperativo / Baja"),
                 ),
             )
             .reset_index()
@@ -899,9 +906,8 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
     if ciudad_sel != "Todas las Ciudades (General)":
         df_ciudades = df_ciudades[df_ciudades["Ciudad / OOAD"] == ciudad_sel]
 
-    # --- BOTÓN DE DESCARGA PARA EL REPORTE FILTRADO ---
     with col_descarga:
-        st.write("") # Pequeño ajuste visual para alinear con el selectbox
+        st.write("") 
         csv_reporte = df_ciudades.to_csv(index=False).encode("utf-8")
         st.download_button(
             label="📥 Descargar Reporte",
@@ -928,19 +934,13 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
         def aplicar_estilo_semaforo(row):
             if df_ciudades.empty:
                 return []
-            
-            # Estilo cebra base alternado
             if row.name % 2 == 0:
-                estilos = ["background-color: #ffffff" for _ in row.index]
+                return ["background-color: #ffffff" for _ in row.index]
             else:
-                estilos = ["background-color: #f2f4f7" for _ in row.index]
-                
-            return estilos
+                return ["background-color: #f2f4f7" for _ in row.index]
 
-        # Aplicamos primero el estilo cebra global a la tabla
         df_estilizado = df_ciudades.style.apply(aplicar_estilo_semaforo, axis=1)
 
-        # Añadimos el color dinámico específico para la columna de Estado
         def colorear_estado(val):
             if val == "VERDE":
                 return "background-color: #27ae60; color: white; font-weight: bold;"
