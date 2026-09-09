@@ -371,29 +371,29 @@ st.markdown(
 """,
     unsafe_allow_html=True,
 )
-st.markdown(
+# -----------------------------------------------------------------------------
+# BARRA LATERAL (SIDEBAR)
+# -----------------------------------------------------------------------------
+with st.sidebar:
+    # Bloque de estilos CSS para controlar la separación y los botones
+    st.markdown(
         """
         <style>
-            /* Controla la separación general entre los elementos */
+            /* 1. Controla la separación general entre los elementos de la barra lateral */
             [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
                 gap: 4px !important;
             }
             
-            /* Mantiene los botones de flotilla compactos */
+            /* 2. Mantiene los botones de flotilla compactos y ordenados */
             [data-testid="stSidebar"] .stButton button {
                 min-height: 32px !important;
                 padding: 2px 8px !important;
             }
 
-            /* Reduce el espacio entre un botón y otro */
+            /* 3. Reduce el espacio vertical específico entre un botón y otro */
             [data-testid="stSidebar"] .stButton {
-                margin-top: -6px !important;
-                margin-bottom: -6px !important;
-            }
-
-            /* NUEVO: Sube el bloque de los Módulos del Sistema */
-            [data-testid="stSidebar"] div.stRadio {
-                margin-top: -15px !important;
+                margin-top: -80px !important;
+                margin-bottom: -100px !important;
             }
         </style>
         """,
