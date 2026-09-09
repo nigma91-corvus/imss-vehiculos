@@ -1218,8 +1218,8 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
-# 5. EXPEDIENTE POR ECO Y DOCUMENTAL (CON CARGA REAL DE FOTOS Y DOCUMENTOS)
-# -----------------------------------------------------------------------------
+# # 5. EXPEDIENTE POR ECO Y DOCUMENTAL (CON CARGA REAL DE FOTOS Y DOCUMENTOS)
+# # -----------------------------------------------------------------------------
 if mod_actual == "Expediente por ECO y Documental":
     st.markdown(
         f'<p class="subtitulo-seccion">Expediente Técnico y Documental por ECO - {cat_actual}</p>',
@@ -1270,8 +1270,8 @@ if mod_actual == "Expediente por ECO y Documental":
             col_img_cat, col_info_cat = st.columns([1, 2.2], gap="small")
 
             with col_img_cat:
-                tipo_v = v_data.get("Tipo", "")
-                linea_v = v_data.get("Linea", "")
+                tipo_v = v_data.get("tipo", "")
+                linea_v = v_data.get("linea", "")
                 url_cat = obtener_imagen_catalogo_supabase(tipo_v, linea_v)
                 if url_cat:
                     st.markdown(
@@ -1291,7 +1291,7 @@ if mod_actual == "Expediente por ECO y Documental":
                 estatus_veh = (
                     "En Taller"
                     if en_taller
-                    else str(v_data.get("Estatus", "Titular Activo"))
+                    else str(v_data.get("estatus", "Titular Activo"))
                 )
                 badge_class = (
                     "badge-verde"
@@ -1303,6 +1303,19 @@ if mod_actual == "Expediente por ECO y Documental":
                     )
                 )
 
+                # Función auxiliar segura para evitar errores con valores NULL o None
+                def obtener_val(row, campo, default="N/A"):
+                    val = row.get(campo)
+                    if val is None or (isinstance(val, float) and pd.isna(val)) or str(val).strip() == "" or str(val).lower() == "nan":
+                        return default
+                    return val
+
+                cuota_raw = v_data.get("cuota_diaria")
+                try:
+                    cuota_val = float(cuota_raw) if cuota_raw is not None and not pd.isna(cuota_raw) else 0.0
+                except:
+                    cuota_val = 0.0
+
                 st.markdown(
                     f"""
                     <div class="card-resumen">
@@ -1312,16 +1325,16 @@ if mod_actual == "Expediente por ECO y Documental":
                         <hr style="margin: 6px 0;">
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
                             <div>
-                                <p><b>Placas:</b> {v_data.get('Placas', 'N/A')}</p>
-                                <p><b>Número de Serie (VIN):</b> {v_data.get('VIN', 'N/A')}</p>
-                                <p><b>No. Tarjeta Circulación:</b> {v_data.get('No_TC', 'N/A')}</p>
-                                <p><b>Arrendadora:</b> {v_data.get('Arrendadora', 'N/A')}</p>
+                                <p><b>Placas:</b> {obtener_val(v_data, 'placas')}</p>
+                                <p><b>Número de Serie (VIN):</b> {obtener_val(v_data, 'vin')}</p>
+                                <p><b>No. Tarjeta Circulación:</b> {obtener_val(v_data, 'no_tc')}</p>
+                                <p><b>Arrendadora:</b> {obtener_val(v_data, 'arrendadora')}</p>
                             </div>
                             <div>
-                                <p><b>Tipo / Línea:</b> {v_data.get('Tipo', 'N/A')} - {v_data.get('Linea', 'N/A')}</p>
-                                <p><b>Ubicación / OOAD:</b> {v_data.get('UBICACIÓN', 'N/A')}</p>
-                                <p><b>Último Servicio:</b> {v_data.get('Ultimo_Servicio', 'N/A')}</p>
-                                <p><b>Cuota Diaria:</b> ${parse_float(v_data.get('CUOTA DIARIA', 0.0)):,.2f}</p>
+                                <p><b>Tipo / Línea:</b> {obtener_val(v_data, 'tipo')} - {obtener_val(v_data, 'linea')}</p>
+                                <p><b>Ubicación / OOAD:</b> {obtener_val(v_data, 'ubicacion')}</p>
+                                <p><b>Último Servicio:</b> {obtener_val(v_data, 'ultimo_servicio')}</p>
+                                <p><b>Cuota Diaria:</b> ${cuota_val:,.2f}</p>
                             </div>
                         </div>
                     </div>
