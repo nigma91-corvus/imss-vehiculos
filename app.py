@@ -1257,7 +1257,7 @@ if mod_actual == "Expediente por ECO y Documental":
             # Filtramos buscando coincidencia exacta (puedes usar .str.contains() si prefieres búsqueda parcial)
             vehiculo_sel = df_base[
                 df_base["eco"].astype(str).str.strip().str.lower()
-                == eco_input.strip().lower()
+                == eco_seleccionado.strip().lower()
             ]
 
             if vehiculo_sel.empty:
