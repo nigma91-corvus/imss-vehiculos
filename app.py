@@ -1313,8 +1313,14 @@ if mod_actual == "Expediente por ECO y Documental":
                 tipo_v = v_data.get("tipo", "")
                 linea_v = v_data.get("linea", "")
                 
-                # Llamamos a nuestra función pasándole el tipo y la línea del vehículo seleccionado
+                # --- AQUÍ ESTÁ EL TRUCO PARA VER QUÉ FALLA ---
+                st.write(f"🔎 DEBUG: Tipo leídon: '{tipo_v}'")
+                st.write(f"🔎 DEBUG: Línea leída: '{linea_v}'")
+                
                 url_cat = obtener_imagen_catalogo_supabase(tipo_v, linea_v)
+                
+                st.write(f"🌐 URL generada: {url_cat}")
+                # ---------------------------------------------
                 
                 if url_cat:
                     st.markdown(
@@ -1324,7 +1330,6 @@ if mod_actual == "Expediente por ECO y Documental":
                     st.caption(f"Catálogo: {tipo_v} - {linea_v}")
                 else:
                     st.info(f"📷 [Sin foto en catálogo para: {tipo_v} - {linea_v}]")
-
             with col_info_cat:
                 en_taller = any(
                     r["ECO"] == v_data["eco"]
