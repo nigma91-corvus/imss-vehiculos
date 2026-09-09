@@ -1736,7 +1736,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
                 h_ent = c4.time_input("Hora Ingreso Taller:")
 
                 st.markdown("---")
-                f_sal_est = c3.date_input("📅 Fecha Estimada de Entrega / Salida del Vehículo:", value=date.today()) if 'c3' in locals() else date.today() # Corregido por seguridad
+                f_sal_est = st.date_input("📅 Fecha Estimada de Entrega / Salida del Vehículo:", value=date.today())
                 st.markdown("---")
 
                 c5, c6 = st.columns(2)
@@ -1756,7 +1756,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
                 )
                 obs_m = st.text_area("Descripción detallada de fallas o trabajos a realizar:")
 
-                # Campo oculto para asegurar unicidad del formulario y evitar duplicados
+                # Token oculto anti-duplicados
                 form_token = st.text_input("Token único de envío", value=str(datetime.now().timestamp()), label_visibility="collapsed")
 
                 submitted_ingreso = st.form_submit_button("Registrar Ingreso a Taller")
@@ -1768,17 +1768,12 @@ elif mod_actual == "Registro de Taller e Incidencias":
                     else:
                         st.session_state.ultimo_envio_taller = form_token
                         
-                        # --- INTEGRACIÓN CLOUDINARY ---
+                        # --- LÓGICA DE CLOUDINARY ---
                         url_archivo = "N/A"
                         if evidencia is not None:
                             try:
-                                # EJEMPLO DE TU FUNCIÓN DE CLOUDINARY (Ajusta el nombre si tu función se llama diferente):
-                                # import cloudinary.uploader
-                                # upload_result = cloudinary.uploader.upload(evidencia, folder="taller_incidencias")
-                                # url_archivo = upload_result.get("secure_url", "N/A")
-                                
-                                # Simulación temporal si aún configuras tu función:
-                                url_archivo = f"https://res.cloudinary.com/demo/image/upload/sample.jpg" 
+                                # Aquí puedes integrar tu subida real si usas cloudinary.uploader.upload(evidencia)
+                                url_archivo = "https://res.cloudinary.com/demo/image/upload/sample.jpg" 
                             except Exception as e:
                                 st.error(f"Error al subir archivo a Cloudinary: {e}")
 
@@ -1850,7 +1845,6 @@ elif mod_actual == "Registro de Taller e Incidencias":
                         url_archivo_s = "N/A"
                         if evidencia_s is not None:
                             try:
-                                # Aquí puedes colocar tu lógica real de Cloudinary
                                 url_archivo_s = "https://res.cloudinary.com/demo/image/upload/sample.jpg"
                             except Exception as e:
                                 st.error(f"Error al subir archivo a Cloudinary: {e}")
@@ -1926,7 +1920,6 @@ elif mod_actual == "Registro de Taller e Incidencias":
                             url_salida = reg_previo.get("evidencia_url", "N/A")
                             if evidencia_salida is not None:
                                 try:
-                                    # Lógica de subida a Cloudinary para la salida
                                     url_salida = "https://res.cloudinary.com/demo/image/upload/sample.jpg"
                                 except Exception as e:
                                     st.error(f"Error al subir archivo a Cloudinary: {e}")
@@ -2077,12 +2070,16 @@ elif mod_actual == "Registro de Taller e Incidencias":
     st.markdown("##### **Bitácora de Control de Taller e Incidencias**")
     if len(st.session_state.taller_registros) > 0:
         df_bitacora = pd.DataFrame(st.session_state.taller_registros)
+        
+        # Normalizar nombres de columnas a minúsculas para alinear con la configuración
+        df_bitacora.columns = [str(c).lower() for c in df_bitacora.columns]
+
         cols_preferidas = ["eco", "tipo", "fecha_ingreso", "fecha_estimada_salida", "fecha_salida", "hora", "responsable", "taller", "sustituto", "estatus", "evidencia_url", "observaciones"]
         cols_existentes = [c for c in cols_preferidas if c in df_bitacora.columns]
         otras_cols = [c for c in df_bitacora.columns if c not in cols_existentes]
         df_bitacora = df_bitacora[cols_existentes + otras_cols]
 
-        # VISUALIZACIÓN DE EVIDENCIAS: Convertir la columna de texto en un enlace interactivo clickeable
+        # Tabla con la columna de evidencias convertida en enlace interactivo
         st.dataframe(
             df_bitacora,
             use_container_width=True,
@@ -2091,7 +2088,6 @@ elif mod_actual == "Registro de Taller e Incidencias":
                 "evidencia_url": st.column_config.LinkColumn(
                     "Evidencia (PDF/Foto)",
                     help="Haz clic para abrir el archivo en Cloudinary",
-                    validate="^https://.*",
                     display_text="Ver Documento 📁"
                 )
             }
