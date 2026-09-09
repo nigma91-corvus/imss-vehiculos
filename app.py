@@ -168,46 +168,54 @@ os.makedirs("assets", exist_ok=True)
 
 @st.cache_data(ttl=60)
 def cargar_datos_supabase(categoria):
-    if not supabase:
-        return pd.DataFrame(columns=COLUMNAS_OFICIALES)
-    try:
-        tabla_map = {
-            "Administrativos": "vehiculos_administrativos",
-            "Ambulancias": "vehiculos_ambulancias",
-            "Institucionales": "vehiculos_institucionales"
-        }
-        nombre_tabla = tabla_map.get(categoria, "vehiculos_administrativos")
-        
-        all_rows = []
-        batch_size = 1000
-        offset = 0
-        
-        while True:
-            response = supabase.table(nombre_tabla).select("*").range(offset, offset + batch_size - 1).execute()
-            data = response.data
+  if not supabase:
+    return pd.DataFrame(columns=COLUMNAS_OFICIALES)
+  try:
+    tabla_map = {
+        "Administrativos": "vehiculos_administrativos",
+        "Ambulancias": "vehiculos_ambulancias",
+        "Institucionales": "vehiculos_institucionales"
+    }
+    nombre_tabla = tabla_map.get(categoria, "vehiculos_administrativos")
+    
+    all_rows = []
+    batch_size = 1000
+    offset = 0
+    
+    while True:
+      response = supabase.table(nombre_tabla).select("*").range(offset, offset + batch_size - 1).execute()
+      data = response.data
 
-            if not data:
-                break
-            all_rows.extend(data)
-            if len(data) < batch_size:
-                break
-            offset += batch_size
+      
+      if not data:
+        break
+      all_rows.extend(data)
+      if len(data) < batch_size:
+        break
+      offset += batch_size
 
-        df = pd.DataFrame(all_rows)
-        if not df.empty:
-            if "id" in df.columns:
-                df = df.drop(columns=["id"])
-            
-            # Limpiar espacios en los nombres de las columnas pero respetando mayúsculas originales
-            df.columns = df.columns.str.strip()
-            
-            # Convertir a texto para evitar errores de tipo en Streamlit
-            df = df.astype(str)
-        else:
-            return pd.DataFrame(columns=COLUMNAS_OFICIALES)
-        return df
-    except Exception as e:
-        return pd.DataFrame(columns=COLUMNAS_OFICIALES)
+    df = pd.DataFrame(all_rows)
+    if not df.empty:
+      df = df.astype(str)
+      df.columns = df.columns.str.strip()
+      if "id" in df.columns:
+        df = df.drop(columns=["id"])
+      
+      # Mapeo flexible para estandarizar columnas de identificación (eco, eco, etc.)
+      columnas_mapeo = {}
+      for col in df.columns:
+        c_clean = col.lower().replace(".", "").replace("_", " ").strip()
+        if c_clean in ["eco", "no eco", "noecco", "no_ecco"]:
+          columnas_mapeo[col] = "eco"
+        elif c_clean in ["ubicacion", "ubicación"]:
+          columnas_mapeo[col] = "UBICACIÓN"
+      if columnas_mapeo:
+        df = df.rename(columns=columnas_mapeo)
+    else:
+      return pd.DataFrame(columns=COLUMNAS_OFICIALES)
+    return df
+  except Exception as e:
+    return pd.DataFrame(columns=COLUMNAS_OFICIALES)
 
 @st.cache_data(ttl=60)
 def cargar_taller_supabase():
@@ -274,6 +282,7 @@ def cargar_reasignaciones_supabase():
         return mapped
     except Exception:
         return []
+
 # -----------------------------------------------------------------------------
 # GESTIÓN DEL ESTADO DE SESIÓN (SINCRONIZADO CON SUPABASE)
 # -----------------------------------------------------------------------------
@@ -1517,435 +1526,476 @@ def subir_a_cloudinary(archivo_subido, folder_destino="taller_flotilla"):
 # 6. REGISTRO DE TALLER E INCIDENCIAS (PERSISTIDO EN SUPABASE)
 # -----------------------------------------------------------------------------
 if mod_actual == "Registro de Taller e Incidencias":
-    st.markdown(
-        f'<p class="subtitulo-seccion">Registro de Taller, Incidencias y '
-        f"Siniestros - Flotilla {cat_actual}</p>",
-        unsafe_allow_html=True,
+  st.markdown(
+      f'<p class="subtitulo-seccion">Registro de Taller, Incidencias y'
+      f" Siniestros - Flotilla {cat_actual}</p>",
+      unsafe_allow_html=True,
+  )
+
+  lista_ecos_taller = (
+      list(df_base["eco"].unique())
+      if not df_base.empty and "eco" in df_base.columns
+      else []
+  )
+  tab_captura, tab_csv, tab_editar = st.tabs([
+      "📝 Captura de Altas / Salidas",
+      "📥 Carga Masiva CSV Incidencias",
+      "✏️ Editar / Corregir Registro",
+  ])
+
+  with tab_captura:
+    opcion_taller = st.radio(
+        "Seleccione la Operación a Realizar:",
+        [
+            "1. Ingreso a Taller (Mantenimiento Preventivo / Correctivo)",
+            "2. Ingreso a Taller por Siniestro",
+            "3. Salida de Taller",
+        ],
+        horizontal=True,
     )
-
-    lista_ecos_taller = (
-        list(df_base["eco"].unique())
-        if not df_base.empty and "eco" in df_base.columns
-        else []
-    )
-    
-    tab_captura, tab_csv, tab_editar = st.tabs([
-        "📝 Captura de Altas / Salidas",
-        "📥 Carga Masiva CSV Incidencias",
-        "✏️ Editar / Corregir Registro",
-    ])
-
-    with tab_captura:
-        opcion_taller = st.radio(
-            "Seleccione la Operación a Realizar:",
-            [
-                "1. Ingreso a Taller (Mantenimiento Preventivo / Correctivo)",
-                "2. Ingreso a Taller por Siniestro",
-                "3. Salida de Taller",
-            ],
-            horizontal=True,
-        )
-        st.markdown("---")
-
-        if opcion_taller == "1. Ingreso a Taller (Mantenimiento Preventivo / Correctivo)":
-            with st.form(key="form_ingreso_mantenimiento"):
-                st.markdown("##### **Registro de Ingreso a Taller**")
-                c1, c2 = st.columns(2)
-                eco_t = c1.selectbox(
-                    "Número Económico (ECO):",
-                    lista_ecos_taller if lista_ecos_taller else ["Sin ECCOS registrados"],
-                )
-                tipo_mantenimiento = c2.selectbox(
-                    "Tipo de Estatus / Servicio:",
-                    ["Mantenimiento Preventivo", "Mantenimiento Correctivo"],
-                )
-
-                c3, c4 = st.columns(2)
-                f_ent = c3.date_input("Fecha Ingreso Taller:", value=date.today())
-                h_ent = c4.time_input("Hora Ingreso Taller:")
-
-                st.markdown("###### **📅 Estimación de Entrega del Taller**")
-                ce1, ce2 = st.columns(2)
-                f_est_entrega = ce1.date_input("Fecha Estimada de Entrega:", value=date.today())
-                h_est_entrega = ce2.time_input("Hora Estimada de Entrega:")
-
-                c5, c6 = st.columns(2)
-                resp_t = c5.text_input("Responsable que Autoriza Ingreso:", value="")
-                taller_nom = c6.text_input(
-                    "Nombre / Razón Social del Taller:", value=""
-                )
-
-                req_sust = (
-                    "Sí" if tipo_mantenimiento == "Mantenimiento Correctivo" else "No"
-                )
-                if tipo_mantenimiento == "Mantenimiento Correctivo":
-                    st.info(
-                        "ℹ️ **Mantenimiento Correctivo:** Requiere asignación de Vehículo "
-                        "Sustituto (Pool 20%)."
-                    )
-                else:
-                    st.caption(
-                        "ℹ️ **Mantenimiento Preventivo:** No aplica vehículo sustituto si "
-                        "la salida del taller no pasa de 48Hrs."
-                    )
-
-                evidencia = st.file_uploader(
-                    "Subir Diagnóstico / Orden de Entrada (PDF/JPG):",
-                    type=["pdf", "jpg", "png"],
-                )
-                obs_m = st.text_area("Descripción detallada de fallas o trabajos a realizar:")
-
-                submitted_mant = st.form_submit_button("Registrar Ingreso a Taller")
-
-            if submitted_mant:
-                if not lista_ecos_taller:
-                    st.error("No se puede registrar sin vehículos en la base.")
-                else:
-                    duplicado_activo = any(
-                        r.get("ECO", r.get("eco")) == str(eco_t) and r.get("Estatus", r.get("estatus")) == "Activo (En Taller)"
-                        for r in st.session_state.get("taller_registros", [])
-                    )
-                    
-                    if duplicado_activo:
-                        st.warning(f"⚠️ El vehículo **{eco_t}** ya cuenta con un registro activo en el taller.")
-                    else:
-                        url_evidencia = subir_a_cloudinary(evidencia, folder_destino="taller_entradas") if evidencia else "N/A"
-                        
-                        nuevo_reg = {
-                            "eco": str(eco_t),
-                            "tipo": str(tipo_mantenimiento),
-                            "fecha_ingreso": str(f_ent),
-                            "hora": str(h_ent),
-                            "fecha_estimada_salida": str(f_est_entrega),
-                            "hora_estimada_salida": str(h_est_entrega),
-                            "responsable": str(resp_t),
-                            "taller": str(taller_nom),
-                            "sustituto": str(req_sust),
-                            "estatus": "Activo (En Taller)",
-                            "observaciones": str(obs_m),
-                            "evidencia_url": str(url_evidencia)
-                        }
-                        if supabase:
-                            try:
-                                supabase.table("taller_incidencias").insert(nuevo_reg).execute()
-                            except Exception as err:
-                                st.error(f"Error al guardar en Supabase: {err}")
-
-                        st.session_state.taller_registros = cargar_taller_supabase()
-                        st.success(
-                            f"Ingreso registrado para {eco_t}. Archivo respaldado en Cloudinary."
-                        )
-                        st.rerun()
-
-        elif opcion_taller == "2. Ingreso a Taller por Siniestro":
-            with st.form(key="form_ingreso_siniestro"):
-                st.markdown("##### **Registro de Ingreso por Siniestro**")
-                s1, s2 = st.columns(2)
-                eco_s = s1.selectbox(
-                    "Número Económico (ECO):",
-                    lista_ecos_taller if lista_ecos_taller else ["Sin ECOs cargados"],
-                )
-                aseg = s2.selectbox(
-                    "Aseguradora:", ["Qualitas", "GNP", "AXA", "Banorte", "Inbursa", "Otra"]
-                )
-
-                s3, s4 = st.columns(2)
-                poliza_s = s3.text_input("Número de Póliza:", value="")
-                folio_s = s4.text_input("Número de Folio / Siniestro:", value="")
-
-                s6, s7 = st.columns(2)
-                f_sin = s6.date_input("Fecha del Siniestro:", value=date.today())
-                taller_sin = s7.text_input("Taller Asignado por Ajustador:", value="")
-
-                st.markdown("###### **📅 Estimación de Entrega del Taller (Siniestro)**")
-                cse1, cse2 = st.columns(2)
-                f_est_siniestro = cse1.date_input("Fecha Estimada de Entrega:", value=date.today())
-                h_est_siniestro = cse2.time_input("Hora Estimada de Entrega:")
-
-                st.info(
-                    "ℹ️ **Siniestro:** Requiere asignación de Vehículo Sustituto (Pool 20%)."
-                )
-                evidencia_s = st.file_uploader(
-                    "Declaración de Siniestro / Fotos Impacto (PDF/JPG):",
-                    type=["pdf", "jpg", "png"],
-                )
-                obs_s = st.text_area("Narrativa completa de los hechos e incidencia:")
-
-                submitted_siniestro = st.form_submit_button("Registrar Siniestro e Ingreso")
-
-            if submitted_siniestro:
-                if not lista_ecos_taller:
-                    st.error("No se puede registrar sin vehículos en la base.")
-                else:
-                    duplicado_activo_s = any(
-                        r.get("ECO", r.get("eco")) == str(eco_s) and r.get("Estatus", r.get("estatus")) == "Activo (En Taller)"
-                        for r in st.session_state.get("taller_registros", [])
-                    )
-
-                    if duplicado_activo_s:
-                        st.warning(f"⚠️ El vehículo **{eco_s}** ya cuenta con un registro activo en el taller.")
-                    else:
-                        url_evidencia_s = subir_a_cloudinary(evidencia_s, folder_destino="taller_siniestros") if evidencia_s else "N/A"
-
-                        nuevo_reg_s = {
-                            "eco": str(eco_s),
-                            "tipo": "Siniestro",
-                            "fecha_ingreso": str(f_sin),
-                            "hora": datetime.now().strftime("%H:%M"),
-                            "fecha_estimada_salida": str(f_est_siniestro),
-                            "hora_estimada_salida": str(h_est_siniestro),
-                            "responsable": f"Ajustador {aseg} (Póliza: {poliza_s}, Folio: {folio_s})",
-                            "taller": taller_sin,
-                            "sustituto": "Sí",
-                            "estatus": "Activo (En Taller)",
-                            "observaciones": obs_s,
-                            "evidencia_url": url_evidencia_s
-                        }
-                        if supabase:
-                            try:
-                                supabase.table("taller_incidencias").insert(nuevo_reg_s).execute()
-                            except Exception as err:
-                                st.error(f"Error al guardar en Supabase: {err}")
-
-                        st.session_state.taller_registros = cargar_taller_supabase()
-                        st.warning(
-                            f"Siniestro registrado para {eco_s}. Evidencia respaldada en Cloudinary."
-                        )
-                        st.rerun()
-
-        elif opcion_taller == "3. Salida de Taller":
-            st.markdown("##### **Formulario de Salida y Liberación de Vehículo**")
-            eco_salida = st.selectbox(
-                "Ingresar ECO de la Unidad que Saldrá del Taller:",
-                lista_ecos_taller if lista_ecos_taller else ["Sin ECOs cargados"],
-            )
-            ingresos_activos = [
-                r for r in st.session_state.get("taller_registros", [])
-                if r.get("ECO", r.get("eco")) == eco_salida and r.get("Estatus", r.get("estatus")) == "Activo (En Taller)"
-            ]
-
-            if len(ingresos_activos) == 0:
-                st.error("⚠️ Vehículo sin registro de entrada activo en taller.")
-            else:
-                reg_previo = ingresos_activos[0]
-                st.success(
-                    f"✓ Entrada activa confirmada para **{eco_salida}** "
-                    f"({reg_previo.get('Tipo', reg_previo.get('tipo'))} | Fecha Entrada: "
-                    f"{reg_previo.get('Fecha_Ingreso', reg_previo.get('fecha_ingreso'))})."
-                )
-
-                with st.form(key="form_salida_taller"):
-                    cs1, cs2 = st.columns(2)
-                    f_sal = cs1.date_input("Fecha Real de Salida:", value=date.today())
-                    h_sal = cs2.time_input("Hora de Salida:")
-                    recibe = st.text_input(
-                        "Nombre del Personal que Recibe la Unidad:", value=""
-                    )
-                    evidencia_salida = st.file_uploader(
-                        "Comprobante de Entrega / Conformidad (PDF/JPG):",
-                        type=["pdf", "jpg", "png"],
-                    )
-                    obs_salida = st.text_area(
-                        "Observaciones de Salida y Estado General del Vehículo:"
-                    )
-
-                    submitted_salida = st.form_submit_button("Confirmar y Liberar Salida")
-
-                if submitted_salida:
-                    url_evidencia_sal = subir_a_cloudinary(evidencia_salida, folder_destino="taller_salidas") if evidencia_salida else "N/A"
-
-                    if supabase:
-                        try:
-                            datos_salida = {
-                                "estatus": "Concluido (Salida Completa)",
-                                "fecha_salida": str(f_sal),
-                                "hora_salida": str(h_sal),
-                                "observaciones": f"{reg_previo.get('Observaciones', reg_previo.get('observaciones', ''))} | Recibe: {recibe} | Salida: {obs_salida}",
-                                "evidencia_url": url_evidencia_sal if url_evidencia_sal != "N/A" else reg_previo.get("evidencia_url", "N/A")
-                            }
-                            
-                            reg_id = reg_previo.get("id")
-                            if reg_id:
-                                supabase.table("taller_incidencias").update(datos_salida).eq("id", reg_id).execute()
-                            else:
-                                supabase.table("taller_incidencias").update(datos_salida).eq("eco", eco_salida).eq("estatus", "Activo (En Taller)").execute()
-
-                        except Exception as err:
-                            st.error(f"Error al actualizar en Supabase: {err}")
-
-                    st.session_state.taller_registros = cargar_taller_supabase()
-                    st.success(
-                        f"Salida registrada exitosamente para {eco_salida}. Comprobante respaldado en Cloudinary."
-                    )
-                    st.rerun()
-
-    with tab_csv:
-        st.markdown("##### **Importación Masiva de Incidencias de Taller via CSV**")
-        st.info("Cargue el archivo CSV de reporte de incidencias para volcarlo directamente al sistema.")
-        archivo_csv_taller = st.file_uploader("Seleccionar archivo CSV de incidencias:", type=["csv"], key="csv_taller_up")
-        if archivo_csv_taller is not None:
-            if st.button("Procesar y Cargar CSV a Base de Taller"):
-                try:
-                    df_inc = pd.read_csv(archivo_csv_taller, dtype=str)
-                    df_inc.columns = df_inc.columns.str.strip()
-                    registros_inc = df_inc.to_dict(orient="records")
-                    
-                    inserts = []
-                    for ri in registros_inc:
-                        inserts.append({
-                            "eco": ri.get("ECO", "N/A"),
-                            "tipo": ri.get("Tipo", "Mantenimiento Correctivo"),
-                            "fecha_ingreso": ri.get("Fecha_Ingreso", str(date.today())),
-                            "hora": ri.get("Hora", "09:00"),
-                            "fecha_estimada_salida": ri.get("Fecha_Estimada_Salida", str(date.today())),
-                            "hora_estimada_salida": ri.get("Hora_Estimada_Salida", "18:00"),
-                            "responsable": ri.get("Responsable", "Importación CSV"),
-                            "taller": ri.get("Taller", "General"),
-                            "sustituto": ri.get("Sustituto", "Sí"),
-                            "estatus": ri.get("Estatus", "Activo (En Taller)"),
-                            "observaciones": ri.get("Observaciones", "Carga por CSV"),
-                            "evidencia_url": "N/A"
-                        })
-                    
-                    if supabase and inserts:
-                        supabase.table("taller_incidencias").insert(inserts).execute()
-
-                    st.session_state.taller_registros = cargar_taller_supabase()
-                    st.success(f"¡Se han importado {len(df_inc)} registros de incidencias exitosamente a Supabase!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error al procesar el archivo CSV: {e}")
-
-    with tab_editar:
-        st.markdown("##### **Módulo de Corrección de Registros Mal Capturados**")
-        if len(st.session_state.get("taller_registros", [])) == 0:
-            st.info("No hay registros guardados en la bitácora para corregir.")
-        else:
-            opciones_reg = [
-                (
-                    f"ID: {idx} | ECO: {r.get('ECO', r.get('eco', 'N/A'))} | Tipo: {r.get('Tipo', r.get('tipo', 'N/A'))} | Fecha: "
-                    f"{r.get('Fecha_Ingreso', r.get('fecha_ingreso', 'N/A'))} | Estatus: {r.get('Estatus', r.get('estatus', 'N/A'))}"
-                )
-                for idx, r in enumerate(st.session_state.taller_registros)
-            ]
-            sel_str = st.selectbox(
-                "Seleccione el registro que desea modificar o corregir:",
-                opciones_reg,
-            )
-            idx_sel = int(sel_str.split(" | ")[0].replace("ID: ", ""))
-            reg_actual = st.session_state.taller_registros[idx_sel]
-
-            with st.form(key="form_corregir_taller_extension"):
-                st.markdown(f"**Modificando Registro en la Posición `{idx_sel}`**")
-                ce1, ce2 = st.columns(2)
-                e_eco = ce1.text_input("ECO Correcto:", value=reg_actual.get("ECO", reg_actual.get("eco", "")))
-
-                tipos_m_list = [
-                    "Mantenimiento Preventivo",
-                    "Mantenimiento Correctivo",
-                    "Siniestro",
-                ]
-                tipo_actual = reg_actual.get("Tipo", reg_actual.get("tipo", ""))
-                idx_t = (
-                    tipos_m_list.index(tipo_actual)
-                    if tipo_actual in tipos_m_list
-                    else 0
-                )
-                e_tipo = ce2.selectbox("Tipo Correcto:", tipos_m_list, index=idx_t)
-
-                ce3, ce4 = st.columns(2)
-                e_resp = ce3.text_input(
-                    "Responsable:", value=reg_actual.get("Responsable", reg_actual.get("responsable", ""))
-                )
-                e_taller = ce4.text_input("Taller:", value=reg_actual.get("Taller", reg_actual.get("taller", "")))
-
-                estatus_list = [
-                    "Activo (En Taller)",
-                    "Concluido (Salida Completa)",
-                    "Anulado por Error",
-                ]
-                estatus_actual = reg_actual.get("Estatus", reg_actual.get("estatus", ""))
-                idx_est = (
-                    estatus_list.index(estatus_actual)
-                    if estatus_actual in estatus_list
-                    else 0
-                )
-                e_estatus = st.selectbox(
-                    "Estatus del Registro:", estatus_list, index=idx_est
-                )
-
-                e_obs = st.text_area(
-                    "Observaciones o notas de la corrección:",
-                    value=reg_actual.get("Observaciones", reg_actual.get("observaciones", "")),
-                )
-
-                submitted_editar = st.form_submit_button("💾 Guardar Cambios en Bitácora")
-
-            if submitted_editar:
-                if supabase:
-                    try:
-                        reg_id = reg_actual.get("id")
-                        datos_actualizados = {
-                            "eco": e_eco,
-                            "tipo": e_tipo,
-                            "responsable": e_resp,
-                            "taller": e_taller,
-                            "estatus": e_estatus,
-                            "observaciones": e_obs,
-                        }
-
-                        if reg_id:
-                            supabase.table("taller_incidencias").update(datos_actualizados).eq("id", reg_id).execute()
-                        else:
-                            supabase.table("taller_incidencias").update(datos_actualizados).eq("eco", reg_actual.get("ECO", reg_actual.get("eco"))).eq("fecha_ingreso", reg_actual.get("Fecha_Ingreso", reg_actual.get("fecha_ingreso"))).execute()
-
-                        st.session_state.taller_registros = cargar_taller_supabase()
-                        st.success("¡El registro ha sido actualizado correctamente en Supabase!")
-                        st.rerun()
-                    except Exception as err:
-                        st.error(f"Error al actualizar el registro en Supabase: {err}")
-                else:
-                    st.error("No hay conexión activa con Supabase.")
-
     st.markdown("---")
-    st.markdown("##### **Bitácora de Control de Taller e Incidencias**")
-    
-    if st.session_state.get("taller_registros"):
-        df_bitacora = pd.DataFrame(st.session_state.taller_registros)
-        
-        columnas_renombrar = {
-            "eco": "ECO",
-            "tipo": "Tipo",
-            "fecha_ingreso": "Fecha Ingreso",
-            "hora": "Hora Ingreso",
-            "fecha_estimada_salida": "Fecha Est. Entrega",
-            "hora_estimada_salida": "Hora Est. Entrega",
-            "fecha_salida": "Fecha Salida Real",
-            "hora_salida": "Hora Salida Real",
-            "responsable": "Responsable",
-            "taller": "Taller",
-            "sustituto": "Sustituto",
-            "estatus": "Estatus",
-            "observaciones": "Observaciones"
-        }
-        df_bitacora = df_bitacora.rename(columns=columnas_renombrar)
-        
-        cols_ordenadas = [
-            "ECO", "Tipo", "Fecha Ingreso", "Hora Ingreso", 
-            "Fecha Est. Entrega", "Hora Est. Entrega", 
-            "Fecha Salida Real", "Hora Salida Real",
-            "Responsable", "Taller", "Sustituto", "Estatus", "Observaciones"
-        ]
-        
-        cols_finales = [c for c in cols_ordenadas if c in df_bitacora.columns]
-        
-        st.dataframe(
-            df_bitacora[cols_finales],
-            use_container_width=True,
-            hide_index=True,
+
+    if (
+        opcion_taller
+        == "1. Ingreso a Taller (Mantenimiento Preventivo / Correctivo)"
+    ):
+      with st.form(key="form_ingreso_mantenimiento"):
+        st.markdown("##### **Registro de Ingreso a Taller**")
+        c1, c2 = st.columns(2)
+        eco_t = c1.selectbox(
+            "Número Económico (ECO):",
+            (
+                lista_ecos_taller
+                if lista_ecos_taller
+                else ["Sin ECCOS registrados"]
+            ),
         )
+        tipo_mantenimiento = c2.selectbox(
+            "Tipo de Estatus / Servicio:",
+            ["Mantenimiento Preventivo", "Mantenimiento Correctivo"],
+        )
+
+        c3, c4 = st.columns(2)
+        f_ent = c3.date_input("Fecha Ingreso Taller:", value=date.today())
+        h_ent = c4.time_input("Hora Ingreso Taller:")
+
+        # CAMPOS AÑADIDOS: Fecha y Hora Estimada de Entrega
+        st.markdown("###### **📅 Estimación de Entrega del Taller**")
+        ce1, ce2 = st.columns(2)
+        f_est_entrega = ce1.date_input("Fecha Estimada de Entrega:", value=date.today())
+        h_est_entrega = ce2.time_input("Hora Estimada de Entrega:")
+
+        c5, c6 = st.columns(2)
+        resp_t = c5.text_input("Responsable que Autoriza Ingreso:", value="")
+        taller_nom = c6.text_input(
+            "Nombre / Razón Social del Taller:", value=""
+        )
+
+        req_sust = (
+            "Sí" if tipo_mantenimiento == "Mantenimiento Correctivo" else "No"
+        )
+        if tipo_mantenimiento == "Mantenimiento Correctivo":
+          st.info(
+              "ℹ️ **Mantenimiento Correctivo:** Requiere asignación de Vehículo"
+              " Sustituto (Pool 20%)."
+          )
+        else:
+          st.caption(
+              "ℹ️ **Mantenimiento Preventivo:** No aplica vehículo sustituto si"
+              " la salida del taller no pasa de 48Hrs."
+          )
+
+        evidencia = st.file_uploader(
+            "Subir Diagnóstico / Orden de Entrada (PDF/JPG):",
+            type=["pdf", "jpg", "png"],
+        )
+        obs_m = st.text_area("Descripción detallada de fallas o trabajos a realizar:")
+
+        if st.form_submit_button("Registrar Ingreso a Taller"):
+          if not lista_ecos_taller:
+            st.error("No se puede registrar sin vehículos en la base.")
+          else:
+            url_evidencia = subir_a_cloudinary(evidencia, folder_destino="taller_entradas")
+            
+            nuevo_reg = {
+                "eco": eco_t,
+                "tipo": tipo_mantenimiento,
+                "fecha_ingreso": str(f_ent),
+                "hora": str(h_ent),
+                "fecha_estimada_salida": str(f_est_entrega),
+                "hora_estimada_salida": str(h_est_entrega),
+                "responsable": resp_t,
+                "taller": taller_nom,
+                "sustituto": req_sust,
+                "estatus": "Activo (En Taller)",
+                "observaciones": obs_m,
+                "evidencia_url": url_evidencia
+            }
+            if supabase:
+              try:
+                supabase.table("taller_incidencias").insert(nuevo_reg).execute()
+              except Exception as err:
+                st.error(f"Error al guardar en Supabase: {err}")
+
+            st.session_state.taller_registros = cargar_taller_supabase()
+            st.success(
+                f"Ingreso registrado para {eco_t}. Archivo respaldado en Cloudinary."
+            )
+            st.rerun()
+
+    elif opcion_taller == "2. Ingreso a Taller por Siniestro":
+      with st.form(key="form_ingreso_siniestro"):
+        st.markdown("##### **Registro de Ingreso por Siniestro**")
+        s1, s2 = st.columns(2)
+        eco_s = s1.selectbox(
+            "Número Económico (ECO):",
+            lista_ecos_taller if lista_ecos_taller else ["Sin ECOs cargados"],
+        )
+        aseg = s2.selectbox(
+            "Aseguradora:", ["Qualitas", "GNP", "AXA", "Banorte", "Inbursa", "Otra"]
+        )
+
+        s3, s4 = st.columns(2)
+        s3.text_input("Número de Póliza:", value="")
+        s4.text_input("Número de Folio / Siniestro:", value="")
+
+        s6, s7 = st.columns(2)
+        f_sin = s6.date_input("Fecha del Siniestro:", value=date.today())
+        taller_sin = s7.text_input("Taller Asignado por Ajustador:", value="")
+
+        # CAMPOS AÑADIDOS: Fecha y Hora Estimada para Siniestros
+        st.markdown("###### **📅 Estimación de Entrega del Taller (Siniestro)**")
+        cse1, cse2 = st.columns(2)
+        f_est_siniestro = cse1.date_input("Fecha Estimada de Entrega:", value=date.today())
+        h_est_siniestro = cse2.time_input("Hora Estimada de Entrega:")
+
+        st.info(
+            "ℹ️ **Siniestro:** Requiere asignación de Vehículo Sustituto (Pool"
+            " 20%)."
+        )
+        evidencia_s = st.file_uploader(
+            "Declaración de Siniestro / Fotos Impacto (PDF/JPG):",
+            type=["pdf", "jpg", "png"],
+        )
+        obs_s = st.text_area("Narrativa completa de los hechos e incidencia:")
+
+        if st.form_submit_button("Registrar Siniestro e Ingreso"):
+          if not lista_ecos_taller:
+            st.error("No se puede registrar sin vehículos en la base.")
+          else:
+            url_evidencia_s = subir_a_cloudinary(evidencia_s, folder_destino="taller_siniestros")
+
+            nuevo_reg_s = {
+                "eco": eco_s,
+                "tipo": "Siniestro",
+                "fecha_ingreso": str(f_sin),
+                "hora": datetime.now().strftime("%H:%M"),
+                "fecha_estimada_salida": str(f_est_siniestro),
+                "hora_estimada_salida": str(h_est_siniestro),
+                "responsable": f"Ajustador {aseg}",
+                "taller": taller_sin,
+                "sustituto": "Sí",
+                "estatus": "Activo (En Taller)",
+                "observaciones": obs_s,
+                "evidencia_url": url_evidencia_s
+            }
+            if supabase:
+              try:
+                supabase.table("taller_incidencias").insert(nuevo_reg_s).execute()
+              except Exception as err:
+                st.error(f"Error al guardar en Supabase: {err}")
+
+            st.session_state.taller_registros = cargar_taller_supabase()
+            st.warning(
+                f"Siniestro registrado para {eco_s}. Evidencia respaldada en Cloudinary."
+            )
+            st.rerun()
+
+    elif opcion_taller == "3. Salida de Taller":
+      st.markdown("##### **Formulario de Salida y Liberación de Vehículo**")
+      eco_salida = st.selectbox(
+          "Ingresar ECO de la Unidad que Saldrá del Taller:",
+          lista_ecos_taller if lista_ecos_taller else ["Sin ECOs cargados"],
+      )
+      ingresos_activos = [
+          r
+          for r in st.session_state.taller_registros
+          if r.get("ECO", r.get("eco")) == eco_salida and r.get("Estatus", r.get("estatus")) == "Activo (En Taller)"
+      ]
+
+      if len(ingresos_activos) == 0:
+        st.error("⚠️ Vehículo sin registro de entrada activo en taller.")
+      else:
+        reg_previo = ingresos_activos[0]
+        st.success(
+            f"✓ Entrada activa confirmada para **{eco_salida}**"
+            f" ({reg_previo.get('Tipo', reg_previo.get('tipo'))} | Fecha Entrada:"
+            f" {reg_previo.get('Fecha_Ingreso', reg_previo.get('fecha_ingreso'))})."
+        )
+
+        with st.form(key="form_salida_taller"):
+          cs1, cs2 = st.columns(2)
+          f_sal = cs1.date_input("Fecha Real de Salida:", value=date.today())
+          h_sal = cs2.time_input("Hora de Salida:")
+          recibe = st.text_input(
+              "Nombre del Personal que Recibe la Unidad:", value=""
+          )
+          evidencia_salida = st.file_uploader(
+              "Comprobante de Entrega / Conformidad (PDF/JPG):",
+              type=["pdf", "jpg", "png"],
+          )
+          obs_salida = st.text_area(
+              "Observaciones de Salida y Estado General del Vehículo:"
+          )
+
+          if st.form_submit_button("Confirmar y Liberar Salida"):
+            url_evidencia_sal = subir_a_cloudinary(evidencia_salida, folder_destino="taller_salidas")
+
+            if supabase:
+              try:
+                datos_salida = {
+                    "estatus": "Concluido (Salida Completa)",
+                    "fecha_salida": str(f_sal),
+                    "hora_salida": str(h_sal),
+                    "observaciones": f"{reg_previo.get('Observaciones', reg_previo.get('observaciones', ''))} | Salida: {obs_salida}"
+                }
+                
+                reg_id = reg_previo.get("id")
+                if reg_id:
+                  supabase.table("taller_incidencias").update(datos_salida).eq("id", reg_id).execute()
+                else:
+                  supabase.table("taller_incidencias").update(datos_salida).eq("eco", eco_salida).eq("estatus", "Activo (En Taller)").execute()
+
+              except Exception as err:
+                st.error(f"Error al actualizar en Supabase: {err}")
+
+            st.session_state.taller_registros = cargar_taller_supabase()
+            st.success(
+                f"Salida registrada exitosamente para {eco_salida}. Comprobante respaldado en Cloudinary."
+            )
+            st.rerun()
+
+  with tab_csv:
+    st.markdown("##### **Importación Masiva de Incidencias de Taller via CSV**")
+    st.info("Cargue el archivo CSV de reporte de incidencias para volcarlo directamente al sistema.")
+    archivo_csv_taller = st.file_uploader("Seleccionar archivo CSV de incidencias:", type=["csv"], key="csv_taller_up")
+    if archivo_csv_taller is not None:
+      if st.button("Procesar y Cargar CSV a Base de Taller"):
+        try:
+          df_inc = pd.read_csv(archivo_csv_taller, dtype=str)
+          df_inc.columns = df_inc.columns.str.strip()
+          registros_inc = df_inc.to_dict(orient="records")
+          
+          inserts = []
+          for ri in registros_inc:
+            inserts.append({
+                "eco": ri.get("ECO", "N/A"),
+                "tipo": ri.get("Tipo", "Mantenimiento Correctivo"),
+                "fecha_ingreso": ri.get("Fecha_Ingreso", str(date.today())),
+                "hora": ri.get("Hora", "09:00"),
+                "fecha_estimada_salida": ri.get("Fecha_Estimada_Salida", str(date.today())),
+                "hora_estimada_salida": ri.get("Hora_Estimada_Salida", "18:00"),
+                "responsable": ri.get("Responsable", "Importación CSV"),
+                "taller": ri.get("Taller", "General"),
+                "sustituto": ri.get("Sustituto", "Sí"),
+                "estatus": ri.get("Estatus", "Activo (En Taller)"),
+                "observaciones": ri.get("Observaciones", "Carga por CSV"),
+                "evidencia_url": "N/A"
+            })
+          
+          if supabase and inserts:
+            supabase.table("taller_incidencias").insert(inserts).execute()
+
+          st.session_state.taller_registros = cargar_taller_supabase()
+          st.success(f"¡Se han importado {len(df_inc)} registros de incidencias exitosamente a Supabase!")
+          st.rerun()
+        except Exception as e:
+          st.error(f"Error al procesar el archivo CSV: {e}")
+
+  with tab_editar:
+    st.markdown("##### **Módulo de Corrección de Registros Mal Capturados**")
+    if len(st.session_state.taller_registros) == 0:
+      st.info("No hay registros guardados en la bitácora para corregir.")
     else:
-        st.info("No hay registros en la bitácora actualmente.")
+      opciones_reg = [
+          (
+              f"ID: {idx} | ECO: {r.get('ECO', r.get('eco', 'N/A'))} | Tipo: {r.get('Tipo', r.get('tipo', 'N/A'))} | Fecha:"
+              f" {r.get('Fecha_Ingreso', r.get('fecha_ingreso', 'N/A'))} | Estatus: {r.get('Estatus', r.get('estatus', 'N/A'))}"
+          )
+          for idx, r in enumerate(st.session_state.taller_registros)
+      ]
+      sel_str = st.selectbox(
+          "Seleccione el registro que desea modificar o corregir:",
+          opciones_reg,
+      )
+      idx_sel = int(sel_str.split(" | ")[0].replace("ID: ", ""))
+      reg_actual = st.session_state.taller_registros[idx_sel]
+
+      with st.form(key="form_corregir_taller_extension"):
+        st.markdown(f"**Modificando Registro en la Posición `{idx_sel}`**")
+        ce1, ce2 = st.columns(2)
+        e_eco = ce1.text_input("ECO Correcto:", value=reg_actual.get("ECO", reg_actual.get("eco", "")))
+
+        tipos_m_list = [
+            "Mantenimiento Preventivo",
+            "Mantenimiento Correctivo",
+            "Siniestro",
+        ]
+        tipo_actual = reg_actual.get("Tipo", reg_actual.get("tipo", ""))
+        idx_t = (
+            tipos_m_list.index(tipo_actual)
+            if tipo_actual in tipos_m_list
+            else 0
+        )
+        e_tipo = ce2.selectbox("Tipo Correcto:", tipos_m_list, index=idx_t)
+
+        ce3, ce4 = st.columns(2)
+        e_resp = ce3.text_input(
+            "Responsable:", value=reg_actual.get("Responsable", reg_actual.get("responsable", ""))
+        )
+        e_taller = ce4.text_input("Taller:", value=reg_actual.get("Taller", reg_actual.get("taller", "")))
+
+        estatus_list = [
+            "Activo (En Taller)",
+            "Concluido (Salida Completa)",
+            "Anulado por Error",
+        ]
+        estatus_actual = reg_actual.get("Estatus", reg_actual.get("estatus", ""))
+        idx_est = (
+            estatus_list.index(estatus_actual)
+            if estatus_actual in estatus_list
+            else 0
+        )
+        e_estatus = st.selectbox(
+            "Estatus del Registro:", estatus_list, index=idx_est
+        )
+
+        e_obs = st.text_area(
+            "Observaciones o notas de la corrección:",
+            value=reg_actual.get("Observaciones", reg_actual.get("observaciones", "")),
+        )
+
+        if st.form_submit_button("💾 Guardar Cambios en Bitácora"):
+          if supabase:
+            try:
+              reg_id = reg_actual.get("id")
+              datos_actualizados = {
+                  "eco": e_eco,
+                  "tipo": e_tipo,
+                  "responsable": e_resp,
+                  "taller": e_taller,
+                  "estatus": e_estatus,
+                  "observaciones": e_obs,
+              }
+
+              if reg_id:
+                supabase.table("taller_incidencias").update(datos_actualizados).eq("id", reg_id).execute()
+              else:
+                supabase.table("taller_incidencias").update(datos_actualizados).eq("eco", reg_actual.get("ECO", reg_actual.get("eco"))).eq("fecha_ingreso", reg_actual.get("Fecha_Ingreso", reg_actual.get("fecha_ingreso"))).execute()
+
+              st.session_state.taller_registros = cargar_taller_supabase()
+              st.success("¡El registro ha sido actualizado correctamente en Supabase!")
+              st.rerun()
+            except Exception as err:
+              st.error(f"Error al actualizar el registro en Supabase: {err}")
+          else:
+            st.error("No hay conexión activa con Supabase.")
+
+  st.markdown("---")
+  st.markdown("##### **Bitácora de Control de Taller e Incidencias**")
+  st.dataframe(
+      pd.DataFrame(st.session_state.taller_registros),
+      use_container_width=True,
+      hide_index=True,
+  )
+# -----------------------------------------------------------------------------
+# 7. REASIGNACIÓN POR NECESIDAD DE SERVICIO (PERSISTIDA EN SUPABASE)
+# -----------------------------------------------------------------------------
+elif mod_actual == "Reasignación por Necesidad de Servicio":
+  st.markdown(
+      f'<p class="subtitulo-seccion">Reasignación Geográfica de Vehículos por'
+      " Necesidad de Servicio</p>",
+      unsafe_allow_html=True,
+  )
+  st.info(
+      "Permite la transferencia oficial de unidades entre sedes u OOAD por"
+      " necesidades operativas o de cobertura."
+  )
+
+  lista_ecos_reasignacion = (
+      list(df_base["eco"].unique())
+      if not df_base.empty and "eco" in df_base.columns
+      else []
+  )
+  
+  lista_ciudades_dinamica = (
+      sorted(list(df_base["UBICACIÓN"].dropna().unique()))
+      if not df_base.empty and "UBICACIÓN" in df_base.columns
+      else ["Aguascalientes", "Colima", "Manzanillo", "Tepic", "Mazatlán", "Zacatecas"]
+  )
+
+  with st.form(key="form_reasignacion"):
+    st.markdown("##### **Formulario Oficial de Reasignación**")
+    col_r1, col_r2 = st.columns(2)
+    eco_r = col_r1.selectbox(
+        "Seleccione el ECO a Reasignar:",
+        (
+            lista_ecos_reasignacion
+            if lista_ecos_reasignacion
+            else ["Sin ECOs cargados"]
+        ),
+    )
+
+    sede_origen = ""
+    if not df_base.empty and eco_r in lista_ecos_reasignacion:
+      veh_r_info = df_base[df_base["eco"] == eco_r].iloc[0]
+      sede_origen = veh_r_info.get("UBICACIÓN", "")
+
+    col_r2.text_input("Sede de Origen Actual:", value=sede_origen, disabled=True)
+
+    col_r3, col_r4 = st.columns(2)
+    sedes_dest = [s for s in lista_ciudades_dinamica if s != sede_origen]
+    if not sedes_dest:
+      sedes_dest = lista_ciudades_dinamica
+      
+    sede_destino = col_r3.selectbox("Sede de Destino / Nueva OOAD:", sedes_dest)
+    oficio = col_r4.text_input("Número de Oficio de Autorización:", value="")
+
+    motivo = st.text_area("Justificación Técnica / Necesidad de Servicio:")
+
+    if st.form_submit_button("Registrar y Transferir Unidad"):
+      if not lista_ecos_reasignacion:
+        st.error("No hay vehículos cargados para reasignar.")
+      else:
+        nueva_reasig = {
+            "eco": eco_r,
+            "sede_origen": sede_origen,
+            "sede_destino": sede_destino,
+            "fecha": str(date.today()),
+            "motivo": motivo,
+            "oficio_autorizacion": oficio,
+        }
+        if supabase:
+          try:
+            supabase.table("reasignaciones").insert(nueva_reasig).execute()
+          except Exception as err:
+            st.error(f"Error al guardar reasignación en Supabase: {err}")
+
+        st.session_state.reasignaciones_historial = cargar_reasignaciones_supabase()
+        st.success(
+            f"La unidad {eco_r} ha sido reasignada exitosamente de"
+            f" {sede_origen} a {sede_destino}."
+        )
+        st.rerun()
+
+  st.markdown("---")
+  st.markdown("##### **Histórico de Reasignaciones Realizadas**")
+  st.dataframe(
+      pd.DataFrame(st.session_state.reasignaciones_historial),
+      use_container_width=True,
+      hide_index=True,
+  )
+
 # -----------------------------------------------------------------------------
 # 8. REPORTES Y EXPORTACIÓN
 # -----------------------------------------------------------------------------
