@@ -1210,8 +1210,55 @@ elif mod_actual == "Carga Inicial":
             use_container_width=True,
             hide_index=True,
         )
-# # 5. EXPEDIENTE POR ECO Y DOCUMENTAL (CON CARGA REAL DE FOTOS Y DOCUMENTOS)
-# # -----------------------------------------------------------------------------
+import streamlit as st
+import unicodedata
+
+# -----------------------------------------------------------------------------
+# FUNCIONES AUXILIARES (Colócalas de preferencia arriba en tu archivo)
+# -----------------------------------------------------------------------------
+def limpiar_texto(texto):
+    """Función para limpiar acentos y convertir a minúsculas."""
+    if not texto:
+        return ""
+    return ''.join(
+        c for c in unicodedata.normalize('NFD', str(texto))
+        if unicodedata.category(c) != 'Mn'
+    ).lower()
+
+def obtener_imagen_catalogo_supabase(tipo_v, linea_v):
+    """Función que genera la URL exacta de la imagen en Cloudinary."""
+    texto_busqueda = limpiar_texto(f"{tipo_v} {linea_v}")
+    nombre_foto_limpio = ""
+
+    # Mapeo exacto según tus líneas y Cloudinary
+    if "transit" in texto_busqueda:
+        nombre_foto_limpio = "FORD_TRANSIT_GENERICA"
+    elif "promaster" in texto_busqueda or "ram 2500" in texto_busqueda:
+        nombre_foto_limpio = "RAM_PROMASTER_GENERICA"
+    elif "silverado" in texto_busqueda:
+        nombre_foto_limpio = "silverado"
+    elif "urvan" in texto_busqueda:
+        nombre_foto_limpio = "urvan-panel"
+    elif "f-150" in texto_busqueda:
+        nombre_foto_limpio = "f-150-xl"
+    elif "v-drive" in texto_busqueda:
+        nombre_foto_limpio = "v-drive-tm-ac"
+    elif "creta" in texto_busqueda:
+        nombre_foto_limpio = "creta-1-5l-gls-ivt"
+
+    try:
+        cloud_name = st.secrets["cloudinary"]["cloud_name"]
+        if nombre_foto_limpio:
+            return f"https://res.cloudinary.com/{cloud_name}/image/upload/vehiculos_fotos/{nombre_foto_limpio}.png"
+    except Exception:
+        pass
+    
+    return ""
+
+
+# -----------------------------------------------------------------------------
+# 5. EXPEDIENTE POR ECO Y DOCUMENTAL (MÓDULO COMPLETO)
+# -----------------------------------------------------------------------------
 if mod_actual == "Expediente por ECO y Documental":
     st.markdown(
         f'<p class="subtitulo-seccion">Expediente Técnico y Documental por ECO - {cat_actual}</p>',
@@ -1261,11 +1308,12 @@ if mod_actual == "Expediente por ECO y Documental":
 
             col_img_cat, col_info_cat = st.columns([1, 2.2], gap="small")
 
+            # AQUI ESTÁ LA CARGA DE LA IMAGEN DE CLOUDINARY
             with col_img_cat:
                 tipo_v = v_data.get("tipo", "")
                 linea_v = v_data.get("linea", "")
                 
-                # Llamada integrada a la función de Cloudinary para el catálogo
+                # Llamamos a nuestra función pasándole el tipo y la línea del vehículo seleccionado
                 url_cat = obtener_imagen_catalogo_supabase(tipo_v, linea_v)
                 
                 if url_cat:
@@ -1275,7 +1323,7 @@ if mod_actual == "Expediente por ECO y Documental":
                     )
                     st.caption(f"Catálogo: {tipo_v} - {linea_v}")
                 else:
-                    st.info(f"📷 [Sin foto en catálogo: {tipo_v} - {linea_v}]")
+                    st.info(f"📷 [Sin foto en catálogo para: {tipo_v} - {linea_v}]")
 
             with col_info_cat:
                 en_taller = any(
