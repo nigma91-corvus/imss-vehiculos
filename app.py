@@ -1274,20 +1274,40 @@ if mod_actual == "Expediente por ECO y Documental":
             with col_img_cat:
                 import unicodedata
 
-                linea_v = str(v_data.get("linea", "")).strip()
+                # Obtenemos tanto el tipo como la línea en minúsculas y sin acentos para buscar palabras clave
+                tipo_v = str(v_data.get("tipo", "")).strip().lower()
+                linea_v = str(v_data.get("linea", "")).strip().lower()
                 
-                # Limpiamos la línea exactamente como la nombraste en Cloudinary (minúsculas, guiones en vez de espacios)
-                def limpiar_para_url(texto):
+                def limpiar_texto(texto):
                     nfkd_form = unicodedata.normalize('NFKD', texto)
-                    solo_ascii = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
-                    return solo_ascii.lower().strip().replace(" ", "-").replace("/", "-").replace(".", "")
+                    return "".join([c for c in nfkd_form if not unicodedata.combining(c)])
 
-                nombre_foto_limpio = limpiar_para_url(linea_v)
+                tipo_limpio = limpiar_texto(tipo_v)
+                linea_limpia = limpiar_texto(linea_v)
+                texto_completo = f"{tipo_limpio} {linea_limpia}"
+
+                # Lógica inteligente para determinar la foto exacta en Cloudinary
+                nombre_foto_limpio = ""
+
+                if "transit" in texto_completo:
+                    nombre_foto_limpio = "FORD_TRANSIT_GENERICA"
+                elif "promaster" in texto_completo or "ram" in texto_completo:
+                    nombre_foto_limpio = "RAM_PROMASTER_GENERICA"
+                elif "v-drive" in texto_completo or "sedan" in texto_completo:
+                    nombre_foto_limpio = "v-drive-tm-ac"
+                elif "f-150" in texto_completo or "pickup" in texto_completo:
+                    nombre_foto_limpio = "f-150-xl"
+                elif "creta" in texto_completo or "suv" in texto_completo:
+                    nombre_foto_limpio = "creta-1-5l-gls-ivt"
+                elif "urvan" in texto_completo or "panel" in texto_completo:
+                    nombre_foto_limpio = "urvan-panel"
                 
                 try:
                     cloud_name = st.secrets["cloudinary"]["cloud_name"]
-                    # Nota que aquí la extensión es .png y la ruta usa tu nombre exacto de archivo
-                    url_cat = f"https://res.cloudinary.com/{cloud_name}/image/upload/v1/vehiculos_fotos/{nombre_foto_limpio}.png"
+                    if nombre_foto_limpio:
+                        url_cat = f"https://res.cloudinary.com/{cloud_name}/image/upload/v1/vehiculos_fotos/{nombre_foto_limpio}.png"
+                    else:
+                        url_cat = ""
                 except Exception:
                     url_cat = ""
 
@@ -1296,9 +1316,9 @@ if mod_actual == "Expediente por ECO y Documental":
                         f'<div class="image-container-full"><img src="{url_cat}" alt="Vehículo" onerror="this.onerror=null;this.src=\'https://via.placeholder.com/300x200?text=Sin+Foto+Catalogo\';"></div>',
                         unsafe_allow_html=True,
                     )
-                    st.caption(f"Catálogo: {linea_v}")
+                    st.caption(f"Catálogo: {v_data.get('tipo')} - {v_data.get('linea')}")
                 else:
-                    st.info(f"📷 [Sin foto en catálogo para: {linea_v}]")
+                    st.info(f"📷 [Sin foto en catálogo para: {v_data.get('linea')}]")
                 
                 # Obtenemos el cloud_name directamente de tus secrets de Streamlit
                 try:
