@@ -1483,154 +1483,100 @@ if mod_actual == "Expediente por ECO y Documental":
 
                             st.markdown("---")
 
-                with t2:
-                    st.markdown("##### **Documentos Oficiales Registrados y Carga**")
-                    st.info("Sube un archivo PDF o captura una fotografía directa del documento físico. El sistema nombrará el archivo automáticamente.")
+                # ... (aquí arriba tienes tus pestañas, por ejemplo, el t1 de fotos, y luego viene la sección de documentos)
 
-                    if "expedientes_docs" not in st.session_state:
-                        st.session_state.expedientes_docs = {}
+with t2: # O la pestaña/sección donde manejes los documentos del vehículo
+    st.markdown("### Expediente y Documentación")
+    
+    # ----------------------------------------------------
+    # AQUÍ ES EXACTAMENTE DONDE VA EL CÓDIGO NUEVO DEL VISOR:
+    # ----------------------------------------------------
+    st.markdown("##### **Póliza de Seguro**")
+    
+    poliza_url = v_data.get("poliza_seguro") # <-- Asegúrate de que "poliza_seguro" sea el nombre real de tu columna en Supabase
 
-                    # Normalizamos o aseguramos el número económico limpio para la búsqueda/estado
-                    eco_actual_str = str(eco_search).strip()
+    if poliza_url and str(poliza_url).startswith("http"):
+        es_pdf = poliza_url.lower().endswith(".pdf") or "pdf" in poliza_url.lower()
 
-                    if eco_actual_str not in st.session_state.expedientes_docs:
-                        docs_bd = v_data.get("documentos", None)
-                        if docs_bd:
-                            if isinstance(docs_bd, str):
-                                try:
-                                    st.session_state.expedientes_docs[eco_actual_str] = json.loads(docs_bd)
-                                except:
-                                    st.session_state.expedientes_docs[eco_actual_str] = []
-                            elif isinstance(docs_bd, list):
-                                st.session_state.expedientes_docs[eco_actual_str] = docs_bd
-                        else:
-                            st.session_state.expedientes_docs[eco_actual_str] = []
+        if es_pdf:
+            st.markdown(
+                f"""
+                <div style="width: 100%; height: 400px; border-radius: 8px; border: 1px solid #dee2e6; overflow: hidden; margin-bottom: 10px;">
+                    <iframe src="{poliza_url}" width="100%" height="100%" style="border: none;"></iframe>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                f"""
+                <div style="width: 100%; max-height: 280px; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 10px;">
+                    <img src="{poliza_url}" style="max-width: 100%; max-height: 270px; object-fit: contain;" alt="Póliza de Seguro">
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        
+        st.markdown(
+            f'<div style="text-align: right; margin-bottom: 10px;"><a href="{poliza_url}" target="_blank" style="font-size: 13px; text-decoration: none;">🔍 Abrir documento en pantalla completa</a></div>',
+            unsafe_allow_html=True,
+        )
+        st.success("✔ Documento cargado en el visor")
+    else:
+        st.warning("⚠ Sin póliza de seguro registrada actualmente")
 
-                    col_d1, col_d2 = st.columns(2)
+    archivo_poliza = st.file_uploader(
+        "Actualizar o subir Póliza de Seguro (PDF o Imagen)",
+        type=["pdf", "png", "jpg", "jpeg"],
+        key=f"upl_poliza_{eco_search}",
+    )
+
+    if archivo_poliza is not None:
+        if st.button("Guardar Póliza", key=f"btn_save_poliza_{eco_search}"):
+            try:
+                bytes_poliza = archivo_poliza.getvalue()
+                nombre_original = getattr(archivo_poliza, "name", "poliza.pdf")
+                extension = nombre_original.split(".")[-1].lower()
+                
+                eco_limpio = str(eco_search).replace(" ", "_").replace("/", "-")
+                public_id_nube = f"vehiculos/{eco_limpio}_poliza_seguro"
+
+                import cloudinary.uploader
+                
+                res_type = "raw" if extension == "pdf" else "image"
+
+                upload_result = cloudinary.uploader.upload(
+                    bytes_poliza,
+                    public_id=public_id_nube,
+                    folder="tallercorvus/vehiculos",
+                    overwrite=True,
+                    resource_type=res_type
+                )
+
+                url_cloudinary = upload_result.get("secure_url")
+
+                if url_cloudinary and supabase:
+                    tabla_map = {
+                        "Administrativos": "vehiculos_administrativos",
+                        "Ambulancias": "vehiculos_ambulancias",
+                        "Institucionales": "vehiculos_institucionales",
+                    }
+                    nombre_tabla_vehiculos = tabla_map.get(cat_actual, "vehiculos_administrativos")
+
+                    supabase.table(nombre_tabla_vehiculos).update(
+                        {"poliza_seguro": url_cloudinary}
+                    ).eq("eco", eco_search).execute()
+
+                    st.success("✅ Póliza de seguro actualizada correctamente en Cloudinary.")
                     
-                    with col_d1:
-                        tipo_doc_sel = st.selectbox(
-                            "Tipo de Documento:",
-                            [
-                                "Póliza de Seguro",
-                                "Tarjeta de Circulación",
-                                "Factura / Contrato",
-                                "Dictamen Taller",
-                                "Otro",
-                            ],
-                            key=f"tipo_doc_sel_{eco_actual_str}",
-                        )
+                    st.cache_data.clear()
+                    if "df_base" in st.session_state:
+                        del st.session_state["df_base"]
+                    st.rerun()
 
-                        metodo_captura_doc = st.radio(
-                            "Método para adjuntar documento:",
-                            ["Subir Archivo (PDF/Imagen)", "Tomar Foto con Cámara"],
-                            key=f"radio_doc_{eco_actual_str}",
-                            horizontal=True,
-                        )
-
-                        doc_a_guardar = None
-                        if metodo_captura_doc == "Subir Archivo (PDF/Imagen)":
-                            doc_a_guardar = st.file_uploader(
-                                f"Cargar archivo para ECO {eco_actual_str}:",
-                                type=["pdf", "jpg", "jpeg", "png"],
-                                key=f"doc_uploader_{eco_actual_str}",
-                            )
-                        else:
-                            doc_a_guardar = st.camera_input(
-                                f"Tomar foto del documento",
-                                key=f"doc_camera_{eco_actual_str}",
-                            )
-
-                        if doc_a_guardar is not None:
-                            if st.button("Guardar Documento", key=f"btn_save_doc_{eco_actual_str}"):
-                                if supabase:
-                                    try:
-                                        def limpiar_nombre_archivo(texto):
-                                            nfkd_form = unicodedata.normalize("NFKD", str(texto))
-                                            solo_ascii = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
-                                            return (
-                                                solo_ascii.replace(" ", "_")
-                                                .replace("/", "_")
-                                                .replace("\\", "_")
-                                                .replace(".", "_")
-                                                .replace("-", "_")
-                                            )
-
-                                        bytes_d = doc_a_guardar.getvalue()
-                                        nombre_original = getattr(doc_a_guardar, "name", f"captura_doc_{eco_actual_str}.jpg")
-                                        
-                                        extension = (
-                                            nombre_original.split(".")[-1].lower()
-                                            if "." in nombre_original
-                                            else "jpg"
-                                        )
-                                        
-                                        if extension == "pdf":
-                                            content_type = "application/pdf"
-                                        elif extension in ["png", "jpg", "jpeg"]:
-                                            content_type = f"image/{extension if extension != 'jpg' else 'jpeg'}"
-                                        else:
-                                            content_type = "application/octet-stream"
-
-                                        # Nomenclatura limpia basada en el económico actual
-                                        eco_limpio_str = limpiar_nombre_archivo(eco_actual_str)
-                                        tipo_limpio_str = limpiar_nombre_archivo(tipo_doc_sel)
-                                        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-                                        nombre_d = f"ECO_{eco_limpio_str}_{tipo_limpio_str}_{timestamp_str}.{extension}"
-
-                                        supabase.storage.from_("evidencias-pdf").upload(
-                                            file=bytes_d,
-                                            path=nombre_d,
-                                            file_options={
-                                                "content-type": content_type,
-                                                "upsert": "true",
-                                            },
-                                        )
-
-                                        pub_res_doc = supabase.storage.from_("evidencias-pdf").get_public_url(nombre_d)
-                                        url_doc = (
-                                            pub_res_doc
-                                            if isinstance(pub_res_doc, str)
-                                            else pub_res_doc.get("publicUrl")
-                                        )
-
-                                        if eco_actual_str not in st.session_state.expedientes_docs:
-                                            st.session_state.expedientes_docs[eco_actual_str] = []
-
-                                        nuevo_doc = {
-                                            "Tipo": tipo_doc_sel,
-                                            "NombreArchivoSistema": nombre_d,
-                                            "NombreOriginal": nombre_original,
-                                            "URL": url_doc,
-                                            "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                                        }
-                                        st.session_state.expedientes_docs[eco_actual_str].append(nuevo_doc)
-
-                                        tabla_map = {
-                                            "Administrativos": "vehiculos_administrativos",
-                                            "Ambulancias": "vehiculos_ambulancias",
-                                            "Institucionales": "vehiculos_institucionales",
-                                        }
-                                        nombre_tabla_vehiculos = tabla_map.get(cat_actual, "vehiculos_administrativos")
-
-                                        docs_json_str = json.dumps(st.session_state.expedientes_docs[eco_actual_str])
-
-                                        supabase.table(nombre_tabla_vehiculos).update(
-                                            {"documentos": docs_json_str}
-                                        ).eq("eco", eco_search).execute()
-
-                                        st.success("✅ Documento renombrado, subido y guardado permanentemente.")
-
-                                        st.cache_data.clear()
-                                        if "df_base" in st.session_state:
-                                            del st.session_state["df_base"]
-                                        st.rerun()
-
-                                    except Exception as e:
-                                        st.error(f"Error al subir el documento: {e}")
-                                else:
-                                    st.warning("Conexión a Base de Datos no disponible.")
+            except Exception as e:
+                st.error(f"Error al subir la póliza: {e}")
+    # ----------------------------------------------------
 
                     with col_d2:
                         docs_guardados = st.session_state.expedientes_docs.get(eco_actual_str, [])
