@@ -1048,130 +1048,148 @@ elif mod_actual == "Control del Pool de Sustitutos (20%)":
 # 4. CARGA INICIAL
 # -----------------------------------------------------------------------------
 elif mod_actual == "Carga Inicial":
-  st.markdown(
-      '<p class="subtitulo-seccion">Carga Inicial y Actualización Masiva de'
-      " Base de Datos</p>",
-      unsafe_allow_html=True,
-  )
-  st.info(
-      f"🔒 Módulo configurado para la carga directa en la tabla de Supabase"
-      f" correspondiente a la flotilla actual: **{cat_actual}**."
-  )
-
-  with st.expander(
-      "🔑 Autenticación de Administrador",
-      expanded=not st.session_state.admin_autenticado,
-  ):
-    usr = st.text_input("Usuario Administrador:", key="admin_user_input")
-    pwd = st.text_input("Contraseña:", type="password", key="admin_pwd_input")
-    if st.button("Iniciar Sesión"):
-      if usr == "e.casas" and pwd == "99094056":
-        st.session_state.admin_autenticado = True
-        st.success("Acceso concedido como Administrador Central.")
-        st.rerun()
-      else:
-        st.error("Credenciales incorrectas.")
-
-  if st.session_state.admin_autenticado:
-    # --- PEGALO AQUÍ: Botón de Descarga de Plantilla ---
-    st.markdown("##### **1. Descargar Plantilla Oficial**")
-    columnas_plantilla = [
-        "eco",
-        "Tipo",
-        "Linea",
-        "UBICACIÓN",
-        "Arrendadora",
-        "Estatus",
-        "Placas",
-        "VIN",
-        "No_TC",
-        "Ultimo_Servicio",
-        "CUOTA DIARIA",
-        "TOTAL DÍAS DE SERVICIO",
-        "COSTO MENSUAL SIN IVA (a)",
-        "TOTAL DE DEDUCCIÓN",
-        "TOTAL A PAGAR (b)",
-    ]
-    df_plantilla = pd.DataFrame(columns=columnas_plantilla)
-    csv_plantilla = df_plantilla.to_csv(index=False).encode("utf-8")
-
-    st.download_button(
-        label="📥 Descargar Plantilla CSV Oficial",
-        data=csv_plantilla,
-        file_name=f"plantilla_carga_{cat_actual.lower()}.csv",
-        mime="text/csv",
-        help=(
-            "Descarga el archivo modelo con los encabezados exactos requeridos."
-        ),
-    )
-
-    st.markdown("---")
-    # ---------------------------------------------------
-
     st.markdown(
-        f"##### **2. Subir Archivo de Plantilla para: {cat_actual} (.xlsx o"
-        " .csv)**"
+        '<p class="subtitulo-seccion">Carga Inicial y Actualización Masiva de'
+        " Base de Datos</p>",
+        unsafe_allow_html=True,
     )
-    up_file = st.file_uploader(
-        "Cargar libro de Excel o CSV con la estructura oficial:",
-        type=["xlsx", "csv"],
+    st.info(
+        f"🔒 Módulo configurado para la carga directa en la tabla de Supabase"
+        f" correspondiente a la flotilla actual: **{cat_actual}**."
     )
-    if up_file is not None:
-      if st.button("Procesar y Guardar en Supabase"):
-        try:
-          if up_file.name.endswith(".csv"):
-            df_subido = pd.read_csv(up_file, dtype=str)
-          else:
-            df_subido = pd.read_excel(up_file, dtype=str)
 
-          df_subido.columns = df_subido.columns.str.strip()
+    with st.expander(
+        "🔑 Autenticación de Administrador",
+        expanded=not st.session_state.get("admin_autenticado", False),
+    ):
+        usr = st.text_input("Usuario Administrador:", key="admin_user_input")
+        pwd = st.text_input("Contraseña:", type="password", key="admin_pwd_input")
+        if st.button("Iniciar Sesión"):
+            if usr == "e.casas" and pwd == "99094056":
+                st.session_state.admin_autenticado = True
+                st.success("Acceso concedido como Administrador Central.")
+                st.rerun()
+            else:
+                st.error("Credenciales incorrectas.")
 
-          tabla_map = {
-              "Administrativos": "vehiculos_administrativos",
-              "Ambulancias": "vehiculos_ambulancias",
-              "Institucionales": "vehiculos_institucionales",
-          }
-          nombre_tabla = tabla_map.get(
-              cat_actual, "vehiculos_administrativos"
-          )
+    if st.session_state.get("admin_autenticado", False):
+        st.markdown("##### **1. Descargar Plantilla Oficial**")
+        
+        # Columnas reales basadas en la estructura que ya tenemos en Supabase
+        columnas_plantilla = [
+            "eco",
+            "tipo",
+            "linea",
+            "UBICACIÓN",
+            "arrendadora",
+            "estatus",
+            "placas",
+            "vin",
+            "no_tc",
+            "ultimo_servicio",
+            "cuota_diaria",
+            "total_dias_servicio",
+            "costo_mensual_sin_iva",
+            "total_deduccion",
+            "total_a_pagar",
+        ]
+        
+        df_plantilla = pd.DataFrame(columns=columnas_plantilla)
+        csv_plantilla = df_plantilla.to_csv(index=False).encode("utf-8")
 
-          if supabase:
-            supabase.table(nombre_tabla).delete().neq("id", 0).execute()
-            registros = df_subido.to_dict(orient="records")
-            chunk_size = 500
-            for i in range(0, len(registros), chunk_size):
-              chunk = registros[i : i + chunk_size]
-              supabase.table(nombre_tabla).insert(chunk).execute()
+        st.download_button(
+            label="📥 Descargar Plantilla CSV Oficial",
+            data=csv_plantilla,
+            file_name=f"plantilla_carga_{cat_actual.lower()}.csv",
+            mime="text/csv",
+            help="Descarga el archivo modelo con las columnas exactas de la base de datos.",
+        )
 
-            # Guardar bitácora en Supabase
-            nueva_bitacora = {
-                "fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                "usuario": st.session_state.get("admin_user_input", "admin"),
-                "base": cat_actual,
-                "archivo": up_file.name,
-                "registros": len(df_subido),
-                "estado": "Exitoso",
-            }
-            supabase.table("bitacora_cargas").insert(nueva_bitacora).execute()
+        st.markdown("---")
 
-          st.session_state.bitacora_cargas = cargar_bitacora_cargas_supabase()
-          st.cache_data.clear()
-          st.success(
-              f"¡Base de datos sincronizada con éxito en Supabase! Se"
-              f" guardaron {len(df_subido)} unidades en la tabla"
-              f" '{nombre_tabla}'."
-          )
-          st.rerun()
-        except Exception as e:
-          st.error(f"Error al procesar y subir el archivo: {e}")
+        st.markdown(
+            f"##### **2. Subir Archivo de Plantilla para: {cat_actual} (.xlsx o .csv)**"
+        )
+        up_file = st.file_uploader(
+            "Cargar libro de Excel o CSV con la estructura oficial:",
+            type=["xlsx", "csv"],
+        )
+        
+        if up_file is not None:
+            if st.button("Procesar y Guardar en Supabase"):
+                try:
+                    if up_file.name.endswith(".csv"):
+                        df_subido = pd.read_csv(up_file, dtype=str)
+                    else:
+                        df_subido = pd.read_excel(up_file, dtype=str)
 
-    st.markdown("---")
-    st.markdown("##### **Histórico y Bitácora de Cargas Realizadas**")
-    st.dataframe(
-        pd.DataFrame(st.session_state.bitacora_cargas),
-        use_container_width=True,
-        hide_index=True,
-    )
+                    # Normalizar nombres de columnas (quitar espacios sobrantes)
+                    df_subido.columns = df_subido.columns.str.strip()
+
+                    # Validar existencia de la columna clave "eco" para control de duplicados
+                    if "eco" not in df_subido.columns:
+                        st.error("⚠️ El archivo cargado no contiene la columna obligatoria 'eco'.")
+                    else:
+                        # Control de ECOS duplicados dentro del propio archivo cargado
+                        duplicados_en_archivo = df_subido[df_subido.duplicated(subset=["eco"], keep=False)]
+                        if not duplicados_en_archivo.empty:
+                            st.warning(
+                                f"⚠️ Se encontraron {len(duplicados_en_archivo)} registros con ECOS duplicados dentro del archivo. "
+                                "Se conservará únicamente la última aparición de cada ECO."
+                            )
+                            df_subido = df_subido.drop_duplicates(subset=["eco"], keep="last")
+
+                        tabla_map = {
+                            "Administrativos": "vehiculos_administrativos",
+                            "Ambulancias": "vehiculos_ambulancias",
+                            "Institucionales": "vehiculos_institucionales",
+                        }
+                        nombre_tabla = tabla_map.get(cat_actual, "vehiculos_administrativos")
+
+                        if supabase:
+                            # 1. Limpiar la tabla actual por completo antes de reinsertar la base validada
+                            supabase.table(nombre_tabla).delete().neq("id", 0).execute()
+                            
+                            # 2. Preparar registros y limpiar valores NaN/NaT a None para Supabase
+                            df_subido = df_subido.where(pd.notnull(df_subido), None)
+                            registros = df_subido.to_dict(orient="records")
+                            
+                            # 3. Inserción por lotes (chunks) para evitar límites de tamaño
+                            chunk_size = 500
+                            for i in range(0, len(registros), chunk_size):
+                                chunk = registros[i : i + chunk_size]
+                                supabase.table(nombre_tabla).insert(chunk).execute()
+
+                            # 4. Guardar bitácora en Supabase
+                            nueva_bitacora = {
+                                "fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                "usuario": st.session_state.get("admin_user_input", "admin"),
+                                "base": cat_actual,
+                                "archivo": up_file.name,
+                                "registros": len(df_subido),
+                                "estado": "Exitoso",
+                            }
+                            supabase.table("bitacora_cargas").insert(nueva_bitacora).execute()
+
+                        st.session_state.bitacora_cargas = cargar_bitacora_cargas_supabase()
+                        st.cache_data.clear()
+                        st.success(
+                            f"¡Base de datos sincronizada con éxito en Supabase! Se "
+                            f"guardaron {len(df_subido)} unidades únicas en la tabla "
+                            f"'{nombre_tabla}'."
+                        )
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Error al procesar y subir el archivo: {e}")
+
+        st.markdown("---")
+        st.markdown("##### **Histórico y Bitácora de Cargas Realizadas**")
+        st.dataframe(
+            pd.DataFrame(st.session_state.get("bitacora_cargas", [])),
+            use_container_width=True,
+            hide_index=True,
+        )
+        
 # 5. EXPEDIENTE POR ECO Y DOCUMENTAL (CON CARGA REAL DE FOTOS Y DOCUMENTOS)
 # -----------------------------------------------------------------------------
 import json
