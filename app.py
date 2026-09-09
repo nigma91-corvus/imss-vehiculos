@@ -1308,19 +1308,12 @@ if mod_actual == "Expediente por ECO y Documental":
 
             col_img_cat, col_info_cat = st.columns([1, 2.2], gap="small")
 
-            # AQUI ESTÁ LA CARGA DE LA IMAGEN DE CLOUDINARY
+                       # AQUI ESTÁ LA CARGA DE LA IMAGEN DE CLOUDINARY (Limpia y sin textos de prueba)
             with col_img_cat:
                 tipo_v = v_data.get("tipo", "")
                 linea_v = v_data.get("linea", "")
                 
-                # --- AQUÍ ESTÁ EL TRUCO PARA VER QUÉ FALLA ---
-                st.write(f"🔎 DEBUG: Tipo leídon: '{tipo_v}'")
-                st.write(f"🔎 DEBUG: Línea leída: '{linea_v}'")
-                
                 url_cat = obtener_imagen_catalogo_supabase(tipo_v, linea_v)
-                
-                st.write(f"🌐 URL generada: {url_cat}")
-                # ---------------------------------------------
                 
                 if url_cat:
                     st.markdown(
