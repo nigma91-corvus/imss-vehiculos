@@ -1231,18 +1231,9 @@ if mod_actual == "Expediente por ECO y Documental":
         if eco_input:
             busqueda_usuario = eco_input.strip().lower()
 
-            # 1. Buscamos de manera directa y sencilla (ignorando mayúsculas/minúsculas y espacios)
-            # Esto busca si el texto escrito está en cualquier parte del ECO del Excel
+            # Búsqueda flexible en el texto del ECO
             condicion = df_base["eco"].astype(str).str.lower().str.contains(busqueda_usuario, na=False)
             vehiculo_sel = df_base[condicion]
-
-            # --- CHIVATO TEMPORAL PARA VER QUÉ TIENE TU BASE DE DATOS ---
-            with st.expander("🔍 Ver qué está leyendo el buscador (Depuración)"):
-                st.write(f"Buscando texto: '{busqueda_usuario}'")
-                st.write("ECOs disponibles en esta categoría actual:")
-                st.write(df_base["eco"].tolist())
-                st.write("Resultados encontrados:", len(vehiculo_sel))
-            # -------------------------------------------------------------
 
             if vehiculo_sel.empty:
                 st.error(
