@@ -1486,23 +1486,26 @@ if mod_actual == "Expediente por ECO y Documental":
 
                 with t2:
                     st.markdown("##### **Documentos Oficiales Registrados y Carga**")
-                    st.info("Sube un archivo PDF o captura una fotografía directa del documento físico. El sistema nombrará el archivo automáticamente para identificarlo con su número económico.")
+                    st.info("Sube un archivo PDF o captura una fotografía directa del documento físico. El sistema nombrará el archivo automáticamente.")
 
                     if "expedientes_docs" not in st.session_state:
                         st.session_state.expedientes_docs = {}
 
-                    if eco_search not in st.session_state.expedientes_docs:
+                    # Normalizamos o aseguramos el número económico limpio para la búsqueda/estado
+                    eco_actual_str = str(eco_search).strip()
+
+                    if eco_actual_str not in st.session_state.expedientes_docs:
                         docs_bd = v_data.get("documentos", None)
                         if docs_bd:
                             if isinstance(docs_bd, str):
                                 try:
-                                    st.session_state.expedientes_docs[eco_search] = json.loads(docs_bd)
+                                    st.session_state.expedientes_docs[eco_actual_str] = json.loads(docs_bd)
                                 except:
-                                    st.session_state.expedientes_docs[eco_search] = []
+                                    st.session_state.expedientes_docs[eco_actual_str] = []
                             elif isinstance(docs_bd, list):
-                                st.session_state.expedientes_docs[eco_search] = docs_bd
+                                st.session_state.expedientes_docs[eco_actual_str] = docs_bd
                         else:
-                            st.session_state.expedientes_docs[eco_search] = []
+                            st.session_state.expedientes_docs[eco_actual_str] = []
 
                     col_d1, col_d2 = st.columns(2)
                     
@@ -1516,31 +1519,31 @@ if mod_actual == "Expediente por ECO y Documental":
                                 "Dictamen Taller",
                                 "Otro",
                             ],
-                            key=f"tipo_doc_sel_{eco_search}",
+                            key=f"tipo_doc_sel_{eco_actual_str}",
                         )
 
                         metodo_captura_doc = st.radio(
                             "Método para adjuntar documento:",
                             ["Subir Archivo (PDF/Imagen)", "Tomar Foto con Cámara"],
-                            key=f"radio_doc_{eco_search}",
+                            key=f"radio_doc_{eco_actual_str}",
                             horizontal=True,
                         )
 
                         doc_a_guardar = None
                         if metodo_captura_doc == "Subir Archivo (PDF/Imagen)":
                             doc_a_guardar = st.file_uploader(
-                                f"Cargar archivo para ECO {eco_search}:",
+                                f"Cargar archivo para ECO {eco_actual_str}:",
                                 type=["pdf", "jpg", "jpeg", "png"],
-                                key=f"doc_uploader_{eco_search}",
+                                key=f"doc_uploader_{eco_actual_str}",
                             )
                         else:
                             doc_a_guardar = st.camera_input(
                                 f"Tomar foto del documento",
-                                key=f"doc_camera_{eco_search}",
+                                key=f"doc_camera_{eco_actual_str}",
                             )
 
                         if doc_a_guardar is not None:
-                            if st.button("Guardar Documento", key=f"btn_save_doc_{eco_search}"):
+                            if st.button("Guardar Documento", key=f"btn_save_doc_{eco_actual_str}"):
                                 if supabase:
                                     try:
                                         def limpiar_nombre_archivo(texto):
@@ -1555,7 +1558,7 @@ if mod_actual == "Expediente por ECO y Documental":
                                             )
 
                                         bytes_d = doc_a_guardar.getvalue()
-                                        nombre_original = getattr(doc_a_guardar, "name", f"captura_doc_{eco_search}.jpg")
+                                        nombre_original = getattr(doc_a_guardar, "name", f"captura_doc_{eco_actual_str}.jpg")
                                         
                                         extension = (
                                             nombre_original.split(".")[-1].lower()
@@ -1570,8 +1573,8 @@ if mod_actual == "Expediente por ECO y Documental":
                                         else:
                                             content_type = "application/octet-stream"
 
-                                        # Nomenclatura clara y estandarizada: ECO_[Número]_[Tipo]_[Fecha_Hora].[ext]
-                                        eco_limpio_str = limpiar_nombre_archivo(str(eco_search))
+                                        # Nomenclatura limpia basada en el económico actual
+                                        eco_limpio_str = limpiar_nombre_archivo(eco_actual_str)
                                         tipo_limpio_str = limpiar_nombre_archivo(tipo_doc_sel)
                                         timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -1593,8 +1596,8 @@ if mod_actual == "Expediente por ECO y Documental":
                                             else pub_res_doc.get("publicUrl")
                                         )
 
-                                        if eco_search not in st.session_state.expedientes_docs:
-                                            st.session_state.expedientes_docs[eco_search] = []
+                                        if eco_actual_str not in st.session_state.expedientes_docs:
+                                            st.session_state.expedientes_docs[eco_actual_str] = []
 
                                         nuevo_doc = {
                                             "Tipo": tipo_doc_sel,
@@ -1603,7 +1606,7 @@ if mod_actual == "Expediente por ECO y Documental":
                                             "URL": url_doc,
                                             "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
                                         }
-                                        st.session_state.expedientes_docs[eco_search].append(nuevo_doc)
+                                        st.session_state.expedientes_docs[eco_actual_str].append(nuevo_doc)
 
                                         tabla_map = {
                                             "Administrativos": "vehiculos_administrativos",
@@ -1612,7 +1615,7 @@ if mod_actual == "Expediente por ECO y Documental":
                                         }
                                         nombre_tabla_vehiculos = tabla_map.get(cat_actual, "vehiculos_administrativos")
 
-                                        docs_json_str = json.dumps(st.session_state.expedientes_docs[eco_search])
+                                        docs_json_str = json.dumps(st.session_state.expedientes_docs[eco_actual_str])
 
                                         supabase.table(nombre_tabla_vehiculos).update(
                                             {"documentos": docs_json_str}
@@ -1631,9 +1634,8 @@ if mod_actual == "Expediente por ECO y Documental":
                                     st.warning("Conexión a Base de Datos no disponible.")
 
                     with col_d2:
-                        docs_guardados = st.session_state.expedientes_docs.get(eco_search, [])
+                        docs_guardados = st.session_state.expedientes_docs.get(eco_actual_str, [])
                         if docs_guardados:
-                            # Preparamos una vista limpia para la tabla de Streamlit
                             df_docs_view = pd.DataFrame([
                                 {
                                     "Tipo": d.get("Tipo"),
@@ -1658,27 +1660,6 @@ if mod_actual == "Expediente por ECO y Documental":
                                 )
                         else:
                             st.info("Sin documentos registrados para este vehículo.")
-
-                with t3:
-                    st.markdown(
-                        "##### **Bitácora de Servicios e Intervenciones**"
-                    )
-                    hist_taller = [
-                        r
-                        for r in st.session_state.taller_registros
-                        if r["ECO"] == eco_search
-                    ]
-                    if hist_taller:
-                        st.dataframe(
-                            pd.DataFrame(hist_taller),
-                            use_container_width=True,
-                            hide_index=True,
-                        )
-                    else:
-                        st.caption(
-                            "No se registran mantenimientos o siniestros"
-                            " previos para este ECO."
-                        )
 # 6. REGISTRO DE TALLER E INCIDENCIAS (PERSISTIDO EN SUPABASE)
 # -----------------------------------------------------------------------------
 elif mod_actual == "Registro de Taller e Incidencias":
