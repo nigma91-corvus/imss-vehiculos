@@ -1305,9 +1305,7 @@ if mod_actual == "Expediente por ECO y Documental":
                     st.image(url_cat, caption=f"Catálogo: {tipo_v} - {linea_v}", use_container_width=True)
                 else:
                     st.info(f"📷 [Sin foto en catálogo: {linea_v}]")
-                else:
-                    st.info(f"📷 [Sin foto en catálogo: {linea_v}]")
-
+             
             with col_info_cat:
                 # Resto de tu tarjeta informativa con lectura segura
                 placas_v = get_campo(v_data, "Placas", "placas")
