@@ -1731,6 +1731,10 @@ elif mod_actual == "Registro de Taller e Incidencias":
                 f_ent = c3.date_input("Fecha Ingreso Taller:", value=date.today())
                 h_ent = c4.time_input("Hora Ingreso Taller:")
 
+                st.markdown("---")
+                f_sal_est = st.date_input("📅 Fecha Estimada de Entrega / Salida del Vehículo:", value=date.today())
+                st.markdown("---")
+
                 c5, c6 = st.columns(2)
                 resp_t = c5.text_input("Responsable que Autoriza Ingreso:", value="")
                 taller_nom = c6.text_input("Nombre / Razón Social del Taller:", value="")
@@ -1747,7 +1751,8 @@ elif mod_actual == "Registro de Taller e Incidencias":
                 )
                 obs_m = st.text_area("Descripción detallada de fallas o trabajos a realizar:")
 
-                if st.form_submit_button("Registrar Ingreso a Taller"):
+                submitted_ingreso = st.form_submit_button("Registrar Ingreso a Taller")
+                if submitted_ingreso:
                     if not lista_ecos_taller or eco_t == "Sin ECOs registrados":
                         st.error("No se puede registrar sin vehículos válidos en la base.")
                     else:
@@ -1757,15 +1762,16 @@ elif mod_actual == "Registro de Taller e Incidencias":
                             else "N/A"
                         )
                         nuevo_reg = {
-                            "eco": eco_t,
-                            "tipo": tipo_mantenimiento,
+                            "eco": str(eco_t),
+                            "tipo": str(tipo_mantenimiento),
                             "fecha_ingreso": str(f_ent),
+                            "fecha_salida": str(f_sal_est),
                             "hora": str(h_ent),
-                            "responsable": resp_t,
-                            "taller": taller_nom,
-                            "sustituto": req_sust,
+                            "responsable": str(resp_t),
+                            "taller": str(taller_nom),
+                            "sustituto": str(req_sust),
                             "estatus": "Activo (En Taller)",
-                            "observaciones": obs_m,
+                            "observaciones": str(obs_m),
                         }
                         if supabase:
                             try:
@@ -1797,6 +1803,10 @@ elif mod_actual == "Registro de Taller e Incidencias":
                 f_sin = s6.date_input("Fecha del Siniestro:", value=date.today())
                 taller_sin = s7.text_input("Taller Asignado por Ajustador:", value="")
 
+                st.markdown("---")
+                f_sal_sin_est = st.date_input("📅 Fecha Estimada de Entrega / Salida del Siniestro:", value=date.today())
+                st.markdown("---")
+
                 st.info("ℹ️ **Siniestro:** Requiere asignación de Vehículo Sustituto (Pool 20%).")
                 evidencia_s = st.file_uploader(
                     "Declaración de Siniestro / Fotos Impacto (PDF/JPG):",
@@ -1804,7 +1814,8 @@ elif mod_actual == "Registro de Taller e Incidencias":
                 )
                 obs_s = st.text_area("Narrativa completa de los hechos e incidencia:")
 
-                if st.form_submit_button("Registrar Siniestro e Ingreso"):
+                submitted_siniestro = st.form_submit_button("Registrar Siniestro e Ingreso")
+                if submitted_siniestro:
                     if not lista_ecos_taller or eco_s == "Sin ECOs cargados":
                         st.error("No se puede registrar sin vehículos válidos en la base.")
                     else:
@@ -1814,15 +1825,16 @@ elif mod_actual == "Registro de Taller e Incidencias":
                             else "N/A"
                         )
                         nuevo_reg_s = {
-                            "eco": eco_s,
+                            "eco": str(eco_s),
                             "tipo": "Siniestro",
                             "fecha_ingreso": str(f_sin),
+                            "fecha_salida": str(f_sal_sin_est),
                             "hora": datetime.now().strftime("%H:%M"),
                             "responsable": f"Ajustador {aseg} (Póliza: {poliza_s}, Folio: {folio_s})",
-                            "taller": taller_sin,
+                            "taller": str(taller_sin),
                             "sustituto": "Sí",
                             "estatus": "Activo (En Taller)",
-                            "observaciones": obs_s,
+                            "observaciones": str(obs_s),
                         }
                         if supabase:
                             try:
@@ -1870,7 +1882,8 @@ elif mod_actual == "Registro de Taller e Incidencias":
                     )
                     obs_salida = st.text_area("Observaciones de Salida y Estado General del Vehículo:")
 
-                    if st.form_submit_button("Confirmar y Liberar Salida"):
+                    submitted_salida = st.form_submit_button("Confirmar y Liberar Salida")
+                    if submitted_salida:
                         nombre_archivo_sal = (
                             f"{eco_salida}_SALIDA_TALLER_{datetime.now().strftime('%Y%m%d')}.pdf"
                             if evidencia_salida
@@ -1879,7 +1892,11 @@ elif mod_actual == "Registro de Taller e Incidencias":
                         if supabase:
                             try:
                                 supabase.table("taller_incidencias") \
-                                    .update({"estatus": "Concluido (Salida Completa)", "observaciones": obs_salida}) \
+                                    .update({
+                                        "estatus": "Concluido (Salida Completa)", 
+                                        "fecha_salida": str(f_sal),
+                                        "observaciones": f"Salida: {obs_salida} (Recibe: {recibe})"
+                                    }) \
                                     .eq("eco", str(eco_salida)) \
                                     .eq("estatus", "Activo (En Taller)") \
                                     .execute()
@@ -1907,6 +1924,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
                             "eco": ri.get("ECO", ri.get("eco", "N/A")),
                             "tipo": ri.get("Tipo", ri.get("tipo", "Mantenimiento Correctivo")),
                             "fecha_ingreso": ri.get("Fecha_Ingreso", ri.get("fecha_ingreso", str(date.today()))),
+                            "fecha_salida": ri.get("Fecha_Salida", ri.get("fecha_salida", None)),
                             "hora": ri.get("Hora", ri.get("hora", "09:00")),
                             "responsable": ri.get("Responsable", ri.get("responsable", "Importación CSV")),
                             "taller": ri.get("Taller", ri.get("taller", "General")),
@@ -1971,19 +1989,28 @@ elif mod_actual == "Registro de Taller e Incidencias":
                 idx_est = estatus_list.index(est_actual) if est_actual in estatus_list else 0
                 e_estatus = st.selectbox("Estatus del Registro:", estatus_list, index=idx_est)
 
+                f_salida_val = reg_actual.get("fecha_salida", reg_actual.get("Fecha_Salida", None))
+                try:
+                    parsed_date = date.fromisoformat(f_salida_val) if f_salida_val else date.today()
+                except Exception:
+                    parsed_date = date.today()
+                e_f_salida = st.date_input("Fecha de Salida (Modificable):", value=parsed_date)
+
                 e_obs = st.text_area(
                     "Observaciones o notas de la corrección:",
                     value=reg_actual.get("observaciones", reg_actual.get("Observaciones", "")),
                 )
 
-                if st.form_submit_button("💾 Guardar Cambios en Bitácora"):
+                submitted_editar = st.form_submit_button("💾 Guardar Cambios en Bitácora")
+                if submitted_editar:
                     datos_actualizados = {
-                        "eco": e_eco,
-                        "tipo": e_tipo,
-                        "responsable": e_resp,
-                        "taller": e_taller,
-                        "estatus": e_estatus,
-                        "observaciones": e_obs,
+                        "eco": str(e_eco),
+                        "tipo": str(e_tipo),
+                        "responsable": str(e_resp),
+                        "taller": str(e_taller),
+                        "estatus": str(e_estatus),
+                        "fecha_salida": str(e_f_salida),
+                        "observaciones": str(e_obs),
                     }
                     if supabase:
                         try:
@@ -2004,8 +2031,16 @@ elif mod_actual == "Registro de Taller e Incidencias":
     st.markdown("---")
     st.markdown("##### **Bitácora de Control de Taller e Incidencias**")
     if len(st.session_state.taller_registros) > 0:
+        df_bitacora = pd.DataFrame(st.session_state.taller_registros)
+        # Asegurar orden y visibilidad de las columnas principales incluyendo fecha_salida
+        cols_preferidas = ["eco", "tipo", "fecha_ingreso", "fecha_salida", "hora", "responsable", "taller", "sustituto", "estatus", "observaciones"]
+        cols_existentes = [c for c in cols_preferidas if c in df_bitacora.columns]
+        # Agregar cualquier otra columna extra si existe
+        otras_cols = [c for c in df_bitacora.columns if c not in cols_existentes]
+        df_bitacora = df_bitacora[cols_existentes + otras_cols]
+
         st.dataframe(
-            pd.DataFrame(st.session_state.taller_registros),
+            df_bitacora,
             use_container_width=True,
             hide_index=True,
         )
