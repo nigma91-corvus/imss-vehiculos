@@ -824,142 +824,15 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
         unsafe_allow_html=True,
     )
 
-    lista_ciudades = (
-        list(df_base["ubicacion"].dropna().unique())
-        if "ubicacion" in df_base.columns
-        else []
-    )
-    
-    col_filtro_semaforo, col_descarga = st.columns([3, 1])
-    
-    ciudad_sel = col_filtro_semaforo.selectbox(
-        "Seleccionar Vista / Filtro de Ciudad:",
-        ["Todas las Ciudades (General)"] + lista_ciudades,
-    )
-
-    if not df_base.empty and "ubicacion" in df_base.columns:
-        # Obtener eco en taller desde la sesión
-        ecos_en_taller = {
-            r.get("eco", r.get("ECO"))
-            for r in st.session_state.get("taller_registros", [])
-            if r.get("estatus", r.get("Estatus")) == "Activo (En Taller)"
-        }
-
-        # Crear una copia para procesar de forma segura sin romper índices
-        df_temp = df_base.copy()
-        df_temp["en_taller"] = df_temp["eco"].isin(ecos_en_taller)
-        
-        # Banderas condicionales vectorizadas
-        df_temp["es_titular_activo"] = (df_temp["estatus"] == "Titular Activo") & (~df_temp["en_taller"])
-        df_temp["es_sustituto"] = df_temp["estatus"] == "Sustituto Entregado"
-        df_temp["es_inoperativo"] = df_temp["estatus"] == "Inoperativo / Baja"
-
-        df_ciudades = (
-            df_temp.groupby("ubicacion")
-            .agg(
-                Flotilla_Asignada=("eco", "count"),
-                Titulares_Activos=("es_titular_activo", "sum"),
-                Sustitutos_Entregados=("es_sustituto", "sum"),
-                En_Taller_Inoperativos=("es_inoperativo", "sum"),
-            )
-            .reset_index()
-        )
-
-        df_ciudades["Movilidad (%)"] = np.where(
-            df_ciudades["Flotilla_Asignada"] > 0,
-            (
-                (
-                    df_ciudades["Titulares_Activos"]
-                    + df_ciudades["Sustitutos_Entregados"]
-                )
-                / df_ciudades["Flotilla_Asignada"]
-                * 100
-            ).round(1),
-            0.0,
-        )
-        df_ciudades["Estado"] = np.where(
-            df_ciudades["Movilidad (%)"] >= 95,
-            "VERDE",
-            np.where(df_ciudades["Movilidad (%)"] >= 85, "AMARILLO", "ROJO"),
-        )
-        df_ciudades.rename(
-            columns={
-                "ubicacion": "Ciudad / OOAD",
-                "Flotilla_Asignada": "Flotilla Asignada",
-                "Titulares_Activos": "Titulares Activos",
-                "Sustitutos_Entregados": "Sustitutos Entregados",
-                "En_Taller_Inoperativos": "En Taller / Inoperativos",
-            },
-            inplace=True,
-        )
-    else:
-        df_ciudades = pd.DataFrame(columns=[
-            "Ciudad / OOAD",
-            "Flotilla Asignada",
-            "Titulares Activos",
-            "Sustitutos Entregados",
-            "En Taller / Inoperativos",
-            "Movilidad (%)",
-            "Estado",
-        ])
-
-    if ciudad_sel != "Todas las Ciudades (General)":
-        df_ciudades = df_ciudades[df_ciudades["Ciudad / OOAD"] == ciudad_sel]
-
-    with col_descarga:
-        st.write("") 
-        csv_reporte = df_ciudades.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            label="📥 Descargar Reporte",
-            data=csv_reporte,
-            file_name=f"semaforo_movilidad_{cat_actual.lower().replace(' ', '_')}.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
-
-    st.markdown("---")
-
-    if df_ciudades.empty:
-        st.info("Sin registros cargados para evaluar semáforo de movilidad.")
-    else:
-        if ciudad_sel != "Todas las Ciudades (General)":
-            info_c = df_ciudades.iloc[0]
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Flotilla Asignada en Sede", info_c["Flotilla Asignada"])
-            m2.metric("Porcentaje Movilidad Real", f"{info_c['Movilidad (%)']}%")
-            m3.metric("Estatus del Semáforo", info_c["Estado"])
+    # --- DIAGNÓSTICO RÁPIDO PARA VERIFICAR DATOS ---
+    with st.expander("🔍 Ver diagnóstico de datos (Depuración)"):
+        st.write("Total filas en df_base:", len(df_base))
+        st.write("Columnas disponibles:", list(df_base.columns) if not df_base.empty else "df_base vacío")
+        if not df_base.empty and "ubicacion" in df_base.columns:
+            st.write("Valores únicos en 'ubicacion':", df_base["ubicacion"].unique())
         else:
-            st.info("ℹ️ Nota: Reporte métrico consolidado y tabla ejecutiva de cumplimiento por OOAD.")
-
-        def aplicar_estilo_semaforo(row):
-            if df_ciudades.empty:
-                return []
-            if row.name % 2 == 0:
-                return ["background-color: #ffffff" for _ in row.index]
-            else:
-                return ["background-color: #f2f4f7" for _ in row.index]
-
-        df_estilizado = df_ciudades.style.apply(aplicar_estilo_semaforo, axis=1)
-
-        def colorear_estado(val):
-            if val == "VERDE":
-                return "background-color: #27ae60; color: white; font-weight: bold;"
-            elif val == "AMARILLO":
-                return "background-color: #f39c12; color: white; font-weight: bold;"
-            elif val == "ROJO":
-                return f"background-color: {COLORES_PANTONE['7420']}; color: white; font-weight: bold;"
-            return ""
-
-        try:
-            df_estilizado = df_estilizado.map(colorear_estado, subset=["Estado"])
-        except AttributeError:
-            df_estilizado = df_estilizado.applymap(colorear_estado, subset=["Estado"])
-
-        st.dataframe(
-            df_estilizado,
-            use_container_width=True,
-            hide_index=True,
-        )
+            st.error("⚠️ La columna 'ubicacion' no existe en df_base o el DataFrame está vacío.")
+    # ----------------------------------------------
 # -----------------------------------------------------------------------------
 # 3. CONTROL DEL POOL DE SUSTITUTOS (20%)
 # -----------------------------------------------------------------------------
