@@ -2085,7 +2085,6 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
     if not lista_ecos_reasignacion:
         st.warning("⚠️ No hay vehículos cargados para reasignar en esta categoría.")
     else:
-        # Selección del ECO fuera del formulario para permitir actualización dinámica inmediata
         st.markdown("##### **Selección de Unidad**")
         col_sel1, col_sel2 = st.columns(2)
         
@@ -2095,18 +2094,23 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
             key="select_eco_reasignacion"
         )
 
-        # Extracción dinámica de la sede de origen basada en el ECO seleccionado en df_base
+        # Extracción limpia y exacta usando la columna "ubicacion"
         sede_origen = "Sin asignar"
         if not df_base.empty and "eco" in df_base.columns and "ubicacion" in df_base.columns:
-            veh_info = df_base[df_base["eco"].astype(str) == str(eco_r)]
+            df_temp = df_base.copy()
+            df_temp["eco_clean"] = df_temp["eco"].astype(str).str.strip()
+            eco_buscado = str(eco_r).strip()
+            
+            veh_info = df_temp[df_temp["eco_clean"] == eco_buscado]
             if not veh_info.empty:
-                sede_origen = str(veh_info.iloc[0].get("ubicacion", "Sin asignar"))
+                val_ubi = veh_info.iloc[0].get("ubicacion", "Sin asignar")
+                if pd.notna(val_ubi) and str(val_ubi).strip() != "":
+                    sede_origen = str(val_ubi).strip()
 
         col_sel2.text_input("Sede de Origen Actual (Detectada):", value=sede_origen, disabled=True, key="txt_sede_origen_display")
 
         st.markdown("---")
 
-        # Formulario oficial para los datos de destino y justificación
         with st.form(key="form_reasignacion"):
             st.markdown("##### **Formulario Oficial de Reasignación**")
             
