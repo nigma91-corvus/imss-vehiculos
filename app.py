@@ -429,7 +429,7 @@ with st.sidebar:
     
     # Etiqueta de selección de flotilla (mantiene tu ajuste de posición)
     st.markdown(
-        "<p style='font-size: 11px; margin-top: -45px; margin-bottom: 2px;'><b>SELECCIONAR FLOTILLA:</b></p>",
+        "<p style='font-size: 11px; margin-top: -25px; margin-bottom: 2px;'><b>SELECCIONAR FLOTILLA:</b></p>",
         unsafe_allow_html=True,
     )
 
