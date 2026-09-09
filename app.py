@@ -379,21 +379,30 @@ with st.sidebar:
     st.markdown(
         """
         <style>
+            /* Reduce la separación vertical general entre todos los bloques y elementos dentro del sidebar */
             [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-                gap: 3px !important;
+                gap: 2px !important;
             }
+            /* Aplica un margen negativo arriba y abajo de cada contenedor de botón para acercarlos entre sí */
+            [data-testid="stSidebar"] .stButton {
+                margin-top: -6px !important;
+                margin-bottom: -6px !important;
+            }
+            /* Compacta la altura mínima interna y el relleno de los botones (Administrativos, Ambulancias, etc.) */
             [data-testid="stSidebar"] .stButton button {
-                margin-bottom: -12px !important;
-                min-height: 32px !important;
-                padding-top: -4px !important;
+                min-height: 30px !important;
+                padding-top: 2px !important;
                 padding-bottom: 2px !important;
             }
-            [data-testid="stSidebar"] div.stRadio > label {
-                margin-bottom: -5px !important;
+            /* Elimina el margen por defecto en párrafos y etiquetas de texto para evitar espacios vacíos */
+            [data-testid="stSidebar"] p, [data-testid="stSidebar"] label {
+                margin-bottom: 0px !important;
+                margin-top: 2px !important;
             }
         </style>
         """,
         unsafe_allow_html=True,
+    )
     )
 
     # Logo compacto y centrado
