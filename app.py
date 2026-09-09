@@ -376,24 +376,29 @@ st.markdown(
 # -----------------------------------------------------------------------------
 with st.sidebar:
     # Bloque de estilos CSS para controlar la separación y los botones
-    st.markdown(
+   st.markdown(
         """
         <style>
-            /* 1. Controla la separación general entre los elementos de la barra lateral */
+            /* Controla la separación general entre los elementos */
             [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
                 gap: 4px !important;
             }
             
-            /* 2. Mantiene los botones de flotilla compactos y ordenados */
+            /* Mantiene los botones de flotilla compactos */
             [data-testid="stSidebar"] .stButton button {
                 min-height: 32px !important;
                 padding: 2px 8px !important;
             }
 
-            /* 3. Reduce el espacio vertical específico entre un botón y otro */
+            /* Reduce el espacio entre un botón y otro */
             [data-testid="stSidebar"] .stButton {
-                margin-top: -80px !important;
-                margin-bottom: -500px !important;
+                margin-top: -70px !important;
+                margin-bottom: -6px !important;
+            }
+
+            /* NUEVO: Sube el bloque de los Módulos del Sistema */
+            [data-testid="stSidebar"] div.stRadio {
+                margin-top: -15px !important;
             }
         </style>
         """,
@@ -429,7 +434,7 @@ with st.sidebar:
     
     # Etiqueta de selección de flotilla (mantiene tu ajuste de posición)
     st.markdown(
-        "<p style='font-size: 11px; margin-top: -25px; margin-bottom: 2px;'><b>SELECCIONAR FLOTILLA:</b></p>",
+        "<p style='font-size: 11px; margin-top: -45px; margin-bottom: 2px;'><b>SELECCIONAR FLOTILLA:</b></p>",
         unsafe_allow_html=True,
     )
 
