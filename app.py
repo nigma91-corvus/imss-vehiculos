@@ -813,152 +813,153 @@ if mod_actual == "Dashboard General":
         use_container_width=True,
         hide_index=True,
     )
-# -----------------------------------------------------------------------------
+
 # -----------------------------------------------------------------------------
 # 2. SEMÁFORO DE MOVILIDAD POR CIUDAD
 # -----------------------------------------------------------------------------
 elif mod_actual == "Semáforo de Movilidad por Ciudad":
-  st.markdown(
-      f'<p class="subtitulo-seccion">Semáforo de Movilidad por Ciudad -'
-      f" Flotilla {cat_actual}</p>",
-      unsafe_allow_html=True,
-  )
-
-  lista_ciudades = (
-      list(df_base["UBICACIÓN"].dropna().unique())
-      if "UBICACIÓN" in df_base.columns
-      else []
-  )
-  
-  col_filtro_semaforo, col_descarga = st.columns([3, 1])
-  
-  ciudad_sel = col_filtro_semaforo.selectbox(
-      "Seleccionar Vista / Filtro de Ciudad:",
-      ["Todas las Ciudades (General)"] + lista_ciudades,
-  )
-
-  if not df_base.empty and "UBICACIÓN" in df_base.columns:
-    df_ciudades = (
-        df_base.groupby("UBICACIÓN")
-        .agg(
-            Flotilla_Asignada=("eco", "count"),
-            Titulares_Activos=(
-                "Estatus",
-                lambda x: (x == "Titular Activo").sum(),
-            ),
-            Sustitutos_Entregados=(
-                "Estatus",
-                lambda x: (x == "Sustituto Entregado").sum(),
-            ),
-            En_Taller_Inoperativos=(
-                "Estatus",
-                lambda x: (x == "Inoperativo / Baja").sum(),
-            ),
-        )
-        .reset_index()
+    st.markdown(
+        f'<p class="subtitulo-seccion">Semáforo de Movilidad por Ciudad -'
+        f" Flotilla {cat_actual}</p>",
+        unsafe_allow_html=True,
     )
 
-    df_ciudades["Movilidad (%)"] = np.where(
-        df_ciudades["Flotilla_Asignada"] > 0,
-        (
-            (
-                df_ciudades["Titulares_Activos"]
-                + df_ciudades["Sustitutos_Entregados"]
+    lista_ciudades = (
+        list(df_base["ubicacion"].dropna().unique())
+        if "ubicacion" in df_base.columns
+        else []
+    )
+    
+    col_filtro_semaforo, col_descarga = st.columns([3, 1])
+    
+    ciudad_sel = col_filtro_semaforo.selectbox(
+        "Seleccionar Vista / Filtro de Ciudad:",
+        ["Todas las Ciudades (General)"] + lista_ciudades,
+    )
+
+    if not df_base.empty and "ubicacion" in df_base.columns:
+        df_ciudades = (
+            df_base.groupby("ubicacion")
+            .agg(
+                Flotilla_Asignada=("eco", "count"),
+                Titulares_Activos=(
+                    "estatus",
+                    lambda x: (x == "Titular Activo").sum(),
+                ),
+                Sustitutos_Entregados=(
+                    "estatus",
+                    lambda x: (x == "Sustituto Entregado").sum(),
+                ),
+                En_Taller_Inoperativos=(
+                    "estatus",
+                    lambda x: (x == "Inoperativo / Baja").sum(),
+                ),
             )
-            / df_ciudades["Flotilla_Asignada"]
-            * 100
-        ).round(1),
-        0.0,
-    )
-    df_ciudades["Estado"] = np.where(
-        df_ciudades["Movilidad (%)"] >= 95,
-        "VERDE",
-        np.where(df_ciudades["Movilidad (%)"] >= 85, "AMARILLO", "ROJO"),
-    )
-    df_ciudades.rename(
-        columns={
-            "UBICACIÓN": "Ciudad / OOAD",
-            "Flotilla_Asignada": "Flotilla Asignada",
-            "Titulares_Activos": "Titulares Activos",
-            "Sustitutos_Entregados": "Sustitutos Entregados",
-            "En_Taller_Inoperativos": "En Taller / Inoperativos",
-        },
-        inplace=True,
-    )
-  else:
-    df_ciudades = pd.DataFrame(columns=[
-        "Ciudad / OOAD",
-        "Flotilla Asignada",
-        "Titulares Activos",
-        "Sustitutos Entregados",
-        "En Taller / Inoperativos",
-        "Movilidad (%)",
-        "Estado",
-    ])
+            .reset_index()
+        )
 
-  if ciudad_sel != "Todas las Ciudades (General)":
-    df_ciudades = df_ciudades[df_ciudades["Ciudad / OOAD"] == ciudad_sel]
-
-  # --- BOTÓN DE DESCARGA PARA EL REPORTE FILTRADO ---
-  with col_descarga:
-    st.write("") # Pequeño ajuste visual para alinear con el selectbox
-    csv_reporte = df_ciudades.to_csv(index=False).encode("utf-8")
-    st.download_button(
-        label="📥 Descargar Reporte",
-        data=csv_reporte,
-        file_name=f"semaforo_movilidad_{cat_actual.lower().replace(' ', '_')}.csv",
-        mime="text/csv",
-        use_container_width=True
-    )
-
-  st.markdown("---")
-
-  if df_ciudades.empty:
-    st.info("Sin registros cargados para evaluar semáforo de movilidad.")
-  else:
-    if ciudad_sel != "Todas las Ciudades (General)":
-      info_c = df_ciudades.iloc[0]
-      m1, m2, m3 = st.columns(3)
-      m1.metric("Flotilla Asignada en Sede", info_c["Flotilla Asignada"])
-      m2.metric("Porcentaje Movilidad Real", f"{info_c['Movilidad (%)']}%")
-      m3.metric("Estatus del Semáforo", info_c["Estado"])
+        df_ciudades["Movilidad (%)"] = np.where(
+            df_ciudades["Flotilla_Asignada"] > 0,
+            (
+                (
+                    df_ciudades["Titulares_Activos"]
+                    + df_ciudades["Sustitutos_Entregados"]
+                )
+                / df_ciudades["Flotilla_Asignada"]
+                * 100
+            ).round(1),
+            0.0,
+        )
+        df_ciudades["Estado"] = np.where(
+            df_ciudades["Movilidad (%)"] >= 95,
+            "VERDE",
+            np.where(df_ciudades["Movilidad (%)"] >= 85, "AMARILLO", "ROJO"),
+        )
+        df_ciudades.rename(
+            columns={
+                "ubicacion": "Ciudad / OOAD",
+                "Flotilla_Asignada": "Flotilla Asignada",
+                "Titulares_Activos": "Titulares Activos",
+                "Sustitutos_Entregados": "Sustitutos Entregados",
+                "En_Taller_Inoperativos": "En Taller / Inoperativos",
+            },
+            inplace=True,
+        )
     else:
-      st.info("ℹ️ Nota: Reporte métrico consolidado y tabla ejecutiva de cumplimiento por OOAD.")
+        df_ciudades = pd.DataFrame(columns=[
+            "Ciudad / OOAD",
+            "Flotilla Asignada",
+            "Titulares Activos",
+            "Sustitutos Entregados",
+            "En Taller / Inoperativos",
+            "Movilidad (%)",
+            "Estado",
+        ])
 
-    def aplicar_estilo_semaforo(row):
-      if df_ciudades.empty:
-        return []
-      
-      # Estilo cebra base alternado
-      if row.name % 2 == 0:
-        estilos = ["background-color: #ffffff" for _ in row.index]
-      else:
-        estilos = ["background-color: #f2f4f7" for _ in row.index]
-        
-      return estilos
+    if ciudad_sel != "Todas las Ciudades (General)":
+        df_ciudades = df_ciudades[df_ciudades["Ciudad / OOAD"] == ciudad_sel]
 
-    # Aplicamos primero el estilo cebra global a la tabla
-    df_estilizado = df_ciudades.style.apply(aplicar_estilo_semaforo, axis=1)
+    # --- BOTÓN DE DESCARGA PARA EL REPORTE FILTRADO ---
+    with col_descarga:
+        st.write("") # Pequeño ajuste visual para alinear con el selectbox
+        csv_reporte = df_ciudades.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="📥 Descargar Reporte",
+            data=csv_reporte,
+            file_name=f"semaforo_movilidad_{cat_actual.lower().replace(' ', '_')}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
 
-    # Añadimos el color dinámico específico para la columna de Estado
-    def colorear_estado(val):
-      if val == "VERDE":
-        return "background-color: #27ae60; color: white; font-weight: bold;"
-      elif val == "AMARILLO":
-        return "background-color: #f39c12; color: white; font-weight: bold;"
-      elif val == "ROJO":
-        return f"background-color: {COLORES_PANTONE['7420']}; color: white; font-weight: bold;"
-      return ""
+    st.markdown("---")
 
-    try:
-      df_estilizado = df_estilizado.map(colorear_estado, subset=["Estado"])
-    except AttributeError:
-      df_estilizado = df_estilizado.applymap(colorear_estado, subset=["Estado"])
+    if df_ciudades.empty:
+        st.info("Sin registros cargados para evaluar semáforo de movilidad.")
+    else:
+        if ciudad_sel != "Todas las Ciudades (General)":
+            info_c = df_ciudades.iloc[0]
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Flotilla Asignada en Sede", info_c["Flotilla Asignada"])
+            m2.metric("Porcentaje Movilidad Real", f"{info_c['Movilidad (%)']}%")
+            m3.metric("Estatus del Semáforo", info_c["Estado"])
+        else:
+            st.info("ℹ️ Nota: Reporte métrico consolidado y tabla ejecutiva de cumplimiento por OOAD.")
 
-    st.dataframe(
-        df_estilizado,
-        use_container_width=True,
-        hide_index=True,
+        def aplicar_estilo_semaforo(row):
+            if df_ciudades.empty:
+                return []
+            
+            # Estilo cebra base alternado
+            if row.name % 2 == 0:
+                estilos = ["background-color: #ffffff" for _ in row.index]
+            else:
+                estilos = ["background-color: #f2f4f7" for _ in row.index]
+                
+            return estilos
+
+        # Aplicamos primero el estilo cebra global a la tabla
+        df_estilizado = df_ciudades.style.apply(aplicar_estilo_semaforo, axis=1)
+
+        # Añadimos el color dinámico específico para la columna de Estado
+        def colorear_estado(val):
+            if val == "VERDE":
+                return "background-color: #27ae60; color: white; font-weight: bold;"
+            elif val == "AMARILLO":
+                return "background-color: #f39c12; color: white; font-weight: bold;"
+            elif val == "ROJO":
+                return f"background-color: {COLORES_PANTONE['7420']}; color: white; font-weight: bold;"
+            return ""
+
+        try:
+            df_estilizado = df_estilizado.map(colorear_estado, subset=["Estado"])
+        except AttributeError:
+            df_estilizado = df_estilizado.applymap(colorear_estado, subset=["Estado"])
+
+        st.dataframe(
+            df_estilizado,
+            use_container_width=True,
+            hide_index=True,
+        )
     )# -----------------------------------------------------------------------------
 # 3. CONTROL DEL POOL DE SUSTITUTOS (20%)
 # -----------------------------------------------------------------------------
