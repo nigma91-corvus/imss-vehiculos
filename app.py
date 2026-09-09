@@ -1229,34 +1229,20 @@ if mod_actual == "Expediente por ECO y Documental":
 
         # --- PEGA ESTO JUSTO AQUÍ ABAJO ---
         if eco_input:
-            # 1. Limpiamos lo que el usuario escribió
+            # 1. Limpiamos y convertimos todo a texto minúsculo
             busqueda_limpia = eco_input.strip().lower()
 
-            # 2. Normalizamos la base de datos para comparar sin importar espacios o guiones
-            eco_normalizado = (
-                df_base["eco"]
-                .astype(str)
-                .str.lower()
-                .str.replace(r"[^a-z0-9]", "", regex=True)
-            )
-            busqueda_normalizada = (
-                busqueda_limpia.replace(" ", "").replace("-", "")
-            )
-
-            # 3. Buscamos de manera flexible
+            # 2. Filtramos la base de datos de la categoría actual de forma flexible
+            # (Busca si el texto ingresado está contenido dentro del ECO del registro)
+            eco_serie = df_base["eco"].astype(str).str.lower()
             vehiculo_sel = df_base[
-                eco_normalizado.str.contains(busqueda_normalizada, na=False)
+                eco_serie.str.contains(busqueda_limpia, na=False)
             ]
 
-            # 4. Validamos si se encontró el vehículo
             if vehiculo_sel.empty:
                 st.error(
-                    f"No se encontró ningún vehículo que coincida con"
-                    f" '{eco_input}'."
-                )
-                st.info(
-                    "💡 Intenta escribir solo los números (ej. `101` en lugar de"
-                    " `ECO-101`)."
+                    f"No se encontró ningún vehículo con el ECO '{eco_input}' en"
+                    f" la flotilla **{cat_actual}**."
                 )
                 v_data = None
             else:
