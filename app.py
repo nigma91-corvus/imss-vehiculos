@@ -395,6 +395,11 @@ with st.sidebar:
                 margin-top: -80px !important;
                 margin-bottom: -100px !important;
             }
+
+            /* 4. Sube el bloque completo de los Módulos del Sistema */
+            [data-testid="stSidebar"] div.stRadio {
+                margin-top: -85px !important;
+            }
         </style>
         """,
         unsafe_allow_html=True,
