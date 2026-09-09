@@ -969,61 +969,81 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
 # 3. CONTROL DEL POOL DE SUSTITUTOS (20%)
 # -----------------------------------------------------------------------------
 elif mod_actual == "Control del Pool de Sustitutos (20%)":
-  if cat_actual == "Institucionales":
-    st.warning(
-        "El control del pool del 20% de sustitutos aplica únicamente para los"
-        " contratos de Arrendamiento (Administrativos y Ambulancias)."
-    )
-  else:
-    st.markdown(
-        f'<p class="subtitulo-seccion">Control del Pool del 20% de Sustitutos -'
-        f" Flotilla {cat_actual}</p>",
-        unsafe_allow_html=True,
-    )
-
-    tot_flotilla = len(df_base)
-    existentes = int(tot_flotilla * 0.20)
-    asignadas = (
-        len(df_base[df_base["Estatus"] == "Sustituto Entregado"])
-        if "Estatus" in df_base.columns
-        else 0
-    )
-    disponibles = existentes - asignadas
-
-    k1, k2, k3 = st.columns(3)
-    k1.metric("Sustitutas Existentes en Pool (20%)", existentes)
-    k2.metric("Sustitutas Activas en Uso", asignadas)
-    if disponibles >= 0:
-      k3.metric("Sustitutas Disponibles en Pool", disponibles)
-    else:
-      k3.metric(
-          "Saturación de Pool",
-          f"{abs(disponibles)} Excedidas",
-          delta_color="inverse",
-      )
-      st.error(
-          f"⚠️ ALERTA DE CAPACIDAD: Se han asignado {asignadas} unidades"
-          f" sustitutas, superando el límite del pool contractual"
-          f" ({existentes})."
-      )
-
-    st.markdown("---")
-    st.markdown(
-        "##### **Solicitudes y Entregas de Sustitutos en Seguimiento (SLA 48"
-        " horas)**"
-    )
-    st.table(
-        pd.DataFrame(
-            columns=[
-                "ECO Titular",
-                "Ciudad / OOAD",
-                "Fecha/Hora Ingreso Taller",
-                "ECO Sustituto Asignado",
-                "Estatus Cumplimiento SLA",
-            ]
+    if cat_actual == "Institucionales":
+        st.warning(
+            "El control del pool del 20% de sustitutos aplica únicamente para los"
+            " contratos de Arrendamiento (Administrativos y Ambulancias)."
         )
-    )
+    else:
+        st.markdown(
+            f'<p class="subtitulo-seccion">Control del Pool del 20% de Sustitutos -'
+            f" Flotilla {cat_actual}</p>",
+            unsafe_allow_html=True,
+        )
 
+        tot_flotilla = len(df_base)
+        existentes = int(tot_flotilla * 0.20)
+        
+        # CORREGIDO: Usando "estatus" en minúsculas como viene en Supabase
+        asignadas = (
+            len(df_base[df_base["estatus"] == "Sustituto Entregado"])
+            if "estatus" in df_base.columns
+            else 0
+        )
+        disponibles = existentes - asignadas
+
+        k1, k2, k3 = st.columns(3)
+        k1.metric("Sustitutas Existentes en Pool (20%)", existentes)
+        k2.metric("Sustitutas Activas en Uso", asignadas)
+        if disponibles >= 0:
+            k3.metric("Sustitutas Disponibles en Pool", disponibles)
+        else:
+            k3.metric(
+                "Saturación de Pool",
+                f"{abs(disponibles)} Excedidas",
+                delta_color="inverse",
+            )
+            st.error(
+                f"⚠️ ALERTA DE CAPACIDAD: Se han asignado {asignadas} unidades"
+                f" sustitutas, superando el límite del pool contractual"
+                f" ({existentes})."
+            )
+
+        st.markdown("---")
+        st.markdown(
+            "##### **Solicitudes y Entregas de Sustitutos en Seguimiento (SLA 48 horas)**"
+        )
+        
+        # Integración dinámica con los registros de taller en sesión
+        taller_regs = st.session_state.get("taller_registros", [])
+        
+        if taller_regs:
+            data_tabla = []
+            for r in taller_regs:
+                data_tabla.append({
+                    "ECO Titular": r.get("eco", r.get("ECO", "")),
+                    "Ciudad / OOAD": r.get("ubicacion", r.get("UBICACIÓN", r.get("Ciudad", ""))),
+                    "Fecha/Hora Ingreso Taller": r.get("fecha_ingreso", r.get("Fecha Ingreso", "")),
+                    "ECO Sustituto Asignado": r.get("eco_sustituto", r.get("ECO Sustituto", "Pendiente")),
+                    "Estatus Cumplimiento SLA": r.get("estatus_sla", r.get("SLA", "En Tiempo")),
+                })
+            df_mostrar_sust = pd.DataFrame(data_tabla)
+        else:
+            df_mostrar_sust = pd.DataFrame(
+                columns=[
+                    "ECO Titular",
+                    "Ciudad / OOAD",
+                    "Fecha/Hora Ingreso Taller",
+                    "ECO Sustituto Asignado",
+                    "Estatus Cumplimiento SLA",
+                ]
+            )
+
+        st.dataframe(
+            df_mostrar_sust,
+            use_container_width=True,
+            hide_index=True,
+        )
 # -----------------------------------------------------------------------------
 # 4. CARGA INICIAL
 # -----------------------------------------------------------------------------
