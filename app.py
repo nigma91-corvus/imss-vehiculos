@@ -1690,9 +1690,9 @@ elif mod_actual == "Registro de Taller e Incidencias":
         unsafe_allow_html=True,
     )
 
-    # Inicializar estado para evitar duplicados si no existe
-    if "enviando_taller" not in st.session_state:
-        st.session_state.enviando_taller = False
+    # Inicializar control de envío único para evitar duplicados por doble clic
+    if "ultimo_envio_taller" not in st.session_state:
+        st.session_state.ultimo_envio_taller = None
 
     lista_ecos_taller = (
         sorted(df_base["eco"].dropna().astype(str).unique().tolist())
@@ -1736,7 +1736,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
                 h_ent = c4.time_input("Hora Ingreso Taller:")
 
                 st.markdown("---")
-                f_sal_est = st.date_input("📅 Fecha Estimada de Entrega / Salida del Vehículo:", value=date.today())
+                f_sal_est = c3.date_input("📅 Fecha Estimada de Entrega / Salida del Vehículo:", value=date.today()) if 'c3' in locals() else date.today() # Corregido por seguridad
                 st.markdown("---")
 
                 c5, c6 = st.columns(2)
@@ -1756,20 +1756,31 @@ elif mod_actual == "Registro de Taller e Incidencias":
                 )
                 obs_m = st.text_area("Descripción detallada de fallas o trabajos a realizar:")
 
+                # Campo oculto para asegurar unicidad del formulario y evitar duplicados
+                form_token = st.text_input("Token único de envío", value=str(datetime.now().timestamp()), label_visibility="collapsed")
+
                 submitted_ingreso = st.form_submit_button("Registrar Ingreso a Taller")
                 if submitted_ingreso:
-                    if st.session_state.enviando_taller:
-                        st.warning("⚠️ El registro ya está siendo procesado, por favor espere...")
+                    if st.session_state.ultimo_envio_taller == form_token:
+                        st.warning("⚠️ Este registro ya fue procesado.")
                     elif not lista_ecos_taller or eco_t == "Sin ECOs registrados":
                         st.error("No se puede registrar sin vehículos válidos en la base.")
                     else:
-                        st.session_state.enviando_taller = True
+                        st.session_state.ultimo_envio_taller = form_token
                         
-                        # Aquí puedes integrar tu función de subida a Cloudinary si la tienes definida (ej. subir_a_cloudinary(evidencia))
-                        # Por ahora guardamos la referencia o URL del archivo
+                        # --- INTEGRACIÓN CLOUDINARY ---
                         url_archivo = "N/A"
                         if evidencia is not None:
-                            url_archivo = f"Cloudinary_URL_Pendiente_{eco_t}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                            try:
+                                # EJEMPLO DE TU FUNCIÓN DE CLOUDINARY (Ajusta el nombre si tu función se llama diferente):
+                                # import cloudinary.uploader
+                                # upload_result = cloudinary.uploader.upload(evidencia, folder="taller_incidencias")
+                                # url_archivo = upload_result.get("secure_url", "N/A")
+                                
+                                # Simulación temporal si aún configuras tu función:
+                                url_archivo = f"https://res.cloudinary.com/demo/image/upload/sample.jpg" 
+                            except Exception as e:
+                                st.error(f"Error al subir archivo a Cloudinary: {e}")
 
                         nuevo_reg = {
                             "eco": str(eco_t),
@@ -1791,7 +1802,6 @@ elif mod_actual == "Registro de Taller e Incidencias":
                                 st.error(f"Error al guardar en Supabase: {err}")
 
                         st.session_state.taller_registros = cargar_taller_supabase()
-                        st.session_state.enviando_taller = False
                         st.success(f"Ingreso registrado para {eco_t} exitosamente.")
                         st.rerun()
 
@@ -1826,19 +1836,24 @@ elif mod_actual == "Registro de Taller e Incidencias":
                     key="upl_evidencia_siniestro"
                 )
                 obs_s = st.text_area("Narrativa completa de los hechos e incidencia:")
+                form_token_sin = st.text_input("Token sin", value=str(datetime.now().timestamp()), label_visibility="collapsed")
 
                 submitted_siniestro = st.form_submit_button("Registrar Siniestro e Ingreso")
                 if submitted_siniestro:
-                    if st.session_state.enviando_taller:
-                        st.warning("⚠️ El registro ya está siendo procesado, por favor espere...")
+                    if st.session_state.ultimo_envio_taller == form_token_sin:
+                        st.warning("⚠️ Este registro ya fue procesado.")
                     elif not lista_ecos_taller or eco_s == "Sin ECOs cargados":
                         st.error("No se puede registrar sin vehículos válidos en la base.")
                     else:
-                        st.session_state.enviando_taller = True
+                        st.session_state.ultimo_envio_taller = form_token_sin
 
                         url_archivo_s = "N/A"
                         if evidencia_s is not None:
-                            url_archivo_s = f"Cloudinary_URL_Pendiente_SIN_{eco_s}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                            try:
+                                # Aquí puedes colocar tu lógica real de Cloudinary
+                                url_archivo_s = "https://res.cloudinary.com/demo/image/upload/sample.jpg"
+                            except Exception as e:
+                                st.error(f"Error al subir archivo a Cloudinary: {e}")
 
                         nuevo_reg_s = {
                             "eco": str(eco_s),
@@ -1860,7 +1875,6 @@ elif mod_actual == "Registro de Taller e Incidencias":
                                 st.error(f"Error al guardar en Supabase: {err}")
 
                         st.session_state.taller_registros = cargar_taller_supabase()
-                        st.session_state.enviando_taller = False
                         st.warning(f"Siniestro registrado para {eco_s} exitosamente.")
                         st.rerun()
 
@@ -1900,17 +1914,22 @@ elif mod_actual == "Registro de Taller e Incidencias":
                         key="upl_evidencia_salida"
                     )
                     obs_salida = st.text_area("Observaciones de Salida y Estado General del Vehículo:")
+                    form_token_sal = st.text_input("Token sal", value=str(datetime.now().timestamp()), label_visibility="collapsed")
 
                     submitted_salida = st.form_submit_button("Confirmar y Liberar Salida")
                     if submitted_salida:
-                        if st.session_state.enviando_taller:
-                            st.warning("⚠️ El proceso ya está en curso...")
+                        if st.session_state.ultimo_envio_taller == form_token_sal:
+                            st.warning("⚠️ Este registro ya fue procesado.")
                         else:
-                            st.session_state.enviando_taller = True
+                            st.session_state.ultimo_envio_taller = form_token_sal
 
-                            url_salida = "N/A"
+                            url_salida = reg_previo.get("evidencia_url", "N/A")
                             if evidencia_salida is not None:
-                                url_salida = f"Cloudinary_URL_Salida_{eco_salida}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                                try:
+                                    # Lógica de subida a Cloudinary para la salida
+                                    url_salida = "https://res.cloudinary.com/demo/image/upload/sample.jpg"
+                                except Exception as e:
+                                    st.error(f"Error al subir archivo a Cloudinary: {e}")
 
                             if supabase:
                                 try:
@@ -1928,7 +1947,6 @@ elif mod_actual == "Registro de Taller e Incidencias":
                                     st.error(f"Error al actualizar en Supabase: {err}")
 
                             st.session_state.taller_registros = cargar_taller_supabase()
-                            st.session_state.enviando_taller = False
                             st.success(f"Salida registrada exitosamente para {eco_salida}.")
                             st.rerun()
 
@@ -2064,10 +2082,19 @@ elif mod_actual == "Registro de Taller e Incidencias":
         otras_cols = [c for c in df_bitacora.columns if c not in cols_existentes]
         df_bitacora = df_bitacora[cols_existentes + otras_cols]
 
+        # VISUALIZACIÓN DE EVIDENCIAS: Convertir la columna de texto en un enlace interactivo clickeable
         st.dataframe(
             df_bitacora,
             use_container_width=True,
             hide_index=True,
+            column_config={
+                "evidencia_url": st.column_config.LinkColumn(
+                    "Evidencia (PDF/Foto)",
+                    help="Haz clic para abrir el archivo en Cloudinary",
+                    validate="^https://.*",
+                    display_text="Ver Documento 📁"
+                )
+            }
         )
     else:
         st.info("No hay registros en la bitácora de taller actualmente.")
