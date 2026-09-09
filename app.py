@@ -1248,7 +1248,7 @@ if mod_actual == "Expediente por ECO y Documental":
             eco_seleccionado = None
 
         # Normalizamos o filtramos dependiendo de lo que el usuario escriba
-        if not eco_input.strip():
+        if not eco_seleccionado:
             st.info(
                 "Por favor, escriba un número de ECO en el campo superior para"
                 " ver su expediente."
