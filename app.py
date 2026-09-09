@@ -1505,6 +1505,7 @@ if mod_actual == "Expediente por ECO y Documental":
                             st.session_state.expedientes_docs[eco_search] = []
 
                     col_d1, col_d2 = st.columns(2)
+                    
                     with col_d1:
                         tipo_doc_sel = st.selectbox(
                             "Tipo de Documento:",
@@ -1610,7 +1611,6 @@ if mod_actual == "Expediente por ECO y Documental":
 
                                         docs_json_str = json.dumps(st.session_state.expedientes_docs[eco_search])
 
-                                        # CORREGIDO: Apunta directo a la columna "eco" de la base de datos
                                         supabase.table(nombre_tabla_vehiculos).update(
                                             {"documentos": docs_json_str}
                                         ).eq("eco", eco_search).execute()
@@ -1644,46 +1644,6 @@ if mod_actual == "Expediente por ECO y Documental":
                                 )
                         else:
                             st.info("Sin documentos registrados para este vehículo.")
-
-                    with col_d2:
-                        docs_guardados = st.session_state.expedientes_docs.get(eco_search, [])
-                        if docs_guardados:
-                            df_docs = pd.DataFrame(docs_guardados)
-                            st.dataframe(
-                                df_docs,
-                                use_container_width=True,
-                                hide_index=True,
-                            )
-
-                            for idx, doc in enumerate(docs_guardados):
-                                st.markdown(
-                                    f"📄 [{doc['Tipo']} - {doc['Nombre']}]({doc['URL']})"
-                                    f" (Agregado: {doc['Fecha']})"
-                                )
-                        else:
-                            st.info("Sin documentos registrados para este vehículo.")
-
-                    with col_d2:
-                        docs_guardados = st.session_state.expedientes_docs.get(
-                            eco_search, []
-                        )
-                        if docs_guardados:
-                            df_docs = pd.DataFrame(docs_guardados)
-                            st.dataframe(
-                                df_docs,
-                                use_container_width=True,
-                                hide_index=True,
-                            )
-
-                            for idx, doc in enumerate(docs_guardados):
-                                st.markdown(
-                                    f"📄 [{doc['Tipo']} - {doc['Nombre']}]({doc['URL']})"
-                                    f" (Agregado: {doc['Fecha']})"
-                                )
-                        else:
-                            st.info(
-                                "Sin documentos registrados para este vehículo."
-                            )
 
                 with t3:
                     st.markdown(
