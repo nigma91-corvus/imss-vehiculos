@@ -400,7 +400,7 @@ with st.sidebar:
     if url_logo_supa:
         st.markdown(
             f"""
-            <div style="display: flex; justify-content: center; align-items: center; margin-top: 5px; margin-bottom: 0px;">
+            <div style="display: flex; justify-content: center; align-items: center; margin-top: -5px; margin-bottom: 0px;">
                 <img src="{url_logo_supa}" style="max-height: 90px; width: auto; object-fit: contain;">
             </div>
             """,
@@ -415,9 +415,9 @@ with st.sidebar:
     color_468 = COLORES_PANTONE["468"]
 
     st.markdown(
-        "<div style='text-align: center; font-size: 10px; margin-bottom: 0px; line-height: 1.0;'>"
+        "<div style='text-align: center; font-size: 13px; margin-bottom: 0px; line-height: 1.0;'>"
         "<b>Coordinación Técnica de Servicios Generales</b><br>"
-        f"<span style='font-size:9px; color:{color_468};'>"
+        f"<span style='font-size:11px; color:{color_468};'>"
         "División de Transportes y Operación</span></div>",
         unsafe_allow_html=True,
     )
