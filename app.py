@@ -580,21 +580,24 @@ if mod_actual == "Dashboard General":
         )
 
     col_filtro, col_exp = st.columns([3, 1])
+    
+    # CORREGIDO: Usando "UBICACIÓN" en mayúsculas y acento
     unidades_list = ["Todas las Ubicaciones (Nacional)"] + (
-        list(df_base["ubicacion"].dropna().unique())
-        if "ubicacion" in df_base.columns
+        list(df_base["UBICACIÓN"].dropna().unique())
+        if "UBICACIÓN" in df_base.columns
         else []
     )
     unidad_sel = col_filtro.selectbox(
         "Filtrar Consulta por Unidad Receptora / Ubicación:", unidades_list
     )
 
+    # CORREGIDO: Filtrando por "UBICACIÓN"
     df_dash = (
         df_base
         if (
             unidad_sel == "Todas las Ubicaciones (Nacional)" or df_base.empty
         )
-        else df_base[df_base["ubicacion"] == unidad_sel]
+        else df_base[df_base["UBICACIÓN"] == unidad_sel]
     )
 
     tot_unidades = len(df_dash)
@@ -604,7 +607,7 @@ if mod_actual == "Dashboard General":
 
     ecos_en_taller = {
         r.get("eco", r.get("ECO"))
-        for r in st.session_state.taller_registros
+        for r in st.session_state.get("taller_registros", [])
         if r.get("estatus", r.get("Estatus")) == "Activo (En Taller)" 
         and r.get("eco", r.get("ECO")) in ecos_filtrados
     }
@@ -788,11 +791,13 @@ if mod_actual == "Dashboard General":
 
     st.markdown("---")
     st.markdown("##### **Vistas Detalladas de la Base de Datos Activa**")
+    
+    # CORREGIDO: Cambiado "ubicacion" por "UBICACIÓN"
     cols_mostrar = [
         "eco",
         "tipo",
         "linea",
-        "ubicacion",
+        "UBICACIÓN",
         "arrendadora",
         "estatus",
         "placas",
