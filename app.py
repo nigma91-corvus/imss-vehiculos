@@ -1264,15 +1264,18 @@ if mod_actual == "Expediente por ECO y Documental":
             with col_img_cat:
                 tipo_v = v_data.get("tipo", "")
                 linea_v = v_data.get("linea", "")
+                
+                # Llamada integrada a la función de Cloudinary para el catálogo
                 url_cat = obtener_imagen_catalogo_supabase(tipo_v, linea_v)
+                
                 if url_cat:
                     st.markdown(
-                        f'<div class="image-container-full"><img src="{url_cat}" alt="Vehículo"></div>',
+                        f'<div class="image-container-full"><img src="{url_cat}" alt="Vehículo de Catálogo" style="width:100%; border-radius:8px;"></div>',
                         unsafe_allow_html=True,
                     )
                     st.caption(f"Catálogo: {tipo_v} - {linea_v}")
                 else:
-                    st.info(f"📷 [Sin foto en catálogo: {linea_v}]")
+                    st.info(f"📷 [Sin foto en catálogo: {tipo_v} - {linea_v}]")
 
             with col_info_cat:
                 en_taller = any(
