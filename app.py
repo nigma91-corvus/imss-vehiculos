@@ -2130,7 +2130,8 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
             except Exception:
                 sede_origen = "Error al leer sede"
 
-        col_sel2.text_input("Sede de Origen Actual (Detectada):", value=sede_origen, disabled=True, key="txt_sede_origen_display")
+        # Se removió la key para permitir que el valor se actualice dinámicamente al cambiar de ECO
+        col_sel2.text_input("Sede de Origen Actual (Detectada):", value=sede_origen, disabled=True)
 
         st.markdown("---")
 
