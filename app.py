@@ -375,12 +375,12 @@ st.markdown(
 # BARRA LATERAL (SIDEBAR)
 # -----------------------------------------------------------------------------
 with st.sidebar:
-    # Contenedor centrado para el logo para evitar desbordamientos
+    # Contenedor con tamaño equilibrado para el logo
     if url_logo_supa:
         st.markdown(
             f"""
-            <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 5px;">
-                <img src="{url_logo_supa}" style="max-height: 70px; width: auto; object-fit: contain;">
+            <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 2px;">
+                <img src="{url_logo_supa}" style="max-height: 150px; width: auto; object-fit: contain;">
             </div>
             """,
             unsafe_allow_html=True,
@@ -400,9 +400,9 @@ with st.sidebar:
         "División de Transportes y Operación</span></div>",
         unsafe_allow_html=True,
     )
-    st.markdown("<hr style='margin: 5px 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='margin: 3px 0;'>", unsafe_allow_html=True)
     st.markdown(
-        "<p style='font-size: 11px; margin-bottom: 4px;'><b>SELECCIONAR FLOTILLA:</b></p>",
+        "<p style='font-size: 11px; margin-bottom: 3px;'><b>SELECCIONAR FLOTILLA:</b></p>",
         unsafe_allow_html=True,
     )
 
@@ -440,7 +440,7 @@ with st.sidebar:
         args=("Institucionales",),
     )
 
-    st.markdown("<hr style='margin: 5px 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='margin: 3px 0;'>", unsafe_allow_html=True)
 
     modulos = [
         "Dashboard General",
@@ -463,9 +463,9 @@ with st.sidebar:
         index=modulos.index(st.session_state.modulo_activo),
     )
 
-    st.markdown("<hr style='margin: 5px 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='margin: 3px 0;'>", unsafe_allow_html=True)
     st.markdown(
-        "<div style='text-align: center; font-size: 9px; color: #CCCCCC; line-height: 1.0;'>Desarrollado por:<br><b>eduardo.casas@imss.gob.mx</b></div>",
+        "<div style='text-align: center; font-size: 13px; color: #CCCCCC; line-height: 1.0;'>Desarrollado por:<br><b>eduardo.casas@imss.gob.mx</b></div>",
         unsafe_allow_html=True,
     )
 # -----------------------------------------------------------------------------
