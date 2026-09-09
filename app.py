@@ -392,8 +392,8 @@ with st.sidebar:
 
             /* 3. Reduce el espacio vertical específico entre un botón y otro */
             [data-testid="stSidebar"] .stButton {
-                margin-top: -30px !important;
-                margin-bottom: -30px !important;
+                margin-top: -70px !important;
+                margin-bottom: -70px !important;
             }
         </style>
         """,
