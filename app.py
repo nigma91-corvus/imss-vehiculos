@@ -1229,20 +1229,29 @@ if mod_actual == "Expediente por ECO y Documental":
 
         # --- PEGA ESTO JUSTO AQUÍ ABAJO ---
         if eco_input:
-            # 1. Limpiamos y convertimos todo a texto minúsculo
-            busqueda_limpia = eco_input.strip().lower()
+            # 1. Quitamos espacios y pasamos a minúsculas lo que escribiste
+            busqueda_usuario = eco_input.strip().lower()
 
-            # 2. Filtramos la base de datos de la categoría actual de forma flexible
-            # (Busca si el texto ingresado está contenido dentro del ECO del registro)
-            eco_serie = df_base["eco"].astype(str).str.lower()
-            vehiculo_sel = df_base[
-                eco_serie.str.contains(busqueda_limpia, na=False)
-            ]
+            # 2. Extraemos solo los números de lo que el usuario escribió (ej. "101")
+            import re
+            solo_numeros_input = "".join(re.findall(r'\d+', busqueda_usuario))
 
+            # 3. Creamos una columna temporal extrayendo también solo los números del Excel
+            # Esto sirve para que sin importar si es A101, ECO-101 o 101, comparemos peras con peras
+            temp_df = df_base.copy()
+            temp_df["temp_nums"] = temp_df["eco"].astype(str).str.findall(r'\d+').str.join('')
+
+            # 4. Buscamos coincidencia con los números ingresados
+            if solo_numeros_input:
+                vehiculo_sel = temp_df[temp_df["temp_nums"] == solo_numeros_input]
+            else:
+                # Si escribió puras letras o algo distinto, buscamos por texto normal
+                vehiculo_sel = df_base[df_base["eco"].astype(str).str.lower().str.contains(busqueda_usuario, na=False)]
+
+            # 5. Validamos el resultado
             if vehiculo_sel.empty:
                 st.error(
-                    f"No se encontró ningún vehículo con el ECO '{eco_input}' en"
-                    f" la flotilla **{cat_actual}**."
+                    f"No se encontró ningún vehículo con el ECO '{eco_input}' en la flotilla **{cat_actual}**."
                 )
                 v_data = None
             else:
