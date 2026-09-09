@@ -1347,13 +1347,11 @@ if mod_actual == "Expediente por ECO y Documental":
 
                 with t1:
                     st.markdown(
-                        "##### **Galería de Inspección Física (Vistas"
-                        " Reglamentarias)**"
+                        "##### **Galería de Inspección Física (Vistas Reglamentarias)**"
                     )
                     st.info(
-                        "Sube un archivo o toma una fotografía directa. Las"
-                        " imágenes se ajustan automáticamente para mantener un"
-                        " diseño limpio y ordenado."
+                        "Sube un archivo o toma una fotografía directa. Las "
+                        "imágenes se cargan directamente a Cloudinary para optimizar espacio."
                     )
 
                     eco_limpio = (
@@ -1376,11 +1374,10 @@ if mod_actual == "Expediente por ECO y Documental":
                         with col_actual:
                             st.markdown(f"**{nombre_vista}**")
 
+                            # 1. Extraer la URL guardada previamente en v_data (vienen de Cloudinary)
                             foto_guardada_url = v_data.get(campo_key)
 
-                            if foto_guardada_url and str(
-                                foto_guardada_url
-                            ).startswith("http"):
+                            if foto_guardada_url and str(foto_guardada_url).startswith("http"):
                                 st.markdown(
                                     f"""
                                     <div style="width: 100%; max-height: 220px; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 8px;">
@@ -1389,7 +1386,7 @@ if mod_actual == "Expediente por ECO y Documental":
                                     """,
                                     unsafe_allow_html=True,
                                 )
-                                st.success("✔ Imagen cargada en servidor")
+                                st.success("✔ Imagen cargada desde Cloudinary")
                             else:
                                 st.warning("⚠ Sin fotografía registrada")
 
@@ -1420,86 +1417,57 @@ if mod_actual == "Expediente por ECO y Documental":
                                     key=f"btn_save_{campo_key}_{eco_search}",
                                 ):
                                     try:
-                                        nombre_original = getattr(
-                                            imagen_a_guardar,
-                                            "name",
-                                            "captura.jpg",
-                                        )
-                                        extension = (
-                                            nombre_original.split(".")[-1]
-                                            if "." in nombre_original
-                                            else "jpg"
-                                        )
-                                        nombre_archivo_nube = f"{eco_limpio}_{campo_key}.{extension}"
                                         bytes_f = imagen_a_guardar.getvalue()
+                                        public_id_nube = f"vehiculos/{eco_limpio}_{campo_key}"
 
-                                        if supabase:
-                                            supabase.storage.from_(
-                                                "vehiculos-fotos"
-                                            ).upload(
-                                                file=bytes_f,
-                                                path=nombre_archivo_nube,
-                                                file_options={
-                                                    "content-type": (
-                                                        f"image/{extension}"
-                                                    ),
-                                                    "upsert": "true",
-                                                },
-                                            )
+                                        # Subir el archivo binario directamente a Cloudinary
+                                        import cloudinary.uploader
+                                        
+                                        upload_result = cloudinary.uploader.upload(
+                                            bytes_f,
+                                            public_id=public_id_nube,
+                                            folder="tallercorvus/vehiculos", # O ajusta el folder según tu estructura en Cloudinary
+                                            overwrite=True,
+                                            resource_type="image"
+                                        )
 
-                                            pub_res = supabase.storage.from_(
-                                                "vehiculos-fotos"
-                                            ).get_public_url(
-                                                nombre_archivo_nube
-                                            )
-                                            url_base = (
-                                                pub_res
-                                                if isinstance(pub_res, str)
-                                                else pub_res.get("publicUrl")
-                                            )
-                                            url_final = f"{url_base}?t={int(datetime.now().timestamp())}"
+                                        # Obtener la URL segura de Cloudinary
+                                        url_cloudinary = upload_result.get("secure_url")
 
+                                        if url_cloudinary and supabase:
                                             tabla_map = {
-                                                "Administrativos": (
-                                                    "vehiculos_administrativos"
-                                                ),
-                                                "Ambulancias": (
-                                                    "vehiculos_ambulancias"
-                                                ),
-                                                "Institucionales": (
-                                                    "vehiculos_institucionales"
-                                                ),
+                                                "Administrativos": "vehiculos_administrativos",
+                                                "Ambulancias": "vehiculos_ambulancias",
+                                                "Institucionales": "vehiculos_institucionales",
                                             }
-                                            nombre_tabla_vehiculos = (
-                                                tabla_map.get(
-                                                    cat_actual,
-                                                    (
-                                                        "vehiculos_administrativos"
-                                                    ),
-                                                )
+                                            nombre_tabla_vehiculos = tabla_map.get(
+                                                cat_actual, "vehiculos_administrativos"
                                             )
 
+                                            # Guardar la URL de Cloudinary en la tabla de Supabase correspondiente
                                             supabase.table(
                                                 nombre_tabla_vehiculos
                                             ).update(
-                                                {campo_key: url_final}
+                                                {campo_key: url_cloudinary}
                                             ).eq(
                                                 "eco", eco_search
                                             ).execute()
 
                                             st.success(
-                                                f"✅ {nombre_vista} guardada y"
-                                                " vinculada permanentemente."
+                                                f"✅ {nombre_vista} subida a Cloudinary y vinculada correctamente."
                                             )
 
+                                            # Limpieza de caché para reflejar los cambios de inmediato
                                             st.cache_data.clear()
                                             if "df_base" in st.session_state:
                                                 del st.session_state["df_base"]
 
                                             st.rerun()
+                                        else:
+                                            st.error("No se pudo obtener la URL de Cloudinary.")
                                     except Exception as e:
                                         st.error(
-                                            f"Error al subir la imagen: {e}"
+                                            f"Error al subir la imagen a Cloudinary: {e}"
                                         )
 
                             st.markdown("---")
