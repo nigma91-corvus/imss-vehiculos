@@ -2060,8 +2060,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
 
 # -----------------------------------------------------------------------------
 # 7. REASIGNACIÓN POR NECESIDAD DE SERVICIO (PERSISTIDA EN SUPABASE)
-# -----------------------------------------------------------------------------
-elif mod_actual == "Reasignación por Necesidad de Servicio":
+# -------------------------------------------------------------------------elif mod_actual == "Reasignación por Necesidad de Servicio":
     st.markdown(
         '<p class="subtitulo-seccion">Reasignación Geográfica de Vehículos por Necesidad de Servicio</p>',
         unsafe_allow_html=True,
@@ -2076,7 +2075,7 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
         else []
     )
     
-    # Búsqueda automática flexible de la columna de ubicación (sin importar mayúsculas/minúsculas)
+    # Búsqueda automática flexible de la columna de ubicación
     col_ubicacion_key = None
     if not df_base.empty:
         for col in df_base.columns:
@@ -2084,9 +2083,18 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
                 col_ubicacion_key = col
                 break
 
+    # Extracción segura de ciudades evitando bloqueos por tipos de datos mixtos
+    ciudades_raw = []
+    if not df_base.empty and col_ubicacion_key:
+        for item in df_base[col_ubicacion_key].dropna().unique():
+            if isinstance(item, str):
+                ciudades_raw.append(item.strip())
+            elif item is not None:
+                ciudades_raw.append(str(item).strip())
+                
     lista_ciudades_dinamica = (
-        sorted(list(df_base[col_ubicacion_key].dropna().unique()))
-        if not df_base.empty and col_ubicacion_key
+        sorted(list(set(ciudades_raw)))
+        if ciudades_raw
         else ["Aguascalientes", "Colima", "Manzanillo", "Tepic", "Mazatlán", "Zacatecas"]
     )
 
@@ -2102,18 +2110,23 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
             key="select_eco_reasignacion"
         )
 
-        # Extracción segura usando la columna localizada dinámicamente
+        # Extracción ultrasegura para prevenir congelamientos con A001 o registros especiales
         sede_origen = "Sin asignar"
         if not df_base.empty and "eco" in df_base.columns and col_ubicacion_key:
-            df_temp = df_base.copy()
-            df_temp["eco_clean"] = df_temp["eco"].astype(str).str.strip()
-            eco_buscado = str(eco_r).strip()
-            
-            veh_info = df_temp[df_temp["eco_clean"] == eco_buscado]
-            if not veh_info.empty:
-                val_ubi = veh_info.iloc[0].get(col_ubicacion_key, "Sin asignar")
-                if pd.notna(val_ubi) and str(val_ubi).strip() != "":
-                    sede_origen = str(val_ubi).strip()
+            try:
+                df_temp = df_base.copy()
+                df_temp["eco_clean"] = df_temp["eco"].astype(str).str.strip()
+                eco_buscado = str(eco_r).strip()
+                
+                veh_info = df_temp[df_temp["eco_clean"] == eco_buscado]
+                if not veh_info.empty:
+                    val_ubi = veh_info.iloc[0][col_ubicacion_key]
+                    if isinstance(val_ubi, (dict, list)):
+                        sede_origen = str(val_ubi)
+                    elif pd.notna(val_ubi) and str(val_ubi).strip() != "":
+                        sede_origen = str(val_ubi).strip()
+            except Exception as e:
+                sede_origen = "Error al leer sede"
 
         col_sel2.text_input("Sede de Origen Actual (Detectada):", value=sede_origen, disabled=True, key="txt_sede_origen_display")
 
@@ -2165,7 +2178,6 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
         )
     else:
         st.info("No hay registros históricos de reasignación actualmente.")
-
 # -----------------------------------------------------------------------------
 # 8. REPORTES Y EXPORTACIÓN
 # -----------------------------------------------------------------------------
