@@ -1296,12 +1296,14 @@ if mod_actual == "Expediente por ECO y Documental":
                 try:
                     cloud_name = st.secrets["cloudinary"]["cloud_name"]
                     if nombre_foto_limpio:
-                        # Omitimos el "v1/" para que Cloudinary entregue la imagen de forma limpia por su CDN
                         url_cat = f"https://res.cloudinary.com/{cloud_name}/image/upload/vehiculos_fotos/{nombre_foto_limpio}.png"
-                except Exception:
+                except Exception as e:
                     url_cat = ""
+                    st.error(f"Error en secrets de Cloudinary: {e}")
 
                 if url_cat:
+                    # Mostramos la URL en texto para probarla con un clic
+                    st.markdown(f"🔗 [Abrir enlace de Cloudinary en navegador]({url_cat})")
                     st.image(url_cat, caption=f"Catálogo: {tipo_v} - {linea_v}", use_container_width=True)
                 else:
                     st.info(f"📷 [Sin foto en catálogo: {linea_v}]")
