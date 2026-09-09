@@ -1486,7 +1486,7 @@ if mod_actual == "Expediente por ECO y Documental":
 
                 with t2:
                     st.markdown("##### **Documentos Oficiales Registrados y Carga**")
-                    st.info("Sube un archivo PDF o captura una fotografía directa del documento físico.")
+                    st.info("Sube un archivo PDF o captura una fotografía directa del documento físico. El sistema nombrará el archivo automáticamente para identificarlo con su número económico.")
 
                     if "expedientes_docs" not in st.session_state:
                         st.session_state.expedientes_docs = {}
@@ -1551,10 +1551,11 @@ if mod_actual == "Expediente por ECO y Documental":
                                                 .replace("/", "_")
                                                 .replace("\\", "_")
                                                 .replace(".", "_")
+                                                .replace("-", "_")
                                             )
 
                                         bytes_d = doc_a_guardar.getvalue()
-                                        nombre_original = getattr(doc_a_guardar, "name", "captura_doc.jpg")
+                                        nombre_original = getattr(doc_a_guardar, "name", f"captura_doc_{eco_search}.jpg")
                                         
                                         extension = (
                                             nombre_original.split(".")[-1].lower()
@@ -1569,11 +1570,12 @@ if mod_actual == "Expediente por ECO y Documental":
                                         else:
                                             content_type = "application/octet-stream"
 
+                                        # Nomenclatura clara y estandarizada: ECO_[Número]_[Tipo]_[Fecha_Hora].[ext]
                                         eco_limpio_str = limpiar_nombre_archivo(str(eco_search))
                                         tipo_limpio_str = limpiar_nombre_archivo(tipo_doc_sel)
                                         timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-                                        nombre_d = f"{eco_limpio_str}_{tipo_limpio_str}_{timestamp_str}.{extension}"
+                                        nombre_d = f"ECO_{eco_limpio_str}_{tipo_limpio_str}_{timestamp_str}.{extension}"
 
                                         supabase.storage.from_("evidencias-pdf").upload(
                                             file=bytes_d,
@@ -1596,7 +1598,8 @@ if mod_actual == "Expediente por ECO y Documental":
 
                                         nuevo_doc = {
                                             "Tipo": tipo_doc_sel,
-                                            "Nombre": nombre_original,
+                                            "NombreArchivoSistema": nombre_d,
+                                            "NombreOriginal": nombre_original,
                                             "URL": url_doc,
                                             "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
                                         }
@@ -1615,7 +1618,7 @@ if mod_actual == "Expediente por ECO y Documental":
                                             {"documentos": docs_json_str}
                                         ).eq("eco", eco_search).execute()
 
-                                        st.success("✅ Documento subido y guardado permanentemente en la base de datos.")
+                                        st.success("✅ Documento renombrado, subido y guardado permanentemente.")
 
                                         st.cache_data.clear()
                                         if "df_base" in st.session_state:
@@ -1625,22 +1628,33 @@ if mod_actual == "Expediente por ECO y Documental":
                                     except Exception as e:
                                         st.error(f"Error al subir el documento: {e}")
                                 else:
-                                    st.warning("Conexión a Supabase no disponible.")
+                                    st.warning("Conexión a Base de Datos no disponible.")
 
                     with col_d2:
                         docs_guardados = st.session_state.expedientes_docs.get(eco_search, [])
                         if docs_guardados:
-                            df_docs = pd.DataFrame(docs_guardados)
+                            # Preparamos una vista limpia para la tabla de Streamlit
+                            df_docs_view = pd.DataFrame([
+                                {
+                                    "Tipo": d.get("Tipo"),
+                                    "Archivo en Servidor": d.get("NombreArchivoSistema", d.get("Nombre")),
+                                    "Fecha": d.get("Fecha")
+                                } for d in docs_guardados
+                            ])
+                            
                             st.dataframe(
-                                df_docs,
+                                df_docs_view,
                                 use_container_width=True,
                                 hide_index=True,
                             )
 
+                            st.markdown("##### **Visor Rápido de Enlaces**")
                             for idx, doc in enumerate(docs_guardados):
+                                nombre_etiqueta = doc.get("NombreArchivoSistema", doc.get('Nombre'))
                                 st.markdown(
-                                    f"📄 [{doc['Tipo']} - {doc['Nombre']}]({doc['URL']})"
-                                    f" (Agregado: {doc['Fecha']})"
+                                    f"📄 **{doc['Tipo']}** — `[{nombre_etiqueta}]({doc['URL']})`"
+                                    f" <small style='color:gray;'>({doc['Fecha']})</small>",
+                                    unsafe_allow_html=True
                                 )
                         else:
                             st.info("Sin documentos registrados para este vehículo.")
