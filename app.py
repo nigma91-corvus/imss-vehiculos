@@ -1420,7 +1420,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
         sorted(df_base["eco"].dropna().astype(str).unique().tolist()))
         if not df_base.empty and "eco" in df_base.columns
         else []
-    )
+    
     
     tab_captura, tab_csv, tab_editar = st.tabs([
         "📝 Captura de Altas / Salidas",
