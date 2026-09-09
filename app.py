@@ -568,249 +568,251 @@ def aplicar_estilo_tabla(df):
 # 1. DASHBOARD GENERAL
 # -----------------------------------------------------------------------------
 if mod_actual == "Dashboard General":
-  st.markdown(
-      f'<p class="subtitulo-seccion">Dashboard General - Flotilla:'
-      f" {cat_actual}</p>",
-      unsafe_allow_html=True,
-  )
-
-  if df_base.empty:
-    st.warning(
-        f"⚠️ No se han encontrado registros en Supabase para la flotilla **{cat_actual}**."
+    st.markdown(
+        f'<p class="subtitulo-seccion">Dashboard General - Flotilla:'
+        f" {cat_actual}</p>",
+        unsafe_allow_html=True,
     )
 
-  col_filtro, col_exp = st.columns([3, 1])
-  unidades_list = ["Todas las Ubicaciones (Nacional)"] + (
-      list(df_base["UBICACIÓN"].dropna().unique())
-      if "UBICACIÓN" in df_base.columns
-      else []
-  )
-  unidad_sel = col_filtro.selectbox(
-      "Filtrar Consulta por Unidad Receptora / Ubicación:", unidades_list
-  )
+    if df_base.empty:
+        st.warning(
+            f"⚠️ No se han encontrado registros en Supabase para la flotilla **{cat_actual}**."
+        )
 
-  df_dash = (
-      df_base
-      if (
-          unidad_sel == "Todas las Ubicaciones (Nacional)" or df_base.empty
-      )
-      else df_base[df_base["UBICACIÓN"] == unidad_sel]
-  )
+    col_filtro, col_exp = st.columns([3, 1])
+    unidades_list = ["Todas las Ubicaciones (Nacional)"] + (
+        list(df_base["ubicacion"].dropna().unique())
+        if "ubicacion" in df_base.columns
+        else []
+    )
+    unidad_sel = col_filtro.selectbox(
+        "Filtrar Consulta por Unidad Receptora / Ubicación:", unidades_list
+    )
 
-  tot_unidades = len(df_dash)
-  ecos_filtrados = (
-      set(df_dash["eco"].unique()) if "eco" in df_dash.columns else set()
-  )
+    df_dash = (
+        df_base
+        if (
+            unidad_sel == "Todas las Ubicaciones (Nacional)" or df_base.empty
+        )
+        else df_base[df_base["ubicacion"] == unidad_sel]
+    )
 
-  ecos_en_taller = {
-      r["ECO"]
-      for r in st.session_state.taller_registros
-      if r["Estatus"] == "Activo (En Taller)" and r["ECO"] in ecos_filtrados
-  }
-  n_taller = len(ecos_en_taller)
-  n_baja = (
-      len(df_dash[df_dash["Estatus"] == "Inoperativo / Baja"])
-      if "Estatus" in df_dash.columns
-      else 0
-  )
-  n_sust = (
-      len(
-          df_dash[
-              (df_dash["Estatus"] == "Sustituto Entregado")
-              & (~df_dash["eco"].isin(ecos_en_taller))
-          ]
-      )
-      if "Estatus" in df_dash.columns
-      else 0
-  )
-  n_activos = (
-      len(
-          df_dash[
-              (df_dash["Estatus"] == "Titular Activo")
-              & (~df_dash["eco"].isin(ecos_en_taller))
-          ]
-      )
-      if "Estatus" in df_dash.columns
-      else 0
-  )
+    tot_unidades = len(df_dash)
+    ecos_filtrados = (
+        set(df_dash["eco"].unique()) if "eco" in df_dash.columns else set()
+    )
 
-  disponibilidad = (
-      ((n_activos + n_sust) / tot_unidades * 100) if tot_unidades > 0 else 0.0
-  )
+    ecos_en_taller = {
+        r.get("eco", r.get("ECO"))
+        for r in st.session_state.taller_registros
+        if r.get("estatus", r.get("Estatus")) == "Activo (En Taller)" 
+        and r.get("eco", r.get("ECO")) in ecos_filtrados
+    }
+    n_taller = len(ecos_en_taller)
+    n_baja = (
+        len(df_dash[df_dash["estatus"] == "Inoperativo / Baja"])
+        if "estatus" in df_dash.columns
+        else 0
+    )
+    n_sust = (
+        len(
+            df_dash[
+                (df_dash["estatus"] == "Sustituto Entregado")
+                & (~df_dash["eco"].isin(ecos_en_taller))
+            ]
+        )
+        if "estatus" in df_dash.columns
+        else 0
+    )
+    n_activos = (
+        len(
+            df_dash[
+                (df_dash["estatus"] == "Titular Activo")
+                & (~df_dash["eco"].isin(ecos_en_taller))
+            ]
+        )
+        if "estatus" in df_dash.columns
+        else 0
+    )
 
-  c1, c2, c3, c4 = st.columns(4)
-  c1.metric("Total Unidades Registradas", f"{tot_unidades:,}")
-  c2.metric("Titulares / Sustitutos Activos", f"{n_activos + n_sust:,}")
-  c3.metric(
-      "En Taller / Inoperativos", f"{n_taller + n_baja:,}", delta_color="inverse"
-  )
-  c4.metric("Disponibilidad Operativa Real", f"{disponibilidad:.1f}%")
+    disponibilidad = (
+        ((n_activos + n_sust) / tot_unidades * 100) if tot_unidades > 0 else 0.0
+    )
 
-  st.markdown("---")
-  col_dona, col_barras, col_tabla = st.columns(
-      [1.2, 1.5, 1.3], gap="medium"
-  )
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total Unidades Registradas", f"{tot_unidades:,}")
+    c2.metric("Titulares / Sustitutos Activos", f"{n_activos + n_sust:,}")
+    c3.metric(
+        "En Taller / Inoperativos", f"{n_taller + n_baja:,}", delta_color="inverse"
+    )
+    c4.metric("Disponibilidad Operativa Real", f"{disponibilidad:.1f}%")
 
-  with col_dona:
-    st.markdown("##### **Estatus Operativo**")
-    valores_dona = [n_activos, n_sust, n_taller, n_baja]
-    etiquetas_dona = [
-        "Activas",
-        "Sustitutos",
-        "En Taller",
-        "Baja / Inoperativos",
-    ]
-    colores_dona = [
-        COLORES_PANTONE["561"],
-        COLORES_PANTONE["465"],
-        COLORES_PANTONE["7420"],
-        COLORES_PANTONE["504"],
-    ]
+    st.markdown("---")
+    col_dona, col_barras, col_tabla = st.columns(
+        [1.2, 1.5, 1.3], gap="medium"
+    )
 
-    fig_d, ax_d = plt.subplots(figsize=(3.5, 3.5))
-    if sum(valores_dona) == 0:
-      ax_d.text(
-          0.5,
-          0.5,
-          "Sin Datos",
-          horizontalalignment="center",
-          verticalalignment="center",
-          fontsize=12,
-          color="gray",
-      )
-      ax_d.axis("off")
-    else:
-      wedges, _ = ax_d.pie(
-          valores_dona,
-          startangle=140,
-          colors=colores_dona,
-          wedgeprops=dict(width=0.4, edgecolor="white", linewidth=2),
-      )
-      ax_d.legend(
-          wedges,
-          [f"{e}: {v}" for e, v in zip(etiquetas_dona, valores_dona)],
-          loc="center",
-          bbox_to_anchor=(0.5, -0.15),
-          frameon=False,
-          fontsize=8,
-      )
-      ax_d.axis("equal")
-    fig_d.tight_layout()
-    st.pyplot(fig_d)
-
-  with col_barras:
-    st.markdown("##### **Distribución por Tipo de Vehículo**")
-    fig_v, ax_v = plt.subplots(figsize=(4.5, 3.5))
-    if not df_dash.empty and "Tipo" in df_dash.columns:
-      df_tipo_filtrado = df_dash[
-          ~df_dash["Tipo"]
-          .str.upper()
-          .isin(["SONORA", "SINALOA", "BAJA CALIFORNIA", "CHIHUAHUA", "N/A", "nan"])
-      ]
-
-      resumen_tipo = (
-          df_tipo_filtrado.groupby("Tipo")
-          .size()
-          .reset_index(name="Cantidad")
-          .sort_values(by="Cantidad", ascending=False)
-      )
-
-      if not resumen_tipo.empty:
-        paleta_barras = [
-            COLORES_PANTONE["7421"],
+    with col_dona:
+        st.markdown("##### **Estatus Operativo**")
+        valores_dona = [n_activos, n_sust, n_taller, n_baja]
+        etiquetas_dona = [
+            "Activas",
+            "Sustitutos",
+            "En Taller",
+            "Baja / Inoperativos",
+        ]
+        colores_dona = [
             COLORES_PANTONE["561"],
             COLORES_PANTONE["465"],
             COLORES_PANTONE["7420"],
-            COLORES_PANTONE["626"],
-            COLORES_PANTONE["468"],
-        ]
-        colores_asignados = [
-            paleta_barras[i % len(paleta_barras)] for i in range(len(resumen_tipo))
+            COLORES_PANTONE["504"],
         ]
 
-        bars = ax_v.bar(
-            resumen_tipo["Tipo"], resumen_tipo["Cantidad"], color=colores_asignados
-        )
-        ax_v.tick_params(axis="x", rotation=30, labelsize=8)
-        ax_v.grid(axis="y", linestyle="--", alpha=0.5)
-        for bar in bars:
-          h = bar.get_height()
-          ax_v.text(
-              bar.get_x() + bar.get_width() / 2,
-              h + 0.5,
-              f"{int(h)}",
-              ha="center",
-              va="bottom",
-              fontweight="bold",
-              fontsize=8,
-          )
-      else:
-        ax_v.text(
-            0.5,
-            0.5,
-            "Sin Tipos Válidos",
-            ha="center",
-            va="center",
-            fontsize=10,
-            color="gray",
-        )
-        ax_v.axis("off")
-    else:
-      resumen_tipo = pd.DataFrame(columns=["Tipo", "Cantidad"])
-      ax_v.text(
-          0.5, 0.5, "Sin Datos", ha="center", va="center", fontsize=12, color="gray"
-      )
-      ax_v.axis("off")
-    fig_v.tight_layout()
-    st.pyplot(fig_v)
+        fig_d, ax_d = plt.subplots(figsize=(3.5, 3.5))
+        if sum(valores_dona) == 0:
+            ax_d.text(
+                0.5,
+                0.5,
+                "Sin Datos",
+                horizontalalignment="center",
+                verticalalignment="center",
+                fontsize=12,
+                color="gray",
+            )
+            ax_d.axis("off")
+        else:
+            wedges, _ = ax_d.pie(
+                valores_dona,
+                startangle=140,
+                colors=colores_dona,
+                wedgeprops=dict(width=0.4, edgecolor="white", linewidth=2),
+            )
+            ax_d.legend(
+                wedges,
+                [f"{e}: {v}" for e, v in zip(etiquetas_dona, valores_dona)],
+                loc="center",
+                bbox_to_anchor=(0.5, -0.15),
+                frameon=False,
+                fontsize=8,
+            )
+            ax_d.axis("equal")
+        fig_d.tight_layout()
+        st.pyplot(fig_d)
 
-  with col_tabla:
-    st.markdown("##### **Resumen Cantidades Detalladas**")
-    if "resumen_tipo" in locals() and not resumen_tipo.empty:
-      df_totales = pd.DataFrame(
-          [{"Tipo": "TOTAL UNIDADES", "Cantidad": resumen_tipo["Cantidad"].sum()}]
-      )
-      df_mostrar_res = pd.concat([resumen_tipo, df_totales], ignore_index=True)
+    with col_barras:
+        st.markdown("##### **Distribución por Tipo de Vehículo**")
+        fig_v, ax_v = plt.subplots(figsize=(4.5, 3.5))
+        if not df_dash.empty and "tipo" in df_dash.columns:
+            df_tipo_filtrado = df_dash[
+                ~df_dash["tipo"]
+                .astype(str)
+                .str.upper()
+                .isin(["SONORA", "SINALOA", "BAJA CALIFORNIA", "CHIHUAHUA", "N/A", "NAN"])
+            ]
 
-      st.dataframe(
-          aplicar_estilo_tabla(df_mostrar_res),
-          hide_index=True,
-          use_container_width=True,
-      )
-    else:
-      st.dataframe(
-          pd.DataFrame(columns=["Tipo", "Cantidad"]),
-          hide_index=True,
-          use_container_width=True,
-      )
+            resumen_tipo = (
+                df_tipo_filtrado.groupby("tipo")
+                .size()
+                .reset_index(name="Cantidad")
+                .sort_values(by="Cantidad", ascending=False)
+            )
 
-  st.markdown("---")
-  st.markdown("##### **Vistas Detalladas de la Base de Datos Activa**")
-  cols_mostrar = [
-      "eco",
-      "Tipo",
-      "Linea",
-      "UBICACIÓN",
-      "Arrendadora",
-      "Estatus",
-      "Placas",
-      "VIN",
-      "CUOTA DIARIA",
-      "TOTAL A PAGAR (b)",
-  ]
-  cols_existentes = [c for c in cols_mostrar if c in df_dash.columns]
+            if not resumen_tipo.empty:
+                paleta_barras = [
+                    COLORES_PANTONE["7421"],
+                    COLORES_PANTONE["561"],
+                    COLORES_PANTONE["465"],
+                    COLORES_PANTONE["7420"],
+                    COLORES_PANTONE["626"],
+                    COLORES_PANTONE["468"],
+                ]
+                colores_asignados = [
+                    paleta_barras[i % len(paleta_barras)] for i in range(len(resumen_tipo))
+                ]
 
-  df_detallado = (
-      df_dash[cols_existentes]
-      if not df_dash.empty
-      else pd.DataFrame(columns=cols_mostrar)
-  )
+                bars = ax_v.bar(
+                    resumen_tipo["tipo"], resumen_tipo["Cantidad"], color=colores_asignados
+                )
+                ax_v.tick_params(axis="x", rotation=30, labelsize=8)
+                ax_v.grid(axis="y", linestyle="--", alpha=0.5)
+                for bar in bars:
+                    h = bar.get_height()
+                    ax_v.text(
+                        bar.get_x() + bar.get_width() / 2,
+                        h + 0.5,
+                        f"{int(h)}",
+                        ha="center",
+                        va="bottom",
+                        fontweight="bold",
+                        fontsize=8,
+                    )
+            else:
+                ax_v.text(
+                    0.5,
+                    0.5,
+                    "Sin Tipos Válidos",
+                    ha="center",
+                    va="center",
+                    fontsize=10,
+                    color="gray",
+                )
+                ax_v.axis("off")
+        else:
+            resumen_tipo = pd.DataFrame(columns=["tipo", "Cantidad"])
+            ax_v.text(
+                0.5, 0.5, "Sin Datos", ha="center", va="center", fontsize=12, color="gray"
+            )
+            ax_v.axis("off")
+        fig_v.tight_layout()
+        st.pyplot(fig_v)
 
-  st.dataframe(
-      aplicar_estilo_tabla(df_detallado),
-      use_container_width=True,
-      hide_index=True,
-  )
+    with col_tabla:
+        st.markdown("##### **Resumen Cantidades Detalladas**")
+        if "resumen_tipo" in locals() and not resumen_tipo.empty:
+            df_totales = pd.DataFrame(
+                [{"tipo": "TOTAL UNIDADES", "Cantidad": resumen_tipo["Cantidad"].sum()}]
+            )
+            df_mostrar_res = pd.concat([resumen_tipo, df_totales], ignore_index=True)
+
+            st.dataframe(
+                aplicar_estilo_tabla(df_mostrar_res),
+                hide_index=True,
+                use_container_width=True,
+            )
+        else:
+            st.dataframe(
+                pd.DataFrame(columns=["tipo", "Cantidad"]),
+                hide_index=True,
+                use_container_width=True,
+            )
+
+    st.markdown("---")
+    st.markdown("##### **Vistas Detalladas de la Base de Datos Activa**")
+    cols_mostrar = [
+        "eco",
+        "tipo",
+        "linea",
+        "ubicacion",
+        "arrendadora",
+        "estatus",
+        "placas",
+        "vin",
+        "cuota_diaria",
+        "total_a_pagar",
+    ]
+    cols_existentes = [c for c in cols_mostrar if c in df_dash.columns]
+
+    df_detallado = (
+        df_dash[cols_existentes]
+        if not df_dash.empty
+        else pd.DataFrame(columns=cols_mostrar)
+    )
+
+    st.dataframe(
+        aplicar_estilo_tabla(df_detallado),
+        use_container_width=True,
+        hide_index=True,
+    )
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 # 2. SEMÁFORO DE MOVILIDAD POR CIUDAD
