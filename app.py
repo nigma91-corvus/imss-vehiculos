@@ -1219,39 +1219,33 @@ if mod_actual == "Expediente por ECO y Documental":
         st.warning(
             f"No hay vehículos cargados en la base de datos para la flotilla **{cat_actual}**."
         )
+        vehiculo_sel = pd.DataFrame()
+        v_data = None
+        eco_seleccionado = None
     else:
-        # Escribe el número de ECO a consultar:
-        eco_input = st.text_input(
-            "Escriba el Número de ECO a Consultar:",
-            value="",
-            placeholder="Ej. ECO-101",
-        )
+        # Obtenemos la lista única de ECOs de esta categoría y los ordenamos
+        lista_ecos = sorted(df_base["eco"].dropna().astype(str).unique().tolist())
 
-        # --- PEGA ESTO JUSTO AQUÍ ABAJO ---
-        if eco_input:
-            # 1. Limpiamos lo que escribe el usuario: quitamos espacios, guiones y pasamos a minúsculas
-            import re
-            busqueda_limpia = re.sub(r'[^a-z0-9]', '', eco_input.strip().lower())
+        if len(lista_ecos) > 0:
+            # Creamos la LISTA DESPLEGABLE en lugar de la cajita de texto
+            eco_seleccionado = st.selectbox(
+                f"Seleccione el ECO de la flotilla **{cat_actual}**:",
+                options=lista_ecos,
+            )
 
-            # 2. Creamos una columna temporal en el DataFrame haciendo exactamente lo mismo con los ECOs del Excel
-            temp_df = df_base.copy()
-            temp_df["eco_limpio"] = temp_df["eco"].astype(str).str.lower().apply(lambda x: re.sub(r'[^a-z0-9]', '', x))
-
-            # 3. Comparamos los textos limpios (si la búsqueda está contenida en el ECO del Excel)
-            vehiculo_sel = temp_df[temp_df["eco_limpio"].str.contains(busqueda_limpia, na=False)]
+            # Filtramos el DataFrame con el vehículo exacto que eligió el usuario
+            vehiculo_sel = df_base[df_base["eco"].astype(str) == eco_seleccionado]
 
             if vehiculo_sel.empty:
-                st.error(
-                    f"No se encontró ningún vehículo con el ECO '{eco_input}' en la flotilla **{cat_actual}**."
-                )
                 v_data = None
             else:
-                # Recuperamos el ECO original de la base de datos para que mantenga su formato correcto
                 eco_search = vehiculo_sel.iloc[0]["eco"]
                 v_data = vehiculo_sel.iloc[0]
         else:
+            st.warning(f"No hay vehículos registrados para la flotilla **{cat_actual}**.")
             vehiculo_sel = pd.DataFrame()
             v_data = None
+            eco_seleccionado = None
 
         # Normalizamos o filtramos dependiendo de lo que el usuario escriba
         if not eco_input.strip():
