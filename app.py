@@ -2070,13 +2070,22 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
         "Permite la transferencia oficial de unidades entre sedes u OOAD por necesidades operativas o de cobertura."
     )
 
-    lista_ecos_reasignacion = (
-        sorted(df_base["eco"].dropna().astype(str).unique().tolist())
-        if not df_base.empty and "eco" in df_base.columns
-        else []
-    )
-    
-    # Búsqueda automática flexible de la columna de ubicación
+    def _to_str(val):
+        if val is None:
+            return ""
+        if isinstance(val, dict):
+            for k in ["nombre", "ubicacion", "name", "descripcion", "valor", "sede"]:
+                if k in val and val[k] is not None:
+                    return str(val[k]).strip()
+            return str(list(val.values())[0]) if val else ""
+        if isinstance(val, list):
+            return ", ".join([str(v) for v in val])
+        return str(val).strip()
+
+    lista_ecos_reasignacion = []
+    if not df_base.empty and "eco" in df_base.columns:
+        lista_ecos_reasignacion = sorted(list(set([_to_str(x) for x in df_base["eco"].dropna() if _to_str(x)])))
+
     col_ubicacion_key = None
     if not df_base.empty:
         for col in df_base.columns:
@@ -2084,15 +2093,13 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
                 col_ubicacion_key = col
                 break
 
-    # Extracción segura de ciudades evitando bloqueos por tipos de datos mixtos
     ciudades_raw = []
     if not df_base.empty and col_ubicacion_key:
-        for item in df_base[col_ubicacion_key].dropna().unique():
-            if isinstance(item, str):
-                ciudades_raw.append(item.strip())
-            elif item is not None:
-                ciudades_raw.append(str(item).strip())
-                
+        for item in df_base[col_ubicacion_key].dropna():
+            val_limpia = _to_str(item)
+            if val_limpia:
+                ciudades_raw.append(val_limpia)
+
     lista_ciudades_dinamica = (
         sorted(list(set(ciudades_raw)))
         if ciudades_raw
@@ -2111,22 +2118,16 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
             key="select_eco_reasignacion"
         )
 
-        # Extracción ultrasegura para prevenir congelamientos con A001 o registros especiales
         sede_origen = "Sin asignar"
         if not df_base.empty and "eco" in df_base.columns and col_ubicacion_key:
             try:
-                df_temp = df_base.copy()
-                df_temp["eco_clean"] = df_temp["eco"].astype(str).str.strip()
-                eco_buscado = str(eco_r).strip()
-                
-                veh_info = df_temp[df_temp["eco_clean"] == eco_buscado]
-                if not veh_info.empty:
-                    val_ubi = veh_info.iloc[0][col_ubicacion_key]
-                    if isinstance(val_ubi, (dict, list)):
-                        sede_origen = str(val_ubi)
-                    elif pd.notna(val_ubi) and str(val_ubi).strip() != "":
-                        sede_origen = str(val_ubi).strip()
-            except Exception as e:
+                for idx, row in df_base.iterrows():
+                    eco_fila = _to_str(row.get("eco", ""))
+                    if eco_fila == str(eco_r).strip():
+                        val_ubi = row.get(col_ubicacion_key)
+                        sede_origen = _to_str(val_ubi) or "Sin asignar"
+                        break
+            except Exception:
                 sede_origen = "Error al leer sede"
 
         col_sel2.text_input("Sede de Origen Actual (Detectada):", value=sede_origen, disabled=True, key="txt_sede_origen_display")
