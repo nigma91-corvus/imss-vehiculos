@@ -393,7 +393,7 @@ with st.sidebar:
             /* 3. Reduce el espacio vertical específico entre un botón y otro */
             [data-testid="stSidebar"] .stButton {
                 margin-top: -120px !important;
-                margin-bottom: -50px !important;
+                margin-bottom: -120px !important;
             }
 
             /* 4. Sube el bloque completo de los Módulos del Sistema */
