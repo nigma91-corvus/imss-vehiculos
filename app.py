@@ -1412,15 +1412,14 @@ elif mod_actual == "Registro de Taller e Incidencias":
         unsafe_allow_html=True,
     )
 
-    # Inicializar control de envío único para evitar duplicados por doble clic
     if "ultimo_envio_taller" not in st.session_state:
         st.session_state.ultimo_envio_taller = None
 
     lista_ecos_taller = (
-        sorted(df_base["eco"].dropna().astype(str).unique().tolist()))
+        sorted(df_base["eco"].dropna().astype(str).unique().tolist())
         if not df_base.empty and "eco" in df_base.columns
         else []
-    
+    )
     
     tab_captura, tab_csv, tab_editar = st.tabs([
         "📝 Captura de Altas / Salidas",
@@ -1439,6 +1438,15 @@ elif mod_actual == "Registro de Taller e Incidencias":
             horizontal=True,
         )
         st.markdown("---")
+
+        # Función auxiliar para verificar si un ECO ya está en Taller
+        def eco_esta_activo(eco_ingresado):
+            for r in st.session_state.taller_registros:
+                r_eco = str(r.get("eco", r.get("ECO", "")))
+                r_estatus = str(r.get("estatus", r.get("Estatus", "")))
+                if r_eco == str(eco_ingresado) and "Activo" in r_estatus:
+                    return True
+            return False
 
         if opcion_taller == "1. Ingreso a Taller (Mantenimiento Preventivo / Correctivo)":
             with st.form(key="form_ingreso_mantenimiento"):
@@ -1477,9 +1485,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
                     key="upl_evidencia_manto"
                 )
                 obs_m = st.text_area("Descripción detallada de fallas o trabajos a realizar:")
-
-                # Token oculto anti-duplicados
-                form_token = st.text_input("Token único de envío", value=str(datetime.now().timestamp()), label_visibility="collapsed")
+                form_token = st.text_input("Token único", value=str(datetime.now().timestamp()), label_visibility="collapsed")
 
                 submitted_ingreso = st.form_submit_button("Registrar Ingreso a Taller")
                 if submitted_ingreso:
@@ -1487,14 +1493,14 @@ elif mod_actual == "Registro de Taller e Incidencias":
                         st.warning("⚠️ Este registro ya fue procesado.")
                     elif not lista_ecos_taller or eco_t == "Sin ECOs registrados":
                         st.error("No se puede registrar sin vehículos válidos en la base.")
+                    elif eco_esta_activo(eco_t):
+                        st.error(f"🚫 El vehículo **{eco_t}** ya cuenta con un proceso activo en taller o siniestro. Debe registrar su salida antes de reingresarlo.")
                     else:
                         st.session_state.ultimo_envio_taller = form_token
                         
-                        # --- LÓGICA DE CLOUDINARY ---
                         url_archivo = "N/A"
                         if evidencia is not None:
                             try:
-                                # Aquí puedes integrar tu subida real si usas cloudinary.uploader.upload(evidencia)
                                 url_archivo = "https://res.cloudinary.com/demo/image/upload/sample.jpg" 
                             except Exception as e:
                                 st.error(f"Error al subir archivo a Cloudinary: {e}")
@@ -1561,6 +1567,8 @@ elif mod_actual == "Registro de Taller e Incidencias":
                         st.warning("⚠️ Este registro ya fue procesado.")
                     elif not lista_ecos_taller or eco_s == "Sin ECOs cargados":
                         st.error("No se puede registrar sin vehículos válidos en la base.")
+                    elif eco_esta_activo(eco_s):
+                        st.error(f"🚫 El vehículo **{eco_s}** ya cuenta con un proceso activo en taller o siniestro. Debe registrar su salida antes de reingresarlo.")
                     else:
                         st.session_state.ultimo_envio_taller = form_token_sin
 
@@ -1793,7 +1801,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
     if len(st.session_state.taller_registros) > 0:
         df_bitacora = pd.DataFrame(st.session_state.taller_registros)
         
-        # Normalizar nombres de columnas a minúsculas para alinear con la configuración
+        # Normalizar nombres de columnas a minúsculas
         df_bitacora.columns = [str(c).lower() for c in df_bitacora.columns]
 
         cols_preferidas = ["eco", "tipo", "fecha_ingreso", "fecha_estimada_salida", "fecha_salida", "hora", "responsable", "taller", "sustituto", "estatus", "evidencia_url", "observaciones"]
@@ -1801,7 +1809,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
         otras_cols = [c for c in df_bitacora.columns if c not in cols_existentes]
         df_bitacora = df_bitacora[cols_existentes + otras_cols]
 
-        # Tabla con la columna de evidencias convertida en enlace interactivo
+        # Tabla con LinkColumn configurado para la columna evidencia_url
         st.dataframe(
             df_bitacora,
             use_container_width=True,
