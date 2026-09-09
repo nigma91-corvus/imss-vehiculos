@@ -380,16 +380,14 @@ with st.sidebar:
         """
         <style>
             [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-                gap: 3px !important;
+                gap: 1px !important; /* Controla la separación general de los elementos */
             }
             [data-testid="stSidebar"] .stButton button {
-                margin-bottom: -12px !important;
-                min-height: 32px !important;
+                margin-top: 4px !important;    /* Controla qué tan pegado está el botón de arriba */
+                margin-bottom: 44px !important; /* Controla qué tan pegado está del botón de abajo */
+                min-height: 28px !important;
                 padding-top: 2px !important;
                 padding-bottom: 2px !important;
-            }
-            [data-testid="stSidebar"] div.stRadio > label {
-                margin-bottom: -5px !important;
             }
         </style>
         """,
