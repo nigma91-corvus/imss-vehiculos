@@ -401,7 +401,7 @@ with st.sidebar:
         st.markdown(
             f"""
             <div style="display: flex; justify-content: center; align-items: center; margin-top: -5px; margin-bottom: 0px;">
-                <img src="{url_logo_supa}" style="max-height: 90px; width: auto; object-fit: contain;">
+                <img src="{url_logo_supa}" style="max-height: 160px; width: auto; object-fit: contain;">
             </div>
             """,
             unsafe_allow_html=True,
