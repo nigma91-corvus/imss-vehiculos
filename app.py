@@ -371,12 +371,7 @@ st.markdown(
 """,
     unsafe_allow_html=True,
 )
-# -----------------------------------------------------------------------------
-# BARRA LATERAL (SIDEBAR)
-# -----------------------------------------------------------------------------
-with st.sidebar:
-    # Bloque de estilos CSS para controlar la separación y los botones
-   st.markdown(
+st.markdown(
         """
         <style>
             /* Controla la separación general entre los elementos */
@@ -392,7 +387,7 @@ with st.sidebar:
 
             /* Reduce el espacio entre un botón y otro */
             [data-testid="stSidebar"] .stButton {
-                margin-top: -70px !important;
+                margin-top: -6px !important;
                 margin-bottom: -6px !important;
             }
 
