@@ -1221,173 +1221,188 @@ import streamlit as st
 # 5. EXPEDIENTE POR ECO Y DOCUMENTAL
 # -----------------------------------------------------------------------------
 if mod_actual == "Expediente por ECO y Documental":
-  st.markdown(
-      f'<p class="subtitulo-seccion">Expediente Técnico y Documental por ECO -'
-      f" {cat_actual}</p>",
-      unsafe_allow_html=True,
-  )
-
-  lista_ecos = (
-      list(df_base["No. Ecco."].unique())
-      if not df_base.empty and "No. Ecco." in df_base.columns
-      else []
-  )
-
-  if not lista_ecos:
-    st.warning(
-        f"No hay vehículos cargados en la base de datos para la flotilla"
-        f" **{cat_actual}**."
+    st.markdown(
+        f'<p class="subtitulo-seccion">Expediente Técnico y Documental por ECO - {cat_actual}</p>',
+        unsafe_allow_html=True,
     )
-  else:
-    eco_search = st.selectbox(
-        "Seleccione o Ingrese el ECO a Consultar:", lista_ecos, index=0
+
+    # Detectamos automáticamente si la columna se llama "No. Ecco.", "eco" o similar
+    col_eco_key = None
+    for posible in ["No. Ecco.", "eco", "ECO", "No_Ecco"]:
+        if not df_base.empty and posible in df_base.columns:
+            col_eco_key = posible
+            break
+
+    lista_ecos = (
+        list(df_base[col_eco_key].dropna().unique())
+        if not df_base.empty and col_eco_key
+        else []
     )
-    vehiculo_sel = df_base[df_base["No. Ecco."] == eco_search]
 
-    if not vehiculo_sel.empty:
-      v_data = vehiculo_sel.iloc[0]
-      st.markdown("---")
-      st.markdown(
-          f"#### 📋 Ficha Técnica y Descriptiva — ECO:"
-          f" `{v_data['No. Ecco.']}`"
-      )
-
-      col_img_cat, col_info_cat = st.columns([1, 2.2], gap="small")
-
-      with col_img_cat:
-        import unicodedata
-
-        tipo_v = str(v_data.get("Tipo", "")).strip()
-        linea_v = str(v_data.get("Linea", "")).strip()
-        
-        # Limpiamos y unimos texto para búsqueda por palabras clave
-        def limpiar_texto(texto):
-            nfkd_form = unicodedata.normalize('NFKD', texto)
-            return "".join([c for c in nfkd_form if not unicodedata.combining(c)]).lower()
-
-        texto_busqueda = limpiar_texto(f"{tipo_v} {linea_v}")
-
-        # Identificamos el nombre exacto del archivo PNG en Cloudinary
-        nombre_foto_limpio = ""
-
-        if "v-drive" in texto_busqueda:
-            nombre_foto_limpio = "v-drive-tm-ac"
-        elif "transit" in texto_busqueda:
-            nombre_foto_limpio = "FORD_TRANSIT_GENERICA"
-        elif "promaster" in texto_busqueda or "ram" in texto_busqueda:
-            nombre_foto_limpio = "RAM_PROMASTER_GENERICA"
-        elif "f-150" in texto_busqueda or "xl" in texto_busqueda:
-            nombre_foto_limpio = "f-150-xl"
-        elif "creta" in texto_busqueda:
-            nombre_foto_limpio = "creta-1-5l-gls-ivt"
-        elif "urvan" in texto_busqueda or "panel" in texto_busqueda:
-            nombre_foto_limpio = "urvan-panel"
-
-        url_cat = ""
-        try:
-            cloud_name = st.secrets["cloudinary"]["cloud_name"]
-            if nombre_foto_limpio:
-                url_cat = f"https://res.cloudinary.com/{cloud_name}/image/upload/v1/vehiculos_fotos/{nombre_foto_limpio}.png"
-        except Exception:
-            url_cat = ""
-
-        if url_cat:
-          st.markdown(
-              f'<div class="image-container-full"><img src="{url_cat}" alt="Vehículo"></div>',
-              unsafe_allow_html=True,
-          )
-          st.caption(f"Catálogo: {tipo_v} - {linea_v}")
-        else:
-          st.info(f"📷 [Sin foto en catálogo: {linea_v}]")
-
-      with col_info_cat:
-        en_taller = any(
-            r["ECO"] == v_data["No. Ecco."]
-            and r["Estatus"] == "Activo (En Taller)"
-            for r in st.session_state.taller_registros
+    if not lista_ecos:
+        st.warning(
+            f"No hay vehículos cargados en la base de datos para la flotilla **{cat_actual}** (o no se encontró la columna de ECO)."
         )
-        estatus_veh = (
-            "En Taller"
-            if en_taller
-            else str(v_data.get("Estatus", "Titular Activo"))
+    else:
+        eco_search = st.selectbox(
+            "Seleccione o Ingrese el ECO a Consultar:", lista_ecos, index=0
         )
-        badge_class = (
-            "badge-verde"
-            if "Activo" in estatus_veh
-            else (
-                "badge-amarillo" if "Taller" in estatus_veh else "badge-rojo"
-            )
-        )
+        vehiculo_sel = df_base[df_base[col_eco_key] == eco_search]
 
-        st.markdown(
-            f"""
-                <div class="card-resumen">
-                    <div style="margin-bottom: 6px;">
-                        <b>Estatus Operativo:</b> <span class="{badge_class}">{estatus_veh.upper()}</span>
-                    </div>
-                    <hr style="margin: 6px 0;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
-                        <div>
-                            <p><b>Placas:</b> {v_data.get('Placas', 'N/A')}</p>
-                            <p><b>Número de Serie (VIN):</b> {v_data.get('VIN', 'N/A')}</p>
-                            <p><b>No. Tarjeta Circulación:</b> {v_data.get('No_TC', 'N/A')}</p>
-                            <p><b>Arrendadora:</b> {v_data.get('Arrendadora', 'N/A')}</p>
+        if not vehiculo_sel.empty:
+            v_data = vehiculo_sel.iloc[0]
+            
+            # Función auxiliar segura para leer campos sin importar si están en mayúsculas o minúsculas
+            def get_campo(row, *nombres):
+                for n in nombres:
+                    val = row.get(n)
+                    if val is not None:
+                        return val
+                return "N/A"
+
+            eco_val = get_campo(v_data, "No. Ecco.", "eco", "ECO", "No_Ecco")
+            tipo_v = str(get_campo(v_data, "Tipo", "tipo")).strip()
+            linea_v = str(get_campo(v_data, "Linea", "linea")).strip()
+
+            st.markdown("---")
+            st.markdown(f"#### 📋 Ficha Técnica y Descriptiva — ECO: `{eco_val}`")
+
+            col_img_cat, col_info_cat = st.columns([1, 2.2], gap="small")
+
+            with col_img_cat:
+                import unicodedata
+
+                def limpiar_texto(texto):
+                    nfkd_form = unicodedata.normalize('NFKD', texto)
+                    return "".join([c for c in nfkd_form if not unicodedata.combining(c)]).lower()
+
+                texto_busqueda = limpiar_texto(f"{tipo_v} {linea_v}")
+                nombre_foto_limpio = ""
+
+                if "v-drive" in texto_busqueda:
+                    nombre_foto_limpio = "v-drive-tm-ac"
+                elif "transit" in texto_busqueda:
+                    nombre_foto_limpio = "FORD_TRANSIT_GENERICA"
+                elif "promaster" in texto_busqueda or "ram" in texto_busqueda:
+                    nombre_foto_limpio = "RAM_PROMASTER_GENERICA"
+                elif "f-150" in texto_busqueda or "xl" in texto_busqueda:
+                    nombre_foto_limpio = "f-150-xl"
+                elif "creta" in texto_busqueda:
+                    nombre_foto_limpio = "creta-1-5l-gls-ivt"
+                elif "urvan" in texto_busqueda or "panel" in texto_busqueda:
+                    nombre_foto_limpio = "urvan-panel"
+
+                url_cat = ""
+                try:
+                    cloud_name = st.secrets["cloudinary"]["cloud_name"]
+                    if nombre_foto_limpio:
+                        url_cat = f"https://res.cloudinary.com/{cloud_name}/image/upload/v1/vehiculos_fotos/{nombre_foto_limpio}.png"
+                except Exception:
+                    url_cat = ""
+
+                if url_cat:
+                    st.markdown(
+                        f'<div class="image-container-full"><img src="{url_cat}" alt="Vehículo"></div>',
+                        unsafe_allow_html=True,
+                    )
+                    st.caption(f"Catálogo: {tipo_v} - {linea_v}")
+                else:
+                    st.info(f"📷 [Sin foto en catálogo: {linea_v}]")
+
+            with col_info_cat:
+                # Resto de tu tarjeta informativa con lectura segura
+                placas_v = get_campo(v_data, "Placas", "placas")
+                vin_v = get_campo(v_data, "VIN", "vin")
+                tc_v = get_campo(v_data, "No_TC", "no_tc", "No. Tarjeta Circulación")
+                arrendadora_v = get_campo(v_data, "Arrendadora", "arrendadora")
+                ubicacion_v = get_campo(v_data, "UBICACIÓN", "ubicacion", "Ubicación")
+                servicio_v = get_campo(v_data, "Ultimo_Servicio", "ultimo_servicio", "Último Servicio")
+                
+                cuota_raw = get_campo(v_data, "CUOTA DIARIA", "cuota_diaria", "Cuota Diaria")
+                try:
+                    cuota_val = float(cuota_raw) if cuota_raw not in [None, "N/A"] else 0.0
+                except:
+                    cuota_val = 0.0
+
+                en_taller = any(
+                    r.get("ECO") == eco_val and r.get("Estatus") == "Activo (En Taller)"
+                    for r in st.session_state.get("taller_registros", [])
+                )
+                estatus_veh = "En Taller" if en_taller else str(get_campo(v_data, "Estatus", "estatus", "Titular Activo"))
+                
+                badge_class = (
+                    "badge-verde" if "Activo" in estatus_veh
+                    else ("badge-amarillo" if "Taller" in estatus_veh else "badge-rojo")
+                )
+
+                st.markdown(
+                    f"""
+                    <div class="card-resumen">
+                        <div style="margin-bottom: 6px;">
+                            <b>Estatus Operativo:</b> <span class="{badge_class}">{estatus_veh.upper()}</span>
                         </div>
-                        <div>
-                            <p><b>Tipo / Línea:</b> {v_data.get('Tipo', 'N/A')} - {v_data.get('Linea', 'N/A')}</p>
-                            <p><b>Ubicación / OOAD:</b> {v_data.get('UBICACIÓN', 'N/A')}</p>
-                            <p><b>Último Servicio:</b> {v_data.get('Ultimo_Servicio', 'N/A')}</p>
-                            <p><b>Cuota Diaria:</b> ${parse_float(v_data.get('CUOTA DIARIA', 0.0)):,.2f}</p>
+                        <hr style="margin: 6px 0;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
+                            <div>
+                                <p><b>Placas:</b> {placas_v}</p>
+                                <p><b>Número de Serie (VIN):</b> {vin_v}</p>
+                                <p><b>No. Tarjeta Circulación:</b> {tc_v}</p>
+                                <p><b>Arrendadora:</b> {arrendadora_v}</p>
+                            </div>
+                            <div>
+                                <p><b>Tipo / Línea:</b> {tipo_v} - {linea_v}</p>
+                                <p><b>Ubicación / OOAD:</b> {ubicacion_v}</p>
+                                <p><b>Último Servicio:</b> {servicio_v}</p>
+                                <p><b>Cuota Diaria:</b> ${cuota_val:,.2f}</p>
+                            </div>
                         </div>
                     </div>
-                </div>
-                """,
-            unsafe_allow_html=True,
-        )
+                    """,
+                    unsafe_allow_html=True,
+                )
 
-      st.markdown("---")
-      t1, t2, t3 = st.tabs([
-          "Galería de Inspección Física",
-          "Expediente Documental (PDF/Visor)",
-          "Historial de Mantenimientos",
-      ])
+            st.markdown("---")
+            t1, t2, t3 = st.tabs([
+                "Galería de Inspección Física",
+                "Expediente Documental (PDF/Visor)",
+                "Historial de Mantenimientos",
+            ])
 
-      with t1:
-        st.markdown("##### **Evidencia Fotográfica de la Unidad**")
-        g1, g2, g3, g4 = st.columns(4)
-        g1.markdown("**Vista Frontal**")
-        g1.info("📷 [Foto Frontal]")
-        g2.markdown("**Lateral Derecha**")
-        g2.info("📷 [Foto Lat. Der.]")
-        g3.markdown("**Lateral Izquierda**")
-        g3.info("📷 [Foto Lat. Izq.]")
-        g4.markdown("**Vista Trasera**")
-        g4.info("📷 [Foto Trasera]")
+            with t1:
+                st.markdown("##### **Evidencia Fotográfica de la Unidad**")
+                g1, g2, g3, g4 = st.columns(4)
+                g1.markdown("**Vista Frontal**")
+                g1.info("📷 [Foto Frontal]")
+                g2.markdown("**Lateral Derecha**")
+                g2.info("📷 [Foto Lat. Der.]")
+                g3.markdown("**Lateral Izquierda**")
+                g3.info("📷 [Foto Lat. Izq.]")
+                g4.markdown("**Vista Trasera**")
+                g4.info("📷 [Foto Trasera]")
 
-      with t2:
-        st.markdown("##### **Documentos Oficiales Registrados**")
-        df_docs = pd.DataFrame(columns=[
-            "Tipo Documento",
-            "Nombre Archivo",
-            "Fecha de Carga",
-            "Estado Documental",
-        ])
-        st.dataframe(df_docs, use_container_width=True, hide_index=True)
+            with t2:
+                st.markdown("##### **Documentos Oficiales Registrados**")
+                df_docs = pd.DataFrame(columns=[
+                    "Tipo Documento",
+                    "Nombre Archivo",
+                    "Fecha de Carga",
+                    "Estado Documental",
+                ])
+                st.dataframe(df_docs, use_container_width=True, hide_index=True)
 
-      with t3:
-        st.markdown("##### **Bitácora de Servicios e Intervenciones**")
-        hist_taller = [
-            r for r in st.session_state.taller_registros if r["ECO"] == eco_search
-        ]
-        if hist_taller:
-          st.dataframe(
-              pd.DataFrame(hist_taller),
-              use_container_width=True,
-              hide_index=True,
-          )
-        else:
-          st.caption(
-              "No se registran mantenimientos o siniestros previos para este ECO."
+            with t3:
+                st.markdown("##### **Bitácora de Servicios e Intervenciones**")
+                hist_taller = [
+                    r for r in st.session_state.get("taller_registros", []) if r.get("ECO") == eco_val
+                ]
+                if hist_taller:
+                    st.dataframe(
+                        pd.DataFrame(hist_taller),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+                else:
+                    st.caption("No se registran mantenimientos o siniestros previos para este ECO.")
           )
 
 # 6. REGISTRO DE TALLER E INCIDENCIAS (PERSISTIDO EN SUPABASE)
