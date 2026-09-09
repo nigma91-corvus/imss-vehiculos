@@ -423,7 +423,7 @@ with st.sidebar:
     )
     
     st.markdown(
-        "<p style='font-size: 11px; margin-top: 4px; margin-bottom: 2px;'><b>SELECCIONAR FLOTILLA:</b></p>",
+        "<p style='font-size: 11px; margin-top: -45px; margin-bottom: 2px;'><b>SELECCIONAR FLOTILLA:</b></p>",
         unsafe_allow_html=True,
     )
 
