@@ -379,39 +379,15 @@ with st.sidebar:
     st.markdown(
         """
         <style>
-            /* 1. Reduce el espacio vertical general entre todos los bloques principales del sidebar */
-            [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-                gap: 0px !important;
+            /* 1. Controla la separación general entre los elementos de la barra lateral */
+            [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
+                gap: 4px !important;
             }
-
-            /* 2. Fuerza a que cada contenedor individual de elemento en Streamlit no agregue margen abajo */
-            [data-testid="stSidebar"] div.element-container {
-                margin-bottom: -10px !important;
-            }
-
-            /* 3. Compacta de forma agresiva los márgenes superior e inferior de los botones de flotilla */
-            [data-testid="stSidebar"] .stButton {
-                margin-top: -12px !important;
-                margin-bottom: -12px !important;
-            }
-
-            /* 4. Reduce la altura interna y el relleno (padding) de los botones para hacerlos más compactos */
+            
+            /* 2. Mantiene los botones de flotilla compactos y ordenados */
             [data-testid="stSidebar"] .stButton button {
-                min-height: 24px !important;
-                padding-top: 1px !important;
-                padding-bottom: 1px !important;
-            }
-
-            /* 5. Elimina los márgenes en títulos y textos para evitar espacios muertos */
-            [data-testid="stSidebar"] p, [data-testid="stSidebar"] label {
-                margin-bottom: 0px !important;
-                margin-top: 0px !important;
-            }
-
-            /* 6. Sube y compacta el bloque completo del menú de radio (Módulos del Sistema) */
-            [data-testid="stSidebar"] div.stRadio {
-                margin-top: -15px !important;
-                margin-bottom: -15px !important;
+                min-height: 32px !important;
+                padding: 2px 8px !important;
             }
         </style>
         """,
