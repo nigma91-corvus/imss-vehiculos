@@ -2270,13 +2270,14 @@ elif mod_actual == "Conciliación Financiera y Pagos":
         unsafe_allow_html=True,
     )
     st.info(
-        "💡 **Control y Sincronización Supabase:** Cargue su archivo mensual de conciliación en Excel/XLSX para auditar, visualizar métricas y guardarlo automáticamente en la base de datos histórica."
+        "💡 **Control y Sincronización Supabase:** Cargue su archivo mensual de conciliación en Excel o CSV para auditar, visualizar métricas y guardarlo automáticamente en la base de datos histórica."
     )
 
     f_up_col1, f_up_col2 = st.columns(2)
     with f_up_col1:
         archivo_p = st.file_uploader(
-            "Cargar Archivo Mensual de Conciliación (.xlsx / .xls):", type=["xlsx", "xls"]
+            "Cargar Archivo Mensual de Conciliación (.xlsx / .xls / .csv):", 
+            type=["xlsx", "xls", "csv"]
         )
     with f_up_col2:
         archivo_pdf_mensual = st.file_uploader(
@@ -2287,9 +2288,15 @@ elif mod_actual == "Conciliación Financiera y Pagos":
     if archivo_p is not None:
         try:
             if archivo_p.name.endswith('.csv'):
-                st.session_state.pagos_cargados = pd.read_csv(archivo_p, dtype=str)
+                try:
+                    st.session_state.pagos_cargados = pd.read_csv(archivo_p, encoding='utf-8-sig', dtype=str)
+                except UnicodeDecodeError:
+                    st.session_state.pagos_cargados = pd.read_csv(archivo_p, encoding='latin1', dtype=str)
             else:
                 st.session_state.pagos_cargados = pd.read_excel(archivo_p, dtype=str)
+            
+            # Normalizar nombres de columnas (quitar espacios y pasar a minúsculas para estandarizar)
+            st.session_state.pagos_cargados.columns = st.session_state.pagos_cargados.columns.str.strip()
             st.success(f"✅ Archivo '{archivo_p.name}' leído y cargado en memoria.")
             
             # Botón para sincronizar masivamente con Supabase
@@ -2298,53 +2305,58 @@ elif mod_actual == "Conciliación Financiera y Pagos":
                     registros = []
                     df_temp = st.session_state.pagos_cargados
                     
-                    # Determinamos el mes actual para el registro
-                    mes_registro = mes_corte if 'mes_corte' in locals() else "Septiembre 2026"
+                    mes_registro = mes_corte if 'mes_corte' in locals() and mes_corte != "Acumulado Histórico Total" else "Septiembre 2026"
                     
                     for _, row in df_temp.iterrows():
-                        def val(col, default=""):
-                            v = row.get(col, default)
-                            return default if pd.isna(v) else v
+                        def val(col_candidates, default=""):
+                            if isinstance(col_candidates, str):
+                                col_candidates = [col_candidates]
+                            for c in col_candidates:
+                                if c in row and not pd.isna(row[c]):
+                                    return str(row[c])
+                            return default
 
-                        def num(col):
-                            v = row.get(col, 0)
-                            if pd.isna(v):
-                                return 0.0
-                            try:
-                                return float(str(v).replace("$", "").replace(",", ""))
-                            except:
-                                return 0.0
+                        def num(col_candidates):
+                            if isinstance(col_candidates, str):
+                                col_candidates = [col_candidates]
+                            for c in col_candidates:
+                                if c in row and not pd.isna(row[c]):
+                                    v = row[c]
+                                    try:
+                                        return float(str(v).replace("$", "").replace(",", ""))
+                                    except:
+                                        pass
+                            return 0.0
 
                         registros.append({
                             "mes_corte": mes_registro,
-                            "arrendadora": str(val("Arrendadora", arr_sel_p if 'arr_sel_p' in locals() else "General")),
-                            "part": str(val("Part")),
-                            "no_orden": str(val("No. ")),
-                            "eco": str(val("No. Ecco.")),
-                            "ast": str(val("AST")),
-                            "tipo": str(val("Tipo")),
-                            "linea": str(val("Linea")),
-                            "ubicacion": str(val("UBICACIÓN")),
-                            "fecha_acta_inicio": str(val("FECHA ACTA DE INICIO       (Ultima Fecha Hugo)", None))[:10] if not pd.isna(val("FECHA ACTA DE INICIO       (Ultima Fecha Hugo)", None)) else None,
-                            "fecha_constancia": str(val("FECHA CONSTANCIA", None))[:10] if not pd.isna(val("FECHA CONSTANCIA", None)) else None,
-                            "obs": str(val("OBS")),
-                            **{f"d_{d}": str(val(d)) for d in range(1, 31) if d in df_temp.columns},
-                            "col_a": str(val("A")),
-                            "col_x": str(val("X")),
-                            "total_dias_servicio": num("TOTAL DÍAS DE SERVICIO"),
-                            "cuota_diaria": num("CUOTA DIARIA"),
-                            "costo_mensual_sin_iva": num("COSTO MENSUAL SIN IVA (a)"),
-                            "total_a_pagar": num("TOTAL A PAGAR (b)"),
-                            "observaciones": str(val("OBSERVACIONES")),
-                            "dia_natural_retraso": num("DÍA NATURAL DE RETRASO"),
-                            "dias_reales_deductivas": num("DIAS REALES DE DEDUCTIVAS"),
-                            "tasa_1_porciento": num("1% TARIFA DIARIA"),
-                            "total_deduccion": num("TOTAL DE DEDUCCIÓN"),
+                            "arrendadora": val(["arrendadora", "Arrendadora"], arr_sel_p if 'arr_sel_p' in locals() else "General"),
+                            "part": val(["part", "Part"]),
+                            "no_orden": val(["no_orden", "No. ", "No. de Orden"]),
+                            "eco": val(["eco", "No. Ecco.", "ECO"]),
+                            "ast": val(["ast", "AST"]),
+                            "tipo": val(["tipo", "Tipo"]),
+                            "linea": val(["linea", "Linea"]),
+                            "ubicacion": val(["ubicacion", "UBICACIÓN", "Ubicación"]),
+                            "fecha_acta_inicio": val(["fecha_acta_inicio", "FECHA ACTA DE INICIO      (Ultima Fecha Hugo)"])[:10] if val(["fecha_acta_inicio", "FECHA ACTA DE INICIO      (Ultima Fecha Hugo)"]) else None,
+                            "fecha_constancia": val(["fecha_constancia", "FECHA CONSTANCIA"])[:10] if val(["fecha_constancia", "FECHA CONSTANCIA"]) else None,
+                            "obs": val(["obs", "OBS"]),
+                            **{f"d_{d}": val(f"d_{d}") for d in range(1, 31) if f"d_{d}" in df_temp.columns},
+                            "col_a": val(["col_a", "A"]),
+                            "col_x": val(["col_x", "X"]),
+                            "total_dias_servicio": num(["total_dias_servicio", "TOTAL DÍAS DE SERVICIO"]),
+                            "cuota_diaria": num(["cuota_diaria", "CUOTA DIARIA"]),
+                            "costo_mensual_sin_iva": num(["costo_mensual_sin_iva", "COSTO MENSUAL SIN IVA (a)"]),
+                            "total_a_pagar": num(["total_a_pagar", "TOTAL A PAGAR (b)"]),
+                            "observaciones": val(["observaciones", "OBSERVACIONES"]),
+                            "dia_natural_retraso": num(["dia_natural_retraso", "DÍA NATURAL DE RETRASO"]),
+                            "dias_reales_deductivas": num(["dias_reales_deductivas", "DIAS REALES DE DEDUCTIVAS"]),
+                            "tasa_1_porciento": num(["tasa_1_porciento", "1% TARIFA DIARIA"]),
+                            "total_deduccion": num(["total_deduccion", "TOTAL DE DEDUCCIÓN"]),
                             "fecha_corte": str(date.today())
                         })
                     
-                    # Inserción en Supabase
-                    response = supabase.table("reportes_mensuales").insert(registros).execute()
+                    supabase.table("reportes_mensuales").insert(registros).execute()
                     st.success("✅ ¡Histórico sincronizado y almacenado correctamente en Supabase!")
         except Exception as e:
             st.error(f"Error al procesar el archivo: {e}")
@@ -2400,23 +2412,24 @@ elif mod_actual == "Conciliación Financiera y Pagos":
         except Exception as e:
             st.warning(f"No se pudo consultar Supabase directamente: {e}. Usando datos en memoria.")
 
-    # Fallback a memoria si Supabase no arrojó datos o no está conectado
     if df_p.empty and "pagos_cargados" in st.session_state and not st.session_state.pagos_cargados.empty:
         df_p = st.session_state.pagos_cargados.copy()
-    elif df_p.empty:
+    elif df_p.empty and 'df_base' in locals() and not df_base.empty:
         df_p = df_base.copy()
 
-    # Normalizar nombres de columnas comunes para asegurar compatibilidad de visualización
-    if "arrendadora" in df_p.columns and "Arrendadora" not in df_p.columns:
-        df_p["Arrendadora"] = df_p["arrendadora"]
-    if "costo_mensual_sin_iva" in df_p.columns and "COSTO MENSUAL SIN IVA (a)" not in df_p.columns:
-        df_p["COSTO MENSUAL SIN IVA (a)"] = df_p["costo_mensual_sin_iva"]
-    if "total_deduccion" in df_p.columns and "TOTAL DE DEDUCCIÓN" not in df_p.columns:
-        df_p["TOTAL DE DEDUCCIÓN"] = df_p["total_deduccion"]
-    if "total_a_pagar" in df_p.columns and "TOTAL A PAGAR (b)" not in df_p.columns:
-        df_p["TOTAL A PAGAR (b)"] = df_p["total_a_pagar"]
-    if "ubicacion" in df_p.columns and "UBICACIÓN" not in df_p.columns:
-        df_p["UBICACIÓN"] = df_p["ubicacion"]
+    # Normalizar nombres de columnas para asegurar compatibilidad de visualización
+    if not df_p.empty:
+        df_p.columns = [str(c).strip() for c in df_p.columns]
+        if "arrendadora" in df_p.columns and "Arrendadora" not in df_p.columns:
+            df_p["Arrendadora"] = df_p["arrendadora"]
+        if "costo_mensual_sin_iva" in df_p.columns and "COSTO MENSUAL SIN IVA (a)" not in df_p.columns:
+            df_p["COSTO MENSUAL SIN IVA (a)"] = df_p["costo_mensual_sin_iva"]
+        if "total_deduccion" in df_p.columns and "TOTAL DE DEDUCCIÓN" not in df_p.columns:
+            df_p["TOTAL DE DEDUCCIÓN"] = df_p["total_deduccion"]
+        if "total_a_pagar" in df_p.columns and "TOTAL A PAGAR (b)" not in df_p.columns:
+            df_p["TOTAL A PAGAR (b)"] = df_p["total_a_pagar"]
+        if "ubicacion" in df_p.columns and "UBICACIÓN" not in df_p.columns:
+            df_p["UBICACIÓN"] = df_p["ubicacion"]
 
     arr_opciones = ["Todas"] + (
         list(df_p["Arrendadora"].dropna().unique())
@@ -2473,7 +2486,8 @@ elif mod_actual == "Conciliación Financiera y Pagos":
         else pd.DataFrame(columns=cols_fin),
         use_container_width=True,
         hide_index=True,
-    )# -----------------------------------------------------------------------------
+    )
+# -----------------------------------------------------------------------------
 # FIRMA INSTITUCIONAL FINAL OBLIGATORIA
 # -----------------------------------------------------------------------------
 st.markdown("""
