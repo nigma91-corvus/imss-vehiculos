@@ -2376,13 +2376,10 @@ elif mod_actual == "Conciliación Financiera y Pagos":
             pass
 
     st.markdown("---")
-    st.markdown("##### **Selección de Lapso de Tiempo y Filtros**")
-    f_col1, f_col2, f_col3 = st.columns(3)
-    
-    usar_rango = f_col1.checkbox("Filtrar por Lapso de Tiempo Específico (Fechas)", value=False)
+    st.markdown("##### **Selección de Meses y Filtros Múltiples**")
     
     # Carga Dinámica y Ordenada de Meses desde Supabase
-    meses_disponibles = ["Acumulado Histórico Total"]
+    meses_disponibles = []
     if supabase:
         try:
             res_meses = supabase.table("reportes_mensuales").select("mes_corte").execute()
@@ -2405,34 +2402,26 @@ elif mod_actual == "Conciliación Financiera y Pagos":
                         return (0, 0)
                     
                     meses_unicos.sort(key=clave_orden, reverse=True)
-                    for m in meses_unicos:
-                        if m not in meses_disponibles:
-                            meses_disponibles.append(m)
+                    meses_disponibles = meses_unicos
         except Exception:
             pass
 
-    if usar_rango:
-        fecha_inicio = f_col2.date_input("Fecha de Inicio:", value=date(2025, 1, 1))
-        fecha_fin = f_col3.date_input("Fecha de Fin:", value=date.today())
-        st.info(f"Mostrando transacciones financieras en el lapso del {fecha_inicio} al {fecha_fin}.")
-    else:
-        mes_corte = f_col2.selectbox(
-            "Mes de Corte a Consultar:",
-            meses_disponibles,
-            key="selectbox_mes_corte_dinamico"
-        )
+    if not meses_disponibles:
+        meses_disponibles = ["Julio 2025", "Agosto 2025", "Septiembre 2025"]
 
-    # 3. Consulta Inteligente desde Supabase o Memoria Local
+    # Selector múltiple para elegir los meses que deseas sumar
+    meses_seleccionados = st.multiselect(
+        "Seleccione uno o varios meses para acumular y sumar:",
+        options=meses_disponibles,
+        default=meses_disponibles[:1] if meses_disponibles else [],
+        key="multiselect_meses_corte"
+    )
+
+    # 3. Consulta Inteligente en Supabase filtrando por los meses elegidos
     df_p = pd.DataFrame()
-    if supabase:
+    if supabase and meses_seleccionados:
         try:
-            query_sb = supabase.table("reportes_mensuales").select("*")
-            if not usar_rango and mes_corte != "Acumulado Histórico Total":
-                query_sb = query_sb.eq("mes_corte", mes_corte)
-            elif usar_rango:
-                query_sb = query_sb.gte("fecha_corte", str(fecha_inicio)).lte("fecha_corte", str(fecha_fin))
-            
-            res = query_sb.execute()
+            res = supabase.table("reportes_mensuales").select("*").in_("mes_corte", meses_seleccionados).execute()
             if res.data:
                 df_p = pd.DataFrame(res.data)
         except Exception as e:
@@ -2467,7 +2456,7 @@ elif mod_actual == "Conciliación Financiera y Pagos":
     if arr_sel_p != "Todas" and not df_p.empty and "Arrendadora" in df_p.columns:
         df_p = df_p[df_p["Arrendadora"] == arr_sel_p]
 
-    # 4. Cálculo de métricas financieras
+    # 4. Cálculo de métricas financieras acumuladas
     monto_sub = (
         pd.to_numeric(df_p["COSTO MENSUAL SIN IVA (a)"], errors="coerce").sum()
         if "COSTO MENSUAL SIN IVA (a)" in df_p.columns
@@ -2485,7 +2474,7 @@ elif mod_actual == "Conciliación Financiera y Pagos":
     )
 
     c_m1, c_m2, c_m3 = st.columns(3)
-    c_m1.metric("Subtotal Sin IVA", f"${monto_sub:,.2f}")
+    c_m1.metric("Subtotal Sin IVA Acumulado", f"${monto_sub:,.2f}")
     c_m2.metric(
         "Deducciones Totales Aplicadas",
         f"${monto_ded:,.2f}",
