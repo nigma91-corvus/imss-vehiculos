@@ -2270,21 +2270,24 @@ elif mod_actual == "Conciliación Financiera y Pagos":
         unsafe_allow_html=True,
     )
     st.info(
-        "💡 **Control y Sincronización Supabase:** Cargue su archivo mensual de conciliación en Excel o CSV para auditar, visualizar métricas y guardarlo automáticamente en la base de datos histórica."
+        f"💡 **Control y Sincronización Supabase:** Cargue su archivo mensual de conciliación para **{cat_actual}** (asegúrese de incluir la columna de flotilla o clasificarla previamente)."
     )
 
     f_up_col1, f_up_col2 = st.columns(2)
     with f_up_col1:
         archivo_p = st.file_uploader(
             "Cargar Archivo Mensual de Conciliación (.xlsx / .xls / .csv):", 
-            type=["xlsx", "xls", "csv"]
+            type=["xlsx", "xls", "csv"],
+            key=f"uploader_{cat_actual}"
         )
     with f_up_col2:
         archivo_pdf_mensual = st.file_uploader(
-            "Cargar PDF de Evidencias / Constancias (.pdf):", type=["pdf"]
+            "Cargar PDF de Evidencias / Constancias (.pdf):", 
+            type=["pdf"],
+            key=f"pdf_uploader_{cat_actual}"
         )
 
-    # 1. Procesamiento de archivo cargado localmente y guardado opcional en Supabase
+    # 1. Procesamiento de archivo y lectura de la columna "flotilla" del archivo
     if archivo_p is not None:
         try:
             if archivo_p.name.endswith('.csv'):
@@ -2295,12 +2298,11 @@ elif mod_actual == "Conciliación Financiera y Pagos":
             else:
                 st.session_state.pagos_cargados = pd.read_excel(archivo_p, dtype=str)
             
-            # Normalizar nombres de columnas (quitar espacios y pasar a minúsculas para estandarizar)
             st.session_state.pagos_cargados.columns = st.session_state.pagos_cargados.columns.str.strip()
-            st.success(f"✅ Archivo '{archivo_p.name}' leído y cargado en memoria.")
+            st.success(f"✅ Archivo '{archivo_p.name}' leído correctamente en memoria.")
             
-            # Botón para sincronizar masivamente con Supabase
-            if supabase and st.button("💾 Sincronizar y Guardar este Mes en Supabase"):
+            # Botón para sincronizar masivamente con Supabase respetando la flotilla del archivo o la pantalla actual
+            if supabase and st.button(f"💾 Sincronizar y Guardar en Supabase"):
                 with st.spinner("Guardando registros en Supabase..."):
                     registros = []
                     df_temp = st.session_state.pagos_cargados
@@ -2328,8 +2330,12 @@ elif mod_actual == "Conciliación Financiera y Pagos":
                                         pass
                             return 0.0
 
+                        # Captura la flotilla directamente del archivo si trae la columna, si no, usa la del menú lateral
+                        flotilla_fila = val(["flotilla", "Flotilla", "FLOTILLA"], cat_actual)
+
                         registros.append({
                             "mes_corte": mes_registro,
+                            "flotilla": flotilla_fila,  # <--- Lee la clasificación exacta del CSV/Excel
                             "arrendadora": val(["arrendadora", "Arrendadora"], arr_sel_p if 'arr_sel_p' in locals() else "General"),
                             "part": val(["part", "Part"]),
                             "no_orden": val(["no_orden", "No. ", "No. de Orden"]),
@@ -2357,7 +2363,7 @@ elif mod_actual == "Conciliación Financiera y Pagos":
                         })
                     
                     supabase.table("reportes_mensuales").insert(registros).execute()
-                    st.success("✅ ¡Histórico sincronizado y almacenado correctamente en Supabase!")
+                    st.success("✅ ¡Histórico sincronizado y almacenado correctamente en Supabase segmentado por su flotilla!")
         except Exception as e:
             st.error(f"Error al procesar el archivo: {e}")
 
@@ -2376,13 +2382,13 @@ elif mod_actual == "Conciliación Financiera y Pagos":
             pass
 
     st.markdown("---")
-    st.markdown("##### **Selección de Meses y Filtros Múltiples**")
+    st.markdown(f"##### **Selección de Meses - Vista de Flotilla: {cat_actual}**")
     
-    # Carga Dinámica y Ordenada de Meses desde Supabase
+    # Carga Dinámica de Meses filtrados exclusivamente para la Flotilla seleccionada en la app
     meses_disponibles = []
     if supabase:
         try:
-            res_meses = supabase.table("reportes_mensuales").select("mes_corte").execute()
+            res_meses = supabase.table("reportes_mensuales").select("mes_corte").eq("flotilla", cat_actual).execute()
             if res_meses.data:
                 df_meses_db = pd.DataFrame(res_meses.data)
                 if "mes_corte" in df_meses_db.columns:
@@ -2409,30 +2415,30 @@ elif mod_actual == "Conciliación Financiera y Pagos":
     if not meses_disponibles:
         meses_disponibles = ["Julio 2025", "Agosto 2025", "Septiembre 2025"]
 
-    # Selector múltiple para elegir los meses que deseas sumar
+    # Selector múltiple con llave independiente por categoría
     meses_seleccionados = st.multiselect(
         "Seleccione uno o varios meses para acumular y sumar:",
         options=meses_disponibles,
         default=meses_disponibles[:1] if meses_disponibles else [],
-        key="multiselect_meses_corte"
+        key=f"multiselect_meses_{cat_actual}"
     )
 
-    # 3. Consulta Inteligente en Supabase filtrando por los meses elegidos
+    # 3. Consulta Inteligente filtrando estrictamente por Meses Y por la Flotilla actual
     df_p = pd.DataFrame()
     if supabase and meses_seleccionados:
         try:
-            res = supabase.table("reportes_mensuales").select("*").in_("mes_corte", meses_seleccionados).execute()
+            res = supabase.table("reportes_mensuales").select("*").eq("flotilla", cat_actual).in_("mes_corte", meses_seleccionados).execute()
             if res.data:
                 df_p = pd.DataFrame(res.data)
         except Exception as e:
-            st.warning(f"No se pudo consultar Supabase directamente: {e}. Usando datos en memoria.")
+            st.warning(f"No se pudo consultar Supabase directamente: {e}.")
 
     if df_p.empty and "pagos_cargados" in st.session_state and not st.session_state.pagos_cargados.empty:
         df_p = st.session_state.pagos_cargados.copy()
-    elif df_p.empty and 'df_base' in locals() and not df_base.empty:
-        df_p = df_base.copy()
+        if "flotilla" in df_p.columns:
+            df_p = df_p[df_p["flotilla"] == cat_actual]
 
-    # Normalizar nombres de columnas para asegurar compatibilidad de visualización
+    # Normalizar nombres de columnas
     if not df_p.empty:
         df_p.columns = [str(c).strip() for c in df_p.columns]
         if "arrendadora" in df_p.columns and "Arrendadora" not in df_p.columns:
@@ -2451,7 +2457,7 @@ elif mod_actual == "Conciliación Financiera y Pagos":
         if "Arrendadora" in df_p.columns
         else []
     )
-    arr_sel_p = st.selectbox("Filtrar por Arrendadora:", arr_opciones)
+    arr_sel_p = st.selectbox("Filtrar por Arrendadora:", arr_opciones, key=f"arr_sel_{cat_actual}")
 
     if arr_sel_p != "Todas" and not df_p.empty and "Arrendadora" in df_p.columns:
         df_p = df_p[df_p["Arrendadora"] == arr_sel_p]
