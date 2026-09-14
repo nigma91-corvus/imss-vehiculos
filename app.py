@@ -2305,7 +2305,7 @@ elif mod_actual == "Conciliación Financiera y Pagos":
                     registros = []
                     df_temp = st.session_state.pagos_cargados
                     
-                    mes_registro = mes_corte if 'mes_corte' in locals() and mes_corte != "Acumulado Histórico Total" else "Septiembre 2026"
+                    mes_registro = mes_corte if 'mes_corte' in locals() and mes_corte != "Acumulado Histórico Total" else "Julio 2025"
                     
                     for _, row in df_temp.iterrows():
                         def val(col_candidates, default=""):
@@ -2381,19 +2381,45 @@ elif mod_actual == "Conciliación Financiera y Pagos":
     
     usar_rango = f_col1.checkbox("Filtrar por Lapso de Tiempo Específico (Fechas)", value=False)
     
+    # Carga Dinámica y Ordenada de Meses desde Supabase
+    meses_disponibles = ["Acumulado Histórico Total"]
+    if supabase:
+        try:
+            res_meses = supabase.table("reportes_mensuales").select("mes_corte").execute()
+            if res_meses.data:
+                df_meses_db = pd.DataFrame(res_meses.data)
+                if "mes_corte" in df_meses_db.columns:
+                    meses_unicos = df_meses_db["mes_corte"].dropna().unique().tolist()
+                    
+                    orden_meses = {
+                        "Enero": 1, "Febrero": 2, "Marzo": 3, "Abril": 4, 
+                        "Mayo": 5, "Junio": 6, "Julio": 7, "Agosto": 8, 
+                        "Septiembre": 9, "Octubre": 10, "Noviembre": 11, "Diciembre": 12
+                    }
+                    
+                    def clave_orden(m):
+                        partes = str(m).split()
+                        if len(partes) == 2:
+                            mes_txt, anio_txt = partes[0], partes[1]
+                            return (int(anio_txt), orden_meses.get(mes_txt, 0))
+                        return (0, 0)
+                    
+                    meses_unicos.sort(key=clave_orden, reverse=True)
+                    for m in meses_unicos:
+                        if m not in meses_disponibles:
+                            meses_disponibles.append(m)
+        except Exception:
+            pass
+
     if usar_rango:
-        fecha_inicio = f_col2.date_input("Fecha de Inicio:", value=date(2026, 1, 1))
+        fecha_inicio = f_col2.date_input("Fecha de Inicio:", value=date(2025, 1, 1))
         fecha_fin = f_col3.date_input("Fecha de Fin:", value=date.today())
         st.info(f"Mostrando transacciones financieras en el lapso del {fecha_inicio} al {fecha_fin}.")
     else:
         mes_corte = f_col2.selectbox(
             "Mes de Corte a Consultar:",
-            [
-                "Acumulado Histórico Total",
-                "Septiembre 2026",
-                "Agosto 2026",
-                "Julio 2026",
-            ],
+            meses_disponibles,
+            key="selectbox_mes_corte_dinamico"
         )
 
     # 3. Consulta Inteligente desde Supabase o Memoria Local
