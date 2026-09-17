@@ -203,6 +203,36 @@ else:
 
     # (Opcional) Si quieres mostrar la métrica del costo total en dinero en otra tarjeta o sección:
     st.metric("Costo Acumulado Total en Incidencias", f"${total_importe:,.2f}")
+if not df_movilidad.empty:
+    # Validar que existan las columnas esenciales
+    if "estatus_actual" in df_movilidad.columns:
+        df_movilidad["estatus_limpio"] = df_movilidad["estatus_actual"].astype(str).str.strip().str.upper()
+        estatus_fuera = ["TALLER", "SINIESTRO", "PATIO MALAS CONDICIONES", "PATIO MALAS"]
+        df_fuera = df_movilidad[df_movilidad["estatus_limpio"].isin(estatus_fuera)]
+        n_taller = len(df_fuera)
+    else:
+        n_taller = 0
+
+    n_activos = TOTAL_UNIVERSO_REAL - n_taller
+    porcentaje_movilidad = (n_activos / TOTAL_UNIVERSO_REAL) * 100
+
+    # Limpieza del costo acumulado
+    if "costo_acumulado" in df_movilidad.columns:
+        df_movilidad["costo_limpio"] = (
+            df_movilidad["costo_acumulado"]
+            .astype(str)
+            .str.replace(r"[$,]", "", regex=True)
+            .str.strip()
+        )
+        df_movilidad["costo_limpio"] = pd.to_numeric(df_movilidad["costo_limpio"], errors="coerce").fillna(0)
+        total_importe = df_movilidad["costo_limpio"].sum()
+    else:
+        total_importe = 0.0
+else:
+    n_taller = 0
+    n_activos = TOTAL_UNIVERSO_REAL
+    porcentaje_movilidad = 100.0
+    total_importe = 0.0    
 # -----------------------------------------------------------------------------
 # GESTIÓN DE IMÁGENES Y DOCUMENTOS DESDE SUPABASE STORAGE
 # -----------------------------------------------------------------------------
