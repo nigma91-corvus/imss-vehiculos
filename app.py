@@ -493,6 +493,7 @@ with st.sidebar:
     modulos = [
         "Dashboard General",
         "Semáforo de Movilidad por Ciudad",
+        "Control de Movilidad Real (1,200 Unidades)", # <--- NUEVA SECCIÓN AQUÍ
         "Control del Pool de Sustitutos (20%)",
         "Carga Inicial",
         "Expediente por ECO y Documental",
@@ -2508,6 +2509,79 @@ elif mod_actual == "Conciliación Financiera y Pagos":
         use_container_width=True,
         hide_index=True,
     )
+
+# =============================================================================
+# 10. NUEVA SECCIÓN: CONTROL DE MOVILIDAD REAL (1,200 UNIDADES)
+# =============================================================================
+
+# Función auxiliar para consultar la vista de movilidad real
+@st.cache_data(ttl=60)
+def cargar_movilidad_real_supabase(semana_corte="Semana 37 - 2026"):
+    if not supabase:
+        return pd.DataFrame()
+    try:
+        response = supabase.table("vista_movilidad_real").select("*").eq("semana_corte", semana_corte).execute()
+        data = response.data
+        if data:
+            return pd.DataFrame(data)
+        return pd.DataFrame()
+    except Exception as e:
+        return pd.DataFrame()
+
+elif mod_actual == "Control de Movilidad Real (1,200 Unidades)":
+    st.markdown(
+        f'<p class="subtitulo-seccion">Control de Movilidad Real y Padrón Maestro (Universo Fijo: 1,200 Unidades)</p>',
+        unsafe_allow_html=True,
+    )
+    st.info("💡 Este módulo evalúa de forma estricta el parque vehicular total registrado en el catálogo maestro frente a los reportes semanales, garantizando un cálculo de movilidad exacto y sin sobrepasar el 100%.")
+
+    # Selector de semana de corte
+    col_s1, col_s2 = st.columns([2, 2])
+    semana_seleccionada = col_s1.selectbox(
+        "Seleccionar Semana de Corte:",
+        ["Semana 37 - 2026", "Semana 38 - 2026", "Semana 39 - 2026"]
+    )
+
+    # Cargar datos desde la vista inteligente
+    df_mov_real = cargar_movilidad_real_supabase(semana_seleccionada)
+
+    TOTAL_UNIVERSO_REAL = 1200  # Universo fijo institucional
+
+    if not df_mov_real.empty:
+        total_registrados_cat = len(df_mov_real)
+        
+        n_laborando = len(df_mov_real[df_mov_real["estatus_actual"].str.lower() == "laborando"])
+        n_taller = len(df_mov_real[df_mov_real["estatus_actual"].str.lower().str.contains("taller")])
+        n_siniestro = len(df_mov_real[df_mov_real["estatus_actual"].str.lower().str.contains("siniestro")])
+        n_otros = total_registrados_cat - (n_laborando + n_taller + n_siniestro)
+
+        porcentaje_movilidad = (n_laborando / TOTAL_UNIVERSO_REAL) * 100
+
+        mc1, mc2, mc3, mc4 = st.columns(4)
+        mc1.metric("Universo Padrón Objetivo", f"{TOTAL_UNIVERSO_REAL:,}")
+        mc2.metric("Unidades Laborando (Activas)", f"{n_laborando:,}")
+        mc3.metric("Unidades en Taller / Fuera", f"{n_taller + n_siniestro:,}", delta_color="inverse")
+        mc4.metric("Porcentaje de Movilidad Real", f"{porcentaje_movilidad:.1f}%")
+
+        st.markdown("---")
+        st.markdown(f"##### **Desglose Detallado del Padrón — {semana_seleccionada}**")
+
+        estatus_unicos = ["Todos"] + list(df_mov_real["estatus_actual"].dropna().unique())
+        filtro_est = st.selectbox("Filtrar vista por Estatus Actual:", estatus_unicos)
+
+        df_tabla_mostrar = df_mov_real.copy()
+        if filtro_est != "Todos":
+            df_tabla_mostrar = df_tabla_mostrar[df_tabla_mostrar["estatus_actual"] == filtro_est]
+
+        st.dataframe(
+            df_tabla_mostrar,
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.warning(f"⚠️ No se encontraron registros en la vista inteligente para la **{semana_seleccionada}**. Asegúrate de haber subido tu catálogo maestro y los reportes semanales correspondientes.")
+
+  
 # -----------------------------------------------------------------------------
 # FIRMA INSTITUCIONAL FINAL OBLIGATORIA
 # -----------------------------------------------------------------------------
