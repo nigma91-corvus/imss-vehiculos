@@ -165,36 +165,35 @@ def cargar_movilidad_real_supabase(semana_corte="Semana 37 - 2026"):
 TOTAL_UNIVERSO_REAL = 1200
 
 # 1. Cargamos los datos de la vista que acabamos de actualizar en Supabase
-    df_movilidad = cargar_movilidad_real_supabase("Semana 37 - 2026") # O la variable donde guardes tu DataFrame
+df_movilidad = cargar_movilidad_real_supabase("Semana 37 - 2026")
 
-    if not df_movilidad.empty:
-        # Contamos cuántas unidades están fuera (Taller, Siniestro, Patio)
-        n_taller = len(df_movilidad[
-            df_movilidad["estatus_actual"].str.upper().str.contains("TALLER|SINIESTRO|PATIO", na=False)
-        ])
-        
-        # Las activas son el resto para garantizar el universo fijo de 1,200
-        n_activos = TOTAL_UNIVERSO_REAL - n_taller
-        porcentaje_movilidad = (n_activos / TOTAL_UNIVERSO_REAL) * 100
+if not df_movilidad.empty:
+    # Contamos cuántas unidades están fuera (Taller, Siniestro, Patio)
+    n_taller = len(df_movilidad[
+        df_movilidad["estatus_actual"].str.upper().str.contains("TALLER|SINIESTRO|PATIO", na=False)
+    ])
+    
+    # Las activas son el resto para garantizar el universo fijo de 1,200
+    n_activos = TOTAL_UNIVERSO_REAL - n_taller
+    porcentaje_movilidad = (n_activos / TOTAL_UNIVERSO_REAL) * 100
 
-        # 2. Limpieza y suma del costo acumulado (para que aparezcan los millones de pesos)
-        if "costo_acumulado" in df_movilidad.columns:
-            df_movilidad["costo_limpio"] = (
-                df_movilidad["costo_acumulado"]
-                .astype(str)
-                .str.replace(r"[$,]", "", regex=True)
-                .str.strip()
-            )
-            df_movilidad["costo_limpio"] = pd.to_numeric(df_movilidad["costo_limpio"], errors="coerce").fillna(0)
-            total_importe = df_movilidad["costo_limpio"].sum()
-        else:
-            total_importe = 0.0
+    # 2. Limpieza y suma del costo acumulado (para que aparezcan los millones de pesos)
+    if "costo_acumulado" in df_movilidad.columns:
+        df_movilidad["costo_limpio"] = (
+            df_movilidad["costo_acumulado"]
+            .astype(str)
+            .str.replace(r"[$,]", "", regex=True)
+            .str.strip()
+        )
+        df_movilidad["costo_limpio"] = pd.to_numeric(df_movilidad["costo_limpio"], errors="coerce").fillna(0)
+        total_importe = df_movilidad["costo_limpio"].sum()
     else:
-        n_taller = 0
-        n_activos = TOTAL_UNIVERSO_REAL
-        porcentaje_movilidad = 100.0
         total_importe = 0.0
-
+else:
+    n_taller = 0
+    n_activos = TOTAL_UNIVERSO_REAL
+    porcentaje_movilidad = 100.0
+    total_importe = 0.0
     # -----------------------------------------------------------------------------
     # PINTAR LAS TARJETAS EN STREAMLIT
     # -----------------------------------------------------------------------------
