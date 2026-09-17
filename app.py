@@ -142,15 +142,13 @@ def cargar_movilidad_real_supabase(semana_corte="Semana 37 - 2026"):
     if not supabase:
         return pd.DataFrame()
     try:
-        # Traemos todos los registros de la vista para procesarlos de forma segura en Python
-        response = supabase.table("vista_movilidad_real").select("*").execute()
+        # AQUÍ ESTÁ EL CAMBIO CLAVE: Agregamos .range(0, 1999) para saltar el límite de 1,000 filas de Supabase
+        response = supabase.table("vista_movilidad_real").select("*").range(0, 1999).execute()
         data = response.data
         if data:
             df = pd.DataFrame(data)
-            # Filtramos por la semana seleccionada si la columna existe
             if "semana_corte" in df.columns:
                 df_filtered = df[df["semana_corte"] == semana_corte]
-                # Si por algo la vista trajo un subconjunto, aseguramos las 1,200 filas con el catálogo
                 if not df_filtered.empty:
                     return df_filtered
             return df
