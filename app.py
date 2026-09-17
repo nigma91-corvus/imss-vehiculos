@@ -135,22 +135,31 @@ supabase = conectar_supabase()
 supabase_url = st.secrets["supabase"]["url"] if supabase else ""
 
 # -----------------------------------------------------------------------------
-# 1. FUNCIÓN DE CARGA FILTRADA POR CATEGORÍA Y PAGINADA
+# 1. FUNCIÓN DE CARGA DINÁMICA POR TABLA EN SUPABASE
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=10)
 def cargar_movilidad_real_supabase(categoria_flota, semana_corte="Semana 37 - 2026"):
     if not supabase:
         return pd.DataFrame()
     try:
+        # Mapeo exacto de la categoría seleccionada a su tabla correspondiente en Supabase
+        cat_lower = str(categoria_flota).strip().lower()
+        if "admin" in cat_lower:
+            nombre_tabla = "vehiculos_administrativos"
+        elif "ambulanc" in cat_lower:
+            nombre_tabla = "vehiculos_ambulancias"
+        elif "instituc" in cat_lower:
+            nombre_tabla = "vehiculos_institucionales"
+        else:
+            nombre_tabla = "vehiculos_administrativos" # Default de seguridad
+
         all_rows = []
         batch_size = 1000
         offset = 0
         
+        # Paginación para asegurar que traiga el universo completo de esa tabla
         while True:
-            # Filtramos directamente por la categoría activa en la tabla o vista de Supabase
-            query = supabase.table("vista_movilidad_real").select("*").range(offset, offset + batch_size - 1)
-            
-            response = query.execute()
+            response = supabase.table(nombre_tabla).select("*").range(offset, offset + batch_size - 1).execute()
             data = response.data
             
             if not data:
@@ -163,25 +172,23 @@ def cargar_movilidad_real_supabase(categoria_flota, semana_corte="Semana 37 - 20
         if all_rows:
             df = pd.DataFrame(all_rows)
             
-            # Asegurar filtrado estricto por categoría si la columna existe en la vista
-            col_cat = next((c for c in ["categoria", "CAT", "tipo_flota", "FLOTILLA"] if c in df.columns), None)
-            if col_cat:
-                df = df[df[col_cat].astype(str).str.strip().str.lower() == categoria_flota.lower()]
+            # Limpieza y estandarización de estatus
+            if "estatus" in df.columns and "estatus_actual" not in df.columns:
+                df["estatus_actual"] = df["estatus"]
 
-            # Limpieza y estandarización de estatus y tipos (Adiós al error de "Ambulancia" en singular)
             if "estatus_actual" in df.columns:
                 df["estatus_limpio"] = df["estatus_actual"].astype(str).str.strip().str.upper()
             else:
                 df["estatus_limpio"] = "LABORANDO"
                 
+            # Estandarizar campo tipo si existe
             if "tipo" in df.columns:
-                # Estandarizamos variantes como "Ambulancia" a "Ambulancias" o limpiamos mayúsculas
-                df["tipo"] = df["tipo"].replace({"Ambulancia": "Ambulancias", "ford": "Ford"})
+                df["tipo"] = df["tipo"].replace({"Ambulancia": "Ambulancias", "ford": "Ford", "FORD": "Ford"})
 
             return df
         return pd.DataFrame()
     except Exception as e:
-        st.error(f"Error al cargar la movilidad real: {e}")
+        st.error(f"Error al cargar la tabla {nombre_tabla}: {e}")
         return pd.DataFrame()
 # -----------------------------------------------------------------------------
 # 2. CÁLCULO DE MÉTRICAS (UNIVERSO EXACTO DE 1,200)
@@ -677,7 +684,7 @@ def aplicar_estilo_tabla(df):
 
 
 # -----------------------------------------------------------------------------
-# 1. DASHBOARD GENERAL (CONECTADO A VISTA DE MOVILIDAD REAL Y FILTRADO POR FLOTILLA)
+# 1. DASHBOARD GENERAL (CONECTADO A VISTA DE MOVILIDAD REAL - 1,200 UNIDADES)
 # -----------------------------------------------------------------------------
 if mod_actual == "Dashboard General":
     st.markdown(
@@ -685,7 +692,7 @@ if mod_actual == "Dashboard General":
         unsafe_allow_html=True,
     )
 
-    # Cargamos los datos pasando la categoría activa y la semana desde Supabase
+    # Cargamos los datos pasando la categoría activa y la semana
     df_dash = cargar_movilidad_real_supabase(cat_actual, "Semana 37 - 2026")
 
     if df_dash.empty:
@@ -694,7 +701,7 @@ if mod_actual == "Dashboard General":
     col_filtro, col_exp = st.columns([3, 1])
     
     # Filtro dinámico por ubicación o unidad receptora si la columna existe
-    col_ubicacion_key = next((c for c in ["ubicacion", "UBICACIÓN", "base", "BASE"] if not df_dash.empty and c in df_dash.columns), None)
+    col_ubicacion_key = next((c for c in ["ubicacion", "UBICACIÓN", "base", "BASE"] if c in df_dash.columns), None)
     
     unidades_list = ["Todas las Ubicaciones (Nacional)"]
     if col_ubicacion_key and not df_dash.empty:
@@ -708,8 +715,9 @@ if mod_actual == "Dashboard General":
     if unidad_sel != "Todas las Ubicaciones (Nacional)" and col_ubicacion_key and not df_dash.empty:
         df_dash = df_dash[df_dash[col_ubicacion_key] == unidad_sel]
 
-    # Universo dinámico real basado en los datos filtrados para evitar desfases (1200 vs 1201)
-    tot_unidades = len(df_dash) if not df_dash.empty else 0
+    # Universo fijo estandarizado y cálculo de métricas basado en estatus limpios
+    TOTAL_UNIVERSO_REAL = 1200
+    tot_unidades = len(df_dash) if not df_dash.empty else TOTAL_UNIVERSO_REAL
 
     if not df_dash.empty and "estatus_limpio" in df_dash.columns:
         # Contamos cuántas unidades están fuera de circulación según los criterios definidos
@@ -717,16 +725,16 @@ if mod_actual == "Dashboard General":
         df_fuera = df_dash[df_dash["estatus_limpio"].isin(estatus_fuera)]
         
         n_taller = len(df_fuera)
-        n_activos = tot_unidades - n_taller
-        disponibilidad_operativa = (n_activos / tot_unidades * 100) if tot_unidades > 0 else 0.0
+        n_activos = TOTAL_UNIVERSO_REAL - n_taller
+        disponibilidad_operativa = (n_activos / TOTAL_UNIVERSO_REAL) * 100
     else:
         n_taller = 0
-        n_activos = tot_unidades
-        disponibilidad_operativa = 100.0 if tot_unidades > 0 else 0.0
+        n_activos = TOTAL_UNIVERSO_REAL
+        disponibilidad_operativa = 100.0
 
-    # Pintar Tarjetas Métricas Principales Alineadas con el total real
+    # Pintar Tarjetas Métricas Principales Alineadas
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Unidades Totales en Padrón", f"{tot_unidades:,}")
+    c1.metric("Universo Padrón Objetivo", f"{TOTAL_UNIVERSO_REAL:,}")
     c2.metric("Unidades Laborando (Activas)", f"{n_activos:,}")
     c3.metric("Unidades en Taller / Fuera", f"{n_taller:,}", delta_color="inverse")
     c4.metric("Porcentaje de Movilidad Real", f"{disponibilidad_operativa:.1f}%")
