@@ -165,16 +165,21 @@ TOTAL_UNIVERSO_REAL = 1200
 df_movilidad = cargar_movilidad_real_supabase("Semana 37 - 2026")
 
 if not df_movilidad.empty:
-    # Contamos estrictamente las unidades que están en las categorías de la captura
-    n_taller = len(df_movilidad[
-        df_movilidad["estatus_actual"].str.upper().str.contains("SINIESTRO|TALLER|PATIO MALAS", na=False)
-    ])
+    # Normalizamos el texto de la columna para evitar problemas de mayúsculas, acentos o espacios extra
+    df_movilidad["estatus_limpio"] = df_movilidad["estatus_actual"].astype(str).str.strip().str.upper()
     
-    # Las activas se calculan restando las 127 fuera de servicio al universo total
+    # Definimos exactamente los estatus que cuentan como "fuera de circulación"
+    estatus_fuera = ["TALLER", "SINIESTRO", "PATIO MALAS CONDICIONES", "PATIO MALAS"]
+    
+    # Contamos cuántas unidades coinciden exactamente con esos estatus
+    df_fuera = df_movilidad[df_movilidad["estatus_limpio"].isin(estatus_fuera)]
+    n_taller = len(df_fuera)
+    
+    # Si por alguna razón el conteo directo supera el universo, lo limitamos, si no, restamos
     n_activos = TOTAL_UNIVERSO_REAL - n_taller
     porcentaje_movilidad = (n_activos / TOTAL_UNIVERSO_REAL) * 100
 
-    # Limpieza y suma del costo acumulado
+    # Limpieza y suma segura del costo acumulado en dinero
     if "costo_acumulado" in df_movilidad.columns:
         df_movilidad["costo_limpio"] = (
             df_movilidad["costo_acumulado"]
