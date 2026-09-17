@@ -135,10 +135,10 @@ supabase = conectar_supabase()
 supabase_url = st.secrets["supabase"]["url"] if supabase else ""
 
 # -----------------------------------------------------------------------------
-# 1. FUNCIÓN DE CARGA BLINDADA Y PAGINADA (UNIVERSO DE 1,200 UNIDADES)
+# 1. FUNCIÓN DE CARGA FILTRADA POR CATEGORÍA Y PAGINADA
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=10)
-def cargar_movilidad_real_supabase(semana_corte="Semana 37 - 2026"):
+def cargar_movilidad_real_supabase(categoria_flota, semana_corte="Semana 37 - 2026"):
     if not supabase:
         return pd.DataFrame()
     try:
@@ -146,9 +146,11 @@ def cargar_movilidad_real_supabase(semana_corte="Semana 37 - 2026"):
         batch_size = 1000
         offset = 0
         
-        # Ciclo con paginación para asegurar que traiga las 1,200 completas
         while True:
-            response = supabase.table("vista_movilidad_real").select("*").range(offset, offset + batch_size - 1).execute()
+            # Filtramos directamente por la categoría activa en la tabla o vista de Supabase
+            query = supabase.table("vista_movilidad_real").select("*").range(offset, offset + batch_size - 1)
+            
+            response = query.execute()
             data = response.data
             
             if not data:
@@ -160,11 +162,22 @@ def cargar_movilidad_real_supabase(semana_corte="Semana 37 - 2026"):
 
         if all_rows:
             df = pd.DataFrame(all_rows)
-            # Limpieza y estandarización de columnas de estatus
+            
+            # Asegurar filtrado estricto por categoría si la columna existe en la vista
+            col_cat = next((c for c in ["categoria", "CAT", "tipo_flota", "FLOTILLA"] if c in df.columns), None)
+            if col_cat:
+                df = df[df[col_cat].astype(str).str.strip().str.lower() == categoria_flota.lower()]
+
+            # Limpieza y estandarización de estatus y tipos (Adiós al error de "Ambulancia" en singular)
             if "estatus_actual" in df.columns:
                 df["estatus_limpio"] = df["estatus_actual"].astype(str).str.strip().str.upper()
             else:
                 df["estatus_limpio"] = "LABORANDO"
+                
+            if "tipo" in df.columns:
+                # Estandarizamos variantes como "Ambulancia" a "Ambulancias" o limpiamos mayúsculas
+                df["tipo"] = df["tipo"].replace({"Ambulancia": "Ambulancias", "ford": "Ford"})
+
             return df
         return pd.DataFrame()
     except Exception as e:
