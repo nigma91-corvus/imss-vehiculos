@@ -135,27 +135,41 @@ supabase = conectar_supabase()
 supabase_url = st.secrets["supabase"]["url"] if supabase else ""
 
 # -----------------------------------------------------------------------------
-# 1. FUNCIÓN DE CARGA BLINDADA (1,200 UNIDADES)
+# 1. FUNCIÓN DE CARGA BLINDADA Y PAGINADA (UNIVERSO DE 1,200 UNIDADES)
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=10)
 def cargar_movilidad_real_supabase(semana_corte="Semana 37 - 2026"):
     if not supabase:
         return pd.DataFrame()
     try:
-        response = supabase.table("vista_movilidad_real").select("*").range(0, 1999).execute()
-        data = response.data
-        if data:
-            df = pd.DataFrame(data)
+        all_rows = []
+        batch_size = 1000
+        offset = 0
+        
+        # Ciclo con paginación para asegurar que traiga las 1,200 completas
+        while True:
+            response = supabase.table("vista_movilidad_real").select("*").range(offset, offset + batch_size - 1).execute()
+            data = response.data
+            
+            if not data:
+                break
+            all_rows.extend(data)
+            if len(data) < batch_size:
+                break
+            offset += batch_size
+
+        if all_rows:
+            df = pd.DataFrame(all_rows)
+            # Limpieza y estandarización de columnas de estatus
             if "estatus_actual" in df.columns:
-                df["estatus_actual"] = df["estatus_actual"].fillna("Laborando").replace("", "Laborando")
+                df["estatus_limpio"] = df["estatus_actual"].astype(str).str.strip().str.upper()
             else:
-                df["estatus_actual"] = "Laborando"
+                df["estatus_limpio"] = "LABORANDO"
             return df
         return pd.DataFrame()
     except Exception as e:
         st.error(f"Error al cargar la movilidad real: {e}")
         return pd.DataFrame()
-
 # -----------------------------------------------------------------------------
 # 2. CÁLCULO DE MÉTRICAS (UNIVERSO EXACTO DE 1,200)
 # -----------------------------------------------------------------------------
