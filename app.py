@@ -2526,24 +2526,9 @@ elif mod_actual == "Conciliación Financiera y Pagos":
         hide_index=True,
     )
 
-# =============================================================================
-# 10. NUEVA SECCIÓN: CONTROL DE MOVILIDAD REAL (1,200 UNIDADES)
-# =============================================================================
-
-# Función auxiliar para consultar la vista de movilidad real
-@st.cache_data(ttl=60)
-def cargar_movilidad_real_supabase(semana_corte="Semana 37 - 2026"):
-    if not supabase:
-        return pd.DataFrame()
-    try:
-        response = supabase.table("vista_movilidad_real").select("*").eq("semana_corte", semana_corte).execute()
-        data = response.data
-        if data:
-            return pd.DataFrame(data)
-        return pd.DataFrame()
-    except Exception as e:
-        return pd.DataFrame()
-
+# -----------------------------------------------------------------------------
+# 10. CONTROL DE MOVILIDAD REAL (1,200 UNIDADES)
+# -----------------------------------------------------------------------------
 elif mod_actual == "Control de Movilidad Real (1,200 Unidades)":
     st.markdown(
         f'<p class="subtitulo-seccion">Control de Movilidad Real y Padrón Maestro (Universo Fijo: 1,200 Unidades)</p>',
@@ -2596,8 +2581,6 @@ elif mod_actual == "Control de Movilidad Real (1,200 Unidades)":
         )
     else:
         st.warning(f"⚠️ No se encontraron registros en la vista inteligente para la **{semana_seleccionada}**. Asegúrate de haber subido tu catálogo maestro y los reportes semanales correspondientes.")
-
-  
 # -----------------------------------------------------------------------------
 # FIRMA INSTITUCIONAL FINAL OBLIGATORIA
 # -----------------------------------------------------------------------------
