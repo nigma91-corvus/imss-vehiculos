@@ -135,6 +135,22 @@ supabase = conectar_supabase()
 supabase_url = st.secrets["supabase"]["url"] if supabase else ""
 
 # -----------------------------------------------------------------------------
+# FUNCIÓN AUXILIAR PARA CONSULTAR LA VISTA DE MOVILIDAD REAL
+# -----------------------------------------------------------------------------
+@st.cache_data(ttl=60)
+def cargar_movilidad_real_supabase(semana_corte="Semana 37 - 2026"):
+    if not supabase:
+        return pd.DataFrame()
+    try:
+        response = supabase.table("vista_movilidad_real").select("*").eq("semana_corte", semana_corte).execute()
+        data = response.data
+        if data:
+            return pd.DataFrame(data)
+        return pd.DataFrame()
+    except Exception as e:
+        return pd.DataFrame()
+
+# -----------------------------------------------------------------------------
 # GESTIÓN DE IMÁGENES Y DOCUMENTOS DESDE SUPABASE STORAGE
 # -----------------------------------------------------------------------------
 def obtener_url_supabase(nombre_archivo, bucket="vehiculos-fotos"):
