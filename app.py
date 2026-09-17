@@ -677,7 +677,7 @@ def aplicar_estilo_tabla(df):
 
 
 # -----------------------------------------------------------------------------
-# 1. DASHBOARD GENERAL (CONECTADO A VISTA DE MOVILIDAD REAL - 1,200 UNIDADES)
+# 1. DASHBOARD GENERAL (CONECTADO A VISTA DE MOVILIDAD REAL Y FILTRADO POR FLOTILLA)
 # -----------------------------------------------------------------------------
 if mod_actual == "Dashboard General":
     st.markdown(
@@ -685,7 +685,7 @@ if mod_actual == "Dashboard General":
         unsafe_allow_html=True,
     )
 
-    # Cargamos los datos pasando la categoría activa y la semana
+    # Cargamos los datos pasando la categoría activa y la semana desde Supabase
     df_dash = cargar_movilidad_real_supabase(cat_actual, "Semana 37 - 2026")
 
     if df_dash.empty:
@@ -694,7 +694,7 @@ if mod_actual == "Dashboard General":
     col_filtro, col_exp = st.columns([3, 1])
     
     # Filtro dinámico por ubicación o unidad receptora si la columna existe
-    col_ubicacion_key = next((c for c in ["ubicacion", "UBICACIÓN", "base", "BASE"] if c in df_dash.columns), None)
+    col_ubicacion_key = next((c for c in ["ubicacion", "UBICACIÓN", "base", "BASE"] if not df_dash.empty and c in df_dash.columns), None)
     
     unidades_list = ["Todas las Ubicaciones (Nacional)"]
     if col_ubicacion_key and not df_dash.empty:
@@ -708,9 +708,8 @@ if mod_actual == "Dashboard General":
     if unidad_sel != "Todas las Ubicaciones (Nacional)" and col_ubicacion_key and not df_dash.empty:
         df_dash = df_dash[df_dash[col_ubicacion_key] == unidad_sel]
 
-    # Universo fijo estandarizado y cálculo de métricas basado en estatus limpios
-    TOTAL_UNIVERSO_REAL = 1200
-    tot_unidades = len(df_dash) if not df_dash.empty else TOTAL_UNIVERSO_REAL
+    # Universo dinámico real basado en los datos filtrados para evitar desfases (1200 vs 1201)
+    tot_unidades = len(df_dash) if not df_dash.empty else 0
 
     if not df_dash.empty and "estatus_limpio" in df_dash.columns:
         # Contamos cuántas unidades están fuera de circulación según los criterios definidos
@@ -718,16 +717,16 @@ if mod_actual == "Dashboard General":
         df_fuera = df_dash[df_dash["estatus_limpio"].isin(estatus_fuera)]
         
         n_taller = len(df_fuera)
-        n_activos = TOTAL_UNIVERSO_REAL - n_taller
-        disponibilidad_operativa = (n_activos / TOTAL_UNIVERSO_REAL) * 100
+        n_activos = tot_unidades - n_taller
+        disponibilidad_operativa = (n_activos / tot_unidades * 100) if tot_unidades > 0 else 0.0
     else:
         n_taller = 0
-        n_activos = TOTAL_UNIVERSO_REAL
-        disponibilidad_operativa = 100.0
+        n_activos = tot_unidades
+        disponibilidad_operativa = 100.0 if tot_unidades > 0 else 0.0
 
-    # Pintar Tarjetas Métricas Principales Alineadas
+    # Pintar Tarjetas Métricas Principales Alineadas con el total real
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Universo Padrón Objetivo", f"{TOTAL_UNIVERSO_REAL:,}")
+    c1.metric("Unidades Totales en Padrón", f"{tot_unidades:,}")
     c2.metric("Unidades Laborando (Activas)", f"{n_activos:,}")
     c3.metric("Unidades en Taller / Fuera", f"{n_taller:,}", delta_color="inverse")
     c4.metric("Porcentaje de Movilidad Real", f"{disponibilidad_operativa:.1f}%")
