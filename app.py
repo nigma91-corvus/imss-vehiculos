@@ -135,22 +135,21 @@ supabase = conectar_supabase()
 supabase_url = st.secrets["supabase"]["url"] if supabase else ""
 
 # -----------------------------------------------------------------------------
-# FUNCIÓN AUXILIAR PARA CONSULTAR LA VISTA DE MOVILIDAD REAL
+# 1. FUNCIÓN DE CARGA BLINDADA (1,200 UNIDADES)
 # -----------------------------------------------------------------------------
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=10)
 def cargar_movilidad_real_supabase(semana_corte="Semana 37 - 2026"):
     if not supabase:
         return pd.DataFrame()
     try:
-        # AQUÍ ESTÁ EL CAMBIO CLAVE: Agregamos .range(0, 1999) para saltar el límite de 1,000 filas de Supabase
         response = supabase.table("vista_movilidad_real").select("*").range(0, 1999).execute()
         data = response.data
         if data:
             df = pd.DataFrame(data)
-            if "semana_corte" in df.columns:
-                df_filtered = df[df["semana_corte"] == semana_corte]
-                if not df_filtered.empty:
-                    return df_filtered
+            if "estatus_actual" in df.columns:
+                df["estatus_actual"] = df["estatus_actual"].fillna("Laborando").replace("", "Laborando")
+            else:
+                df["estatus_actual"] = "Laborando"
             return df
         return pd.DataFrame()
     except Exception as e:
@@ -158,28 +157,25 @@ def cargar_movilidad_real_supabase(semana_corte="Semana 37 - 2026"):
         return pd.DataFrame()
 
 # -----------------------------------------------------------------------------
-# CÁLCULO DE MÉTRICAS Y COSTOS (UNIVERSO 1,200)
+# 2. CÁLCULO DE MÉTRICAS (UNIVERSO EXACTO DE 1,200)
 # -----------------------------------------------------------------------------
 TOTAL_UNIVERSO_REAL = 1200
 
 df_movilidad = cargar_movilidad_real_supabase("Semana 37 - 2026")
 
 if not df_movilidad.empty:
-    # Normalizamos el texto de la columna para evitar problemas de mayúsculas, acentos o espacios extra
+    # Normalizamos el estatus para buscar sin errores de mayúsculas/espacios
     df_movilidad["estatus_limpio"] = df_movilidad["estatus_actual"].astype(str).str.strip().str.upper()
     
-    # Definimos exactamente los estatus que cuentan como "fuera de circulación"
+    # Filtramos estrictamente las unidades fuera de circulación
     estatus_fuera = ["TALLER", "SINIESTRO", "PATIO MALAS CONDICIONES", "PATIO MALAS"]
-    
-    # Contamos cuántas unidades coinciden exactamente con esos estatus
     df_fuera = df_movilidad[df_movilidad["estatus_limpio"].isin(estatus_fuera)]
-    n_taller = len(df_fuera)
     
-    # Si por alguna razón el conteo directo supera el universo, lo limitamos, si no, restamos
+    n_taller = len(df_fuera)
     n_activos = TOTAL_UNIVERSO_REAL - n_taller
     porcentaje_movilidad = (n_activos / TOTAL_UNIVERSO_REAL) * 100
 
-    # Limpieza y suma segura del costo acumulado en dinero
+    # Limpieza del costo acumulado
     if "costo_acumulado" in df_movilidad.columns:
         df_movilidad["costo_limpio"] = (
             df_movilidad["costo_acumulado"]
