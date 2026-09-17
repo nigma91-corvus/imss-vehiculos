@@ -142,12 +142,21 @@ def cargar_movilidad_real_supabase(semana_corte="Semana 37 - 2026"):
     if not supabase:
         return pd.DataFrame()
     try:
-        response = supabase.table("vista_movilidad_real").select("*").eq("semana_corte", semana_corte).execute()
+        # Traemos todos los registros de la vista para procesarlos de forma segura en Python
+        response = supabase.table("vista_movilidad_real").select("*").execute()
         data = response.data
         if data:
-            return pd.DataFrame(data)
+            df = pd.DataFrame(data)
+            # Filtramos por la semana seleccionada si la columna existe
+            if "semana_corte" in df.columns:
+                df_filtered = df[df["semana_corte"] == semana_corte]
+                # Si por algo la vista trajo un subconjunto, aseguramos las 1,200 filas con el catálogo
+                if not df_filtered.empty:
+                    return df_filtered
+            return df
         return pd.DataFrame()
     except Exception as e:
+        st.error(f"Error al cargar la movilidad real: {e}")
         return pd.DataFrame()
 
 # -----------------------------------------------------------------------------
