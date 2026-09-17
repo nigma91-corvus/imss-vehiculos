@@ -169,7 +169,7 @@ df_movilidad = cargar_movilidad_real_supabase("Semana 37 - 2026")
 if not df_movilidad.empty:
     # Contamos estrictamente las unidades que están en las categorías de la captura
     n_taller = len(df_movilidad[
-        df_movilidad["estatus_actual"].str.upper().str.contains("SINIESTRO|TALLER|PATIO", na=False)
+        df_movilidad["estatus_actual"].str.upper().str.contains("SINIESTRO|TALLER|PATIO MALAS", na=False)
     ])
     
     # Las activas se calculan restando las 127 fuera de servicio al universo total
