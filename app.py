@@ -203,36 +203,7 @@ else:
 
     # (Opcional) Si quieres mostrar la métrica del costo total en dinero en otra tarjeta o sección:
     st.metric("Costo Acumulado Total en Incidencias", f"${total_importe:,.2f}")
-if not df_movilidad.empty:
-    # Validar que existan las columnas esenciales
-    if "estatus_actual" in df_movilidad.columns:
-        df_movilidad["estatus_limpio"] = df_movilidad["estatus_actual"].astype(str).str.strip().str.upper()
-        estatus_fuera = ["TALLER", "SINIESTRO", "PATIO MALAS CONDICIONES", "PATIO MALAS"]
-        df_fuera = df_movilidad[df_movilidad["estatus_limpio"].isin(estatus_fuera)]
-        n_taller = len(df_fuera)
-    else:
-        n_taller = 0
-
-    n_activos = TOTAL_UNIVERSO_REAL - n_taller
-    porcentaje_movilidad = (n_activos / TOTAL_UNIVERSO_REAL) * 100
-
-    # Limpieza del costo acumulado
-    if "costo_acumulado" in df_movilidad.columns:
-        df_movilidad["costo_limpio"] = (
-            df_movilidad["costo_acumulado"]
-            .astype(str)
-            .str.replace(r"[$,]", "", regex=True)
-            .str.strip()
-        )
-        df_movilidad["costo_limpio"] = pd.to_numeric(df_movilidad["costo_limpio"], errors="coerce").fillna(0)
-        total_importe = df_movilidad["costo_limpio"].sum()
-    else:
-        total_importe = 0.0
-else:
-    n_taller = 0
-    n_activos = TOTAL_UNIVERSO_REAL
-    porcentaje_movilidad = 100.0
-    total_importe = 0.0    
+   
 # -----------------------------------------------------------------------------
 # GESTIÓN DE IMÁGENES Y DOCUMENTOS DESDE SUPABASE STORAGE
 # -----------------------------------------------------------------------------
@@ -679,90 +650,60 @@ def aplicar_estilo_tabla(df):
 
 
 # -----------------------------------------------------------------------------
-# 1. DASHBOARD GENERAL
+# 1. DASHBOARD GENERAL (CONECTADO A VISTA DE MOVILIDAD REAL - 1,200 UNIDADES)
 # -----------------------------------------------------------------------------
 if mod_actual == "Dashboard General":
     st.markdown(
-        f'<p class="subtitulo-seccion">Dashboard General - Flotilla:'
-        f" {cat_actual}</p>",
+        f'<p class="subtitulo-seccion">Dashboard General - Flotilla: {cat_actual}</p>',
         unsafe_allow_html=True,
     )
 
-    if df_base.empty:
-        st.warning(
-            f"⚠️ No se han encontrado registros en Supabase para la flotilla **{cat_actual}**."
-        )
+    # Cargamos los datos directamente desde la vista unificada de movilidad real
+    df_dash = cargar_movilidad_real_supabase("Semana 37 - 2026")
+
+    if df_dash.empty:
+        st.warning(f"⚠️ No se han encontrado registros en la vista de movilidad real para la flotilla **{cat_actual}**.")
 
     col_filtro, col_exp = st.columns([3, 1])
     
-    # CORREGIDO: Usando "UBICACIÓN" en mayúsculas y acento
-    unidades_list = ["Todas las Ubicaciones (Nacional)"] + (
-        list(df_base["UBICACIÓN"].dropna().unique())
-        if "UBICACIÓN" in df_base.columns
-        else []
-    )
+    # Filtro dinámico por ubicación o unidad receptora si la columna existe
+    col_ubicacion_key = next((c for c in ["ubicacion", "UBICACIÓN", "base", "BASE"] if c in df_dash.columns), None)
+    
+    unidades_list = ["Todas las Ubicaciones (Nacional)"]
+    if col_ubicacion_key and not df_dash.empty:
+        unidades_list += list(df_dash[col_ubicacion_key].dropna().unique())
+
     unidad_sel = col_filtro.selectbox(
         "Filtrar Consulta por Unidad Receptora / Ubicación:", unidades_list
     )
 
-    # CORREGIDO: Filtrando por "UBICACIÓN"
-    df_dash = (
-        df_base
-        if (
-            unidad_sel == "Todas las Ubicaciones (Nacional)" or df_base.empty
-        )
-        else df_base[df_base["UBICACIÓN"] == unidad_sel]
-    )
+    # Aplicar filtro de ubicación si se seleccionó una específica
+    if unidad_sel != "Todas las Ubicaciones (Nacional)" and col_ubicacion_key and not df_dash.empty:
+        df_dash = df_dash[df_dash[col_ubicacion_key] == unidad_sel]
 
-    tot_unidades = len(df_dash)
-    ecos_filtrados = (
-        set(df_dash["eco"].unique()) if "eco" in df_dash.columns else set()
-    )
+    # Universo fijo estandarizado y cálculo de métricas basado en estatus limpios
+    TOTAL_UNIVERSO_REAL = 1200
+    tot_unidades = len(df_dash) if not df_dash.empty else TOTAL_UNIVERSO_REAL
 
-    ecos_en_taller = {
-        r.get("eco", r.get("ECO"))
-        for r in st.session_state.get("taller_registros", [])
-        if r.get("estatus", r.get("Estatus")) == "Activo (En Taller)" 
-        and r.get("eco", r.get("ECO")) in ecos_filtrados
-    }
-    n_taller = len(ecos_en_taller)
-    n_baja = (
-        len(df_dash[df_dash["estatus"] == "Inoperativo / Baja"])
-        if "estatus" in df_dash.columns
-        else 0
-    )
-    n_sust = (
-        len(
-            df_dash[
-                (df_dash["estatus"] == "Sustituto Entregado")
-                & (~df_dash["eco"].isin(ecos_en_taller))
-            ]
-        )
-        if "estatus" in df_dash.columns
-        else 0
-    )
-    n_activos = (
-        len(
-            df_dash[
-                (df_dash["estatus"] == "Titular Activo")
-                & (~df_dash["eco"].isin(ecos_en_taller))
-            ]
-        )
-        if "estatus" in df_dash.columns
-        else 0
-    )
+    if not df_dash.empty and "estatus_limpio" in df_dash.columns:
+        # Contamos cuántas unidades están fuera de circulación según los criterios definidos
+        estatus_fuera = ["TALLER", "SINIESTRO", "PATIO MALAS CONDICIONES", "PATIO MALAS"]
+        df_fuera = df_dash[df_dash["estatus_limpio"].isin(estatus_fuera)]
+        
+        n_taller = len(df_fuera)
+        n_activos = TOTAL_UNIVERSO_REAL - n_taller
+        disponibilidad_operativa = (n_activos / TOTAL_UNIVERSO_REAL) * 100
+    else:
+        n_taller = 0
+        n_activos = TOTAL_UNIVERSO_REAL
+        disponibilidad_operativa = 100.0
 
-    disponibilidad = (
-        ((n_activos + n_sust) / tot_unidades * 100) if tot_unidades > 0 else 0.0
-    )
-
+    # Pintar Tarjetas Métricas Principales Alineadas
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Unidades Registradas", f"{tot_unidades:,}")
-    c2.metric("Titulares / Sustitutos Activos", f"{n_activos + n_sust:,}")
-    c3.metric(
-        "En Taller / Inoperativos", f"{n_taller + n_baja:,}", delta_color="inverse"
-    )
-    c4.metric("Disponibilidad Operativa Real", f"{disponibilidad:.1f}%")
+    c1.metric("Universo Padrón Objetivo", f"{TOTAL_UNIVERSO_REAL:,}")
+    c2.metric("Unidades Laborando (Activas)", f"{n_activos:,}")
+    c3.metric("Unidades en Taller / Fuera", f"{n_taller:,}", delta_color="inverse")
+    c4.metric("Porcentaje de Movilidad Real", f"{disponibilidad_operativa:.1f}%")
 
     st.markdown("---")
     col_dona, col_barras, col_tabla = st.columns(
@@ -771,31 +712,13 @@ if mod_actual == "Dashboard General":
 
     with col_dona:
         st.markdown("##### **Estatus Operativo**")
-        valores_dona = [n_activos, n_sust, n_taller, n_baja]
-        etiquetas_dona = [
-            "Activas",
-            "Sustitutos",
-            "En Taller",
-            "Baja / Inoperativos",
-        ]
-        colores_dona = [
-            COLORES_PANTONE["561"],
-            COLORES_PANTONE["465"],
-            COLORES_PANTONE["7420"],
-            COLORES_PANTONE["504"],
-        ]
+        valores_dona = [n_activos, n_taller]
+        etiquetas_dona = ["Laborando / Activas", "En Taller / Fuera"]
+        colores_dona = [COLORES_PANTONE["561"], COLORES_PANTONE["7420"]]
 
         fig_d, ax_d = plt.subplots(figsize=(3.5, 3.5))
         if sum(valores_dona) == 0:
-            ax_d.text(
-                0.5,
-                0.5,
-                "Sin Datos",
-                horizontalalignment="center",
-                verticalalignment="center",
-                fontsize=12,
-                color="gray",
-            )
+            ax_d.text(0.5, 0.5, "Sin Datos", ha="center", va="center", fontsize=12, color="gray")
             ax_d.axis("off")
         else:
             wedges, _ = ax_d.pie(
@@ -819,16 +742,11 @@ if mod_actual == "Dashboard General":
     with col_barras:
         st.markdown("##### **Distribución por Tipo de Vehículo**")
         fig_v, ax_v = plt.subplots(figsize=(4.5, 3.5))
-        if not df_dash.empty and "tipo" in df_dash.columns:
-            df_tipo_filtrado = df_dash[
-                ~df_dash["tipo"]
-                .astype(str)
-                .str.upper()
-                .isin(["SONORA", "SINALOA", "BAJA CALIFORNIA", "CHIHUAHUA", "N/A", "NAN"])
-            ]
-
+        tipo_col = next((c for c in ["tipo", "TIPO", "linea", "LINEA"] if not df_dash.empty and c in df_dash.columns), None)
+        
+        if not df_dash.empty and tipo_col:
             resumen_tipo = (
-                df_tipo_filtrado.groupby("tipo")
+                df_dash.groupby(tipo_col)
                 .size()
                 .reset_index(name="Cantidad")
                 .sort_values(by="Cantidad", ascending=False)
@@ -843,12 +761,10 @@ if mod_actual == "Dashboard General":
                     COLORES_PANTONE["626"],
                     COLORES_PANTONE["468"],
                 ]
-                colores_asignados = [
-                    paleta_barras[i % len(paleta_barras)] for i in range(len(resumen_tipo))
-                ]
+                colores_asignados = [paleta_barras[i % len(paleta_barras)] for i in range(len(resumen_tipo))]
 
                 bars = ax_v.bar(
-                    resumen_tipo["tipo"], resumen_tipo["Cantidad"], color=colores_asignados
+                    resumen_tipo[tipo_col].astype(str), resumen_tipo["Cantidad"], color=colores_asignados
                 )
                 ax_v.tick_params(axis="x", rotation=30, labelsize=8)
                 ax_v.grid(axis="y", linestyle="--", alpha=0.5)
@@ -864,30 +780,20 @@ if mod_actual == "Dashboard General":
                         fontsize=8,
                     )
             else:
-                ax_v.text(
-                    0.5,
-                    0.5,
-                    "Sin Tipos Válidos",
-                    ha="center",
-                    va="center",
-                    fontsize=10,
-                    color="gray",
-                )
+                ax_v.text(0.5, 0.5, "Sin Tipos Válidos", ha="center", va="center", fontsize=10, color="gray")
                 ax_v.axis("off")
         else:
             resumen_tipo = pd.DataFrame(columns=["tipo", "Cantidad"])
-            ax_v.text(
-                0.5, 0.5, "Sin Datos", ha="center", va="center", fontsize=12, color="gray"
-            )
+            ax_v.text(0.5, 0.5, "Sin Datos", ha="center", va="center", fontsize=12, color="gray")
             ax_v.axis("off")
         fig_v.tight_layout()
         st.pyplot(fig_v)
 
     with col_tabla:
         st.markdown("##### **Resumen Cantidades Detalladas**")
-        if "resumen_tipo" in locals() and not resumen_tipo.empty:
+        if not resumen_tipo.empty:
             df_totales = pd.DataFrame(
-                [{"tipo": "TOTAL UNIDADES", "Cantidad": resumen_tipo["Cantidad"].sum()}]
+                [{resumen_tipo.columns[0]: "TOTAL UNIDADES", "Cantidad": resumen_tipo["Cantidad"].sum()}]
             )
             df_mostrar_res = pd.concat([resumen_tipo, df_totales], ignore_index=True)
 
@@ -906,25 +812,21 @@ if mod_actual == "Dashboard General":
     st.markdown("---")
     st.markdown("##### **Vistas Detalladas de la Base de Datos Activa**")
     
-    # CORREGIDO: Cambiado "ubicacion" por "UBICACIÓN"
     cols_mostrar = [
         "eco",
         "tipo",
         "linea",
-        "UBICACIÓN",
-        "arrendadora",
-        "estatus",
+        "ubicacion",
+        "estatus_actual",
         "placas",
         "vin",
-        "cuota_diaria",
-        "total_a_pagar",
     ]
-    cols_existentes = [c for c in cols_mostrar if c in df_dash.columns]
+    cols_existentes = [c for c in cols_mostrar if not df_dash.empty and c in df_dash.columns]
 
     df_detallado = (
         df_dash[cols_existentes]
-        if not df_dash.empty
-        else pd.DataFrame(columns=cols_mostrar)
+        if not df_dash.empty and cols_existentes
+        else df_dash
     )
 
     st.dataframe(
@@ -932,7 +834,6 @@ if mod_actual == "Dashboard General":
         use_container_width=True,
         hide_index=True,
     )
-
 # -----------------------------------------------------------------------------
 # 2. SEMÁFORO DE MOVILIDAD POR CIUDAD
 # -----------------------------------------------------------------------------
