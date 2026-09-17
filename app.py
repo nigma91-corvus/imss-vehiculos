@@ -164,20 +164,19 @@ def cargar_movilidad_real_supabase(semana_corte="Semana 37 - 2026"):
 # -----------------------------------------------------------------------------
 TOTAL_UNIVERSO_REAL = 1200
 
-# 1. Cargamos los datos de la vista que acabamos de actualizar en Supabase
 df_movilidad = cargar_movilidad_real_supabase("Semana 37 - 2026")
 
 if not df_movilidad.empty:
-    # Contamos cuántas unidades están fuera (Taller, Siniestro, Patio)
+    # Contamos estrictamente las unidades que están en las categorías de la captura
     n_taller = len(df_movilidad[
-        df_movilidad["estatus_actual"].str.upper().str.contains("TALLER|SINIESTRO|PATIO", na=False)
+        df_movilidad["estatus_actual"].str.upper().str.contains("SINIESTRO|TALLER|PATIO", na=False)
     ])
     
-    # Las activas son el resto para garantizar el universo fijo de 1,200
+    # Las activas se calculan restando las 127 fuera de servicio al universo total
     n_activos = TOTAL_UNIVERSO_REAL - n_taller
     porcentaje_movilidad = (n_activos / TOTAL_UNIVERSO_REAL) * 100
 
-    # 2. Limpieza y suma del costo acumulado (para que aparezcan los millones de pesos)
+    # Limpieza y suma del costo acumulado
     if "costo_acumulado" in df_movilidad.columns:
         df_movilidad["costo_limpio"] = (
             df_movilidad["costo_acumulado"]
