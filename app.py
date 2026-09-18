@@ -190,6 +190,14 @@ def cargar_movilidad_real_supabase(categoria_flota, semana_corte="Semana 37 - 20
     except Exception as e:
         st.error(f"Error al cargar la tabla {nombre_tabla}: {e}")
         return pd.DataFrame()
+    # -----------------------------------------------------------------------------
+# GESTIÓN INICIAL DEL ESTADO DE SESIÓN
+# -----------------------------------------------------------------------------
+if "categoria_seleccionada" not in st.session_state:
+    st.session_state.categoria_seleccionada = "Administrativos"
+
+if "modulo_activo" not in st.session_state:
+    st.session_state.modulo_activo = "Dashboard General"
 # -----------------------------------------------------------------------------
 # 2. CÁLCULO DE MÉTRICAS DINÁMICAS (BASADO EN LA FLOTILLA ACTIVA)
 # -----------------------------------------------------------------------------
