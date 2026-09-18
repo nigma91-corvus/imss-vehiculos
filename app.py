@@ -264,7 +264,7 @@ def cambiar_categoria(cat):
     st.session_state.modulo_activo = "Dashboard General"
 
 # -----------------------------------------------------------------------------
-# CARGA DE DATOS Y MÉTRICAS DIRECTAS DEL PADRÓN ACTIVO
+# CARGA DE DATOS Y MÉTRICAS DIRECTAS DEL PADRÓN ACTIVO (CORREGIDO)
 # -----------------------------------------------------------------------------
 cat_actual = st.session_state.categoria_seleccionada
 df_dash = cargar_datos_supabase(cat_actual)
@@ -337,15 +337,13 @@ st.markdown(
 )
 
 # -----------------------------------------------------------------------------
-# RENDERIZADO DE MÉTRICAS (CONTEO DIRECTO DE LA TABLA Y ESTADOS)
+# RENDERIZADO DE MÉTRICAS (EVALUACIÓN DIRECTA DEL ESTATUS)
 # -----------------------------------------------------------------------------
 if df_dash.empty:
     st.warning(f"No se encontraron registros para la categoría: {cat_actual}")
 else:
-    # Universo total basado estrictamente en el padrón de la tabla activa
     TOTAL_UNIVERSO_REAL = len(df_dash)
     
-    # Determinamos unidades en taller evaluando los estatus limpios registrados
     if "estatus_limpio" in df_dash.columns:
         estatus_fuera = ["TALLER", "SINIESTRO", "PATIO MALAS CONDICIONES", "PATIO MALAS"]
         n_taller = len(df_dash[df_dash["estatus_limpio"].isin(estatus_fuera)])
