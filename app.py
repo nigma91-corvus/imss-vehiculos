@@ -832,7 +832,101 @@ if mod_actual == "Dashboard General":
         use_container_width=True,
         hide_index=True,
     )
+# -----------------------------------------------------------------------------
+# REPORTE DE TALLER / COSTOS ACUMULADOS (MULTIFLOTILLA)
+# -----------------------------------------------------------------------------
+elif mod_actual in ["Reporte en Taller - Ambulancias", "Reporte en Taller - Administrativos", "Reporte en Taller - Institucionales"]:
+    
+    # Mapeo dinámico del nombre del módulo actual a la categoría exacta de la columna 'flotilla' en Supabase
+    map_flotilla = {
+        "Reporte en Taller - Ambulancias": "Ambulancias",
+        "Reporte en Taller - Administrativos": "Administrativos",
+        "Reporte en Taller - Institucionales": "Institucionales"
+    }
+    
+    flotilla_seleccionada = map_flotilla.get(mod_actual, "Ambulancias")
+    
+    st.markdown(
+        f'<p class="subtitulo-seccion">Control de Unidades en Taller y Costos Acumulados - Flotilla: {flotilla_seleccionada}</p>',
+        unsafe_allow_html=True,
+    )
 
+    # Consulta a Supabase filtrando estrictamente por la columna 'flotilla'
+    try:
+        response = supabase.table("reporte_semanal").select("*").eq("flotilla", flotilla_seleccionada).execute()
+        df_taller_flota = pd.DataFrame(response.data)
+    except Exception as e:
+        df_taller_flota = pd.DataFrame()
+        st.error(f"Error al conectar con Supabase: {e}")
+
+    if df_taller_flota.empty:
+        st.warning(f"⚠️ No se encontraron registros para la flotilla **{flotilla_seleccionada}** en la tabla `reporte_semanal`.")
+    else:
+        # Procesamiento automático de días y costos (Cuota diaria: $3,249.00)
+        CUOTA_DIARIA = 3249.00
+        
+        df_taller_flota["fecha_ingreso_dt"] = pd.to_datetime(df_taller_flota["fecha_ingreso"], format="%d/%m/%Y", errors="coerce")
+        fecha_actual = pd.Timestamp.today().normalize()
+        
+        # Cálculo exacto de días transcurridos y costo acumulado
+        df_taller_flota["dias_en_taller"] = (fecha_actual - df_taller_flota["fecha_ingreso_dt"]).dt.days
+        df_taller_flota["costo_acumulado"] = df_taller_flota["dias_en_taller"] * CUOTA_DIARIA
+
+        # Métricas ejecutivas del módulo
+        total_unidades_taller = len(df_taller_flota)
+        costo_total_acumulado = df_taller_flota["costo_acumulado"].sum()
+        promedio_dias = df_taller_flota["dias_en_taller"].mean() if total_unidades_taller > 0 else 0
+
+        col_m1, col_m2, col_m3 = st.columns(3)
+        col_m1.metric(f"Unidades en Taller ({flotilla_seleccionada})", f"{total_unidades_taller:,}")
+        col_m2.metric("Costo Acumulado Total", f"${costo_total_acumulado:,.2f}")
+        col_m3.metric("Promedio Días en Taller", f"{promedio_dias:.1f} días")
+
+        st.markdown("---")
+
+        # Filtro opcional por adscripción
+        adscripciones_list = ["Todas las Adscripciones"] + sorted(list(df_taller_flota["adscripcion"].dropna().unique()))
+        ads_sel = st.selectbox("Filtrar por Adscripción:", adscripciones_list, key=f"sel_ads_{flotilla_seleccionada}")
+
+        df_taller_view = (
+            df_taller_flota 
+            if ads_sel == "Todas las Adscripciones" 
+            else df_taller_flota[df_taller_flota["adscripcion"] == ads_sel]
+        )
+
+        # Columnas a mostrar
+        cols_taller_show = [
+            "semana_corte",
+            "eco",
+            "adscripcion",
+            "estatus",
+            "diagnostico",
+            "fecha_ingreso",
+            "dias_en_taller",
+            "costo_acumulado"
+        ]
+        
+        df_final_show = df_taller_view[[c for c in cols_taller_show if c in df_taller_view.columns]].copy()
+        
+        # Formato de moneda visual
+        if "costo_acumulado" in df_final_show.columns:
+            df_final_show["costo_acumulado"] = df_final_show["costo_acumulado"].apply(lambda x: f"${x:,.2f}" if pd.notnull(x) else "$0.00")
+
+        st.dataframe(
+            aplicar_estilo_tabla(df_final_show),
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        # Botón de descarga adaptado a la flotilla en curso
+        csv_flota = df_taller_view.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label=f"📥 Descargar Reporte de {flotilla_seleccionada}",
+            data=csv_flota,
+            file_name=f"reporte_taller_{flotilla_seleccionada.lower()}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
 # -----------------------------------------------------------------------------
 # 2. SEMÁFORO DE MOVILIDAD POR CIUDAD
 # -----------------------------------------------------------------------------
