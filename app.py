@@ -111,7 +111,7 @@ supabase = conectar_supabase()
 supabase_url = st.secrets["supabase"]["url"] if supabase else ""
 
 # -----------------------------------------------------------------------------
-# FUNCIONES DE CARGA DESDE SUPABASE (Única fuente de verdad optimizada)
+# FUNCIONES DE CARGA DESDE SUPABASE
 # -----------------------------------------------------------------------------
 @st.cache_data(ttl=60)
 def cargar_datos_supabase(categoria):
@@ -263,9 +263,11 @@ def cambiar_categoria(cat):
     st.session_state.categoria_seleccionada = cat
     st.session_state.modulo_activo = "Dashboard General"
 
-# Carga de datos base según la categoría activa en sesión
+# -----------------------------------------------------------------------------
+# CARGA DE DATOS Y MÉTRICAS DEL DASHBOARD ACTIVO
+# -----------------------------------------------------------------------------
 cat_actual = st.session_state.categoria_seleccionada
-df_base = cargar_datos_supabase(cat_actual)
+df_dash = cargar_datos_supabase(cat_actual)
 
 # -----------------------------------------------------------------------------
 # GESTIÓN DE IMÁGENES Y DIRECTORIOS
@@ -320,23 +322,6 @@ st.markdown(
     .badge-amarillo {{ background-color: #f39c12; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px; }}
     .badge-rojo {{ background-color: {COLORES_PANTONE["7420"]}; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px; }}
     .card-resumen {{ background-color: #F8F9FA; border: 1px solid #E9ECEF; border-radius: 8px; padding: 14px; margin-bottom: 12px; }}
-    .image-container-full {{
-        width: 100%;
-        max-height: 220px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #fdfdfd;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        padding: 8px;
-        overflow: hidden;
-    }}
-    .image-container-full img {{
-        max-width: 100% !important;
-        max-height: 200px !important;
-        object-fit: contain !important;
-    }}
     .footer-firma {{
         margin-top: 30px;
         padding: 10px;
@@ -350,6 +335,29 @@ st.markdown(
 """,
     unsafe_allow_html=True,
 )
+
+# -----------------------------------------------------------------------------
+# RENDERIZADO DE MÉTRICAS DEL DASHBOARD
+# -----------------------------------------------------------------------------
+if df_dash.empty:
+    st.warning(f"No se encontraron registros para la categoría: {cat_actual}")
+else:
+    TOTAL_UNIVERSO_REAL = len(df_dash)
+    
+    if "estatus_limpio" in df_dash.columns:
+        estatus_fuera = ["TALLER", "SINIESTRO", "PATIO MALAS CONDICIONES", "PATIO MALAS"]
+        n_taller = len(df_dash[df_dash["estatus_limpio"].isin(estatus_fuera)])
+    else:
+        n_taller = 0
+        
+    n_activos = TOTAL_UNIVERSO_REAL - n_taller
+    porcentaje_movilidad = (n_activos / TOTAL_UNIVERSO_REAL) * 100 if TOTAL_UNIVERSO_REAL > 0 else 0
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Universo Padrón Objetivo", f"{TOTAL_UNIVERSO_REAL:,}")
+    c2.metric("Unidades Laborando (Activas)", f"{n_activos:,}")
+    c3.metric("Unidades en Taller / Fuera", f"{n_taller:,}")
+    c4.metric("Porcentaje de Movilidad Real", f"{porcentaje_movilidad:.1f}%")
 # -----------------------------------------------------------------------------
 # BARRA LATERAL (SIDEBAR)
 # -----------------------------------------------------------------------------
@@ -557,8 +565,7 @@ if mod_actual == "Dashboard General":
     )
 
     # Cargamos los datos pasando la categoría activa y la semana
-    # AHORA (Utiliza la función limpia y unificada que ya tenemos lista)
-df_dash = cargar_datos_supabase(cat_actual)
+    df_dash = cargar_movilidad_real_supabase(cat_actual, "Semana 37 - 2026")
 
     if df_dash.empty:
         st.warning(f"⚠️ No se han encontrado registros en la vista de movilidad real para la flotilla **{cat_actual}**.")
