@@ -557,7 +557,8 @@ if mod_actual == "Dashboard General":
     )
 
     # Cargamos los datos pasando la categoría activa y la semana
-    df_dash = cargar_movilidad_real_supabase(cat_actual, "Semana 37 - 2026")
+    # AHORA (Utiliza la función limpia y unificada que ya tenemos lista)
+df_dash = cargar_datos_supabase(cat_actual)
 
     if df_dash.empty:
         st.warning(f"⚠️ No se han encontrado registros en la vista de movilidad real para la flotilla **{cat_actual}**.")
