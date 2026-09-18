@@ -191,25 +191,25 @@ def cargar_movilidad_real_supabase(categoria_flota, semana_corte="Semana 37 - 20
         st.error(f"Error al cargar la tabla {nombre_tabla}: {e}")
         return pd.DataFrame()
 # -----------------------------------------------------------------------------
-# 2. CÁLCULO DE MÉTRICAS DINÁMICAS SEGÚN LA FLOTILLA SELECCIONADA
+# 2. CÁLCULO DE MÉTRICAS DINÁMICAS (BASADO EN LA FLOTILLA ACTIVA)
 # -----------------------------------------------------------------------------
+cat_actual = st.session_state.categoria_seleccionada
+df_movilidad = cargar_datos_supabase(cat_actual)
 
-# Aseguramos capturar la categoría activa (asumiendo que 'categoria_flota' se define con tus botones del sidebar)
-# Si por defecto arranca en administrativos:
-if 'categoria_flota' not in globals() and 'categoria_flota' not in locals():
-    categoria_flota = "Administrativos"
-
-# Cargamos los datos mandando la categoría real y la semana correspondiente
-df_movilidad = cargar_movilidad_real_supabase(categoria_flota, semana_corte="Semana 37 - 2026")
-
-# El universo real se calcula contando exactamente las filas de la tabla activa cargada
-TOTAL_UNIVERSO_REAL = len(df_movilidad) if not df_movilidad.empty else 1200
+# El universo real es exactamente el total de registros de la tabla seleccionada
+TOTAL_UNIVERSO_REAL = len(df_movilidad) if not df_movilidad.empty else 0
 
 if not df_movilidad.empty:
-    # Normalizamos el estatus para buscar sin errores de mayúsculas/espacios
-    df_movilidad["estatus_limpio"] = df_movilidad["estatus_actual"].astype(str).str.strip().str.upper()
+    # Normalizamos el estatus de la tabla activa
+    if "estatus" in df_movilidad.columns and "estatus_actual" not in df_movilidad.columns:
+        df_movilidad["estatus_actual"] = df_movilidad["estatus"]
+        
+    if "estatus_actual" in df_movilidad.columns:
+        df_movilidad["estatus_limpio"] = df_movilidad["estatus_actual"].astype(str).str.strip().str.upper()
+    else:
+        df_movilidad["estatus_limpio"] = "LABORANDO"
     
-    # Filtramos estrictamente las unidades fuera de circulación
+    # Filtramos estrictamente las unidades fuera de circulación / taller
     estatus_fuera = ["TALLER", "SINIESTRO", "PATIO MALAS CONDICIONES", "PATIO MALAS"]
     df_fuera = df_movilidad[df_movilidad["estatus_limpio"].isin(estatus_fuera)]
     
@@ -217,7 +217,7 @@ if not df_movilidad.empty:
     n_activos = TOTAL_UNIVERSO_REAL - n_taller
     porcentaje_movilidad = (n_activos / TOTAL_UNIVERSO_REAL) * 100 if TOTAL_UNIVERSO_REAL > 0 else 0
 
-    # Limpieza del costo acumulado
+    # Limpieza del costo acumulado si existe la columna
     if "costo_acumulado" in df_movilidad.columns:
         df_movilidad["costo_limpio"] = (
             df_movilidad["costo_acumulado"]
@@ -231,8 +231,8 @@ if not df_movilidad.empty:
         total_importe = 0.0
 else:
     n_taller = 0
-    n_activos = TOTAL_UNIVERSO_REAL
-    porcentaje_movilidad = 100.0
+    n_activos = 0
+    porcentaje_movilidad = 0.0
     total_importe = 0.0
     # -----------------------------------------------------------------------------
     # PINTAR LAS TARJETAS EN STREAMLIT
