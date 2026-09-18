@@ -1074,6 +1074,35 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
             hide_index=True,
         )
 # -----------------------------------------------------------------------------
+# SINCRONIZACIÓN AUTOMÁTICA DE TALLERES DESDE SUPABASE
+# -----------------------------------------------------------------------------
+try:
+    # 1. Consultar los ecos que están actualmente en taller/siniestro en Supabase para la flotilla activa (ej. 'Ambulancias')
+    res_taller = supabase.table("reporte_semanal").select("eco, estatus").eq("flotilla", cat_actual).execute()
+    df_ecos_taller = pd.DataFrame(res_taller.data)
+    
+    if not df_ecos_taller.empty:
+        # Obtener la lista de ECOS que están detenidos
+        ecos_en_taller_set = set(df_ecos_taller["eco"].astype(str).str.strip().unique())
+        
+        # 2. Si tu DataFrame principal de vehículos se llama df_base, marcamos el estatus
+        if 'df_base' in locals() and not df_base.empty:
+            # Suponiendo que la columna de eco en tu df_base se llama 'eco' o 'ECO' y el estatus 'estatus'
+            col_eco = 'eco' if 'eco' in df_base.columns else 'ECO'
+            col_estatus = 'estatus' if 'estatus' in df_base.columns else 'Estatus'
+            
+            # Si el ECO está en la lista de Supabase, forzamos su estatus a Taller/Inoperativo
+            df_base.loc[df_base[col_eco].astype(str).str.strip().isin(ecos_en_taller_set), col_estatus] = 'TALLER'
+            
+            # Forzamos recálculo de métricas del Dashboard
+            total_taller = len(df_base[df_base[col_estatus].isin(['TALLER', 'SINIESTRO', 'PATIO MALAS'])])
+            total_activos = len(df_base) - total_taler if 'total_taller' in locals() else len(df_base)
+            
+            print(f"Sincronizados {len(ecos_en_taller_set)} vehículos en taller para la flotilla {cat_actual}")
+except Exception as e:
+    st.error(f"Error al sincronizar talleres con Supabase: {e}")
+
+# -----------------------------------------------------------------------------
 # 3. CONTROL DEL POOL DE SUSTITUTOS (20%)
 # -----------------------------------------------------------------------------
 elif mod_actual == "Control del Pool de Sustitutos (20%)":
