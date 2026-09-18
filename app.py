@@ -191,11 +191,19 @@ def cargar_movilidad_real_supabase(categoria_flota, semana_corte="Semana 37 - 20
         st.error(f"Error al cargar la tabla {nombre_tabla}: {e}")
         return pd.DataFrame()
 # -----------------------------------------------------------------------------
-# 2. CÁLCULO DE MÉTRICAS (UNIVERSO EXACTO DE 1,200)
+# 2. CÁLCULO DE MÉTRICAS DINÁMICAS SEGÚN LA FLOTILLA SELECCIONADA
 # -----------------------------------------------------------------------------
-TOTAL_UNIVERSO_REAL = 1200
 
-df_movilidad = cargar_movilidad_real_supabase("Semana 37 - 2026")
+# Aseguramos capturar la categoría activa (asumiendo que 'categoria_flota' se define con tus botones del sidebar)
+# Si por defecto arranca en administrativos:
+if 'categoria_flota' not in globals() and 'categoria_flota' not in locals():
+    categoria_flota = "Administrativos"
+
+# Cargamos los datos mandando la categoría real y la semana correspondiente
+df_movilidad = cargar_movilidad_real_supabase(categoria_flota, semana_corte="Semana 37 - 2026")
+
+# El universo real se calcula contando exactamente las filas de la tabla activa cargada
+TOTAL_UNIVERSO_REAL = len(df_movilidad) if not df_movilidad.empty else 1200
 
 if not df_movilidad.empty:
     # Normalizamos el estatus para buscar sin errores de mayúsculas/espacios
@@ -207,7 +215,7 @@ if not df_movilidad.empty:
     
     n_taller = len(df_fuera)
     n_activos = TOTAL_UNIVERSO_REAL - n_taller
-    porcentaje_movilidad = (n_activos / TOTAL_UNIVERSO_REAL) * 100
+    porcentaje_movilidad = (n_activos / TOTAL_UNIVERSO_REAL) * 100 if TOTAL_UNIVERSO_REAL > 0 else 0
 
     # Limpieza del costo acumulado
     if "costo_acumulado" in df_movilidad.columns:
