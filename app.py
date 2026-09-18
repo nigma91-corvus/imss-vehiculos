@@ -579,6 +579,30 @@ def aplicar_estilo_tabla(df):
 
 
 # -----------------------------------------------------------------------------
+# SINCRONIZACIÓN AUTOMÁTICA DE TALLERES DESDE SUPABASE (Función Global o Previa)
+# -----------------------------------------------------------------------------
+try:
+    if 'df_base' in locals() and not df_base.empty:
+        res_taller = supabase.table("reporte_semanal").select("eco, estatus").eq("flotilla", cat_actual).execute()
+        df_ecos_taller = pd.DataFrame(res_taller.data)
+        
+        if not df_ecos_taller.empty:
+            ecos_en_taller_set = set(df_ecos_taller["eco"].astype(str).str.strip().unique())
+            col_eco = 'eco' if 'eco' in df_base.columns else 'ECO'
+            col_estatus = 'estatus' if 'estatus' in df_base.columns else 'Estatus'
+            
+            # Forzamos estatus de Taller para los ECOS detectados en Supabase
+            df_base.loc[df_base[col_eco].astype(str).str.strip().isin(ecos_en_taller_set), col_estatus] = 'TALLER'
+            
+            # Recálculo corregido (usando total_taller con doble 'l')
+            total_taller = len(df_base[df_base[col_estatus].isin(['TALLER', 'SINIESTRO', 'PATIO MALAS'])])
+            total_activos = len(df_base) - total_taller 
+            
+            print(f"Sincronizados {len(ecos_en_taller_set)} vehículos en taller para la flotilla {cat_actual}")
+except Exception as e:
+    st.error(f"Error al sincronizar talleres con Supabase: {e}")
+
+# -----------------------------------------------------------------------------
 # 1. DASHBOARD GENERAL
 # -----------------------------------------------------------------------------
 if mod_actual == "Dashboard General":
@@ -595,7 +619,6 @@ if mod_actual == "Dashboard General":
 
     col_filtro, col_exp = st.columns([3, 1])
     
-    # CORREGIDO: Usando "UBICACIÓN" en mayúsculas y acento
     unidades_list = ["Todas las Ubicaciones (Nacional)"] + (
         list(df_base["UBICACIÓN"].dropna().unique())
         if "UBICACIÓN" in df_base.columns
@@ -605,7 +628,6 @@ if mod_actual == "Dashboard General":
         "Filtrar Consulta por Unidad Receptora / Ubicación:", unidades_list
     )
 
-    # CORREGIDO: Filtrando por "UBICACIÓN"
     df_dash = (
         df_base
         if (
@@ -806,7 +828,6 @@ if mod_actual == "Dashboard General":
     st.markdown("---")
     st.markdown("##### **Vistas Detalladas de la Base de Datos Activa**")
     
-    # CORREGIDO: Cambiado "ubicacion" por "UBICACIÓN"
     cols_mostrar = [
         "eco",
         "tipo",
@@ -832,12 +853,12 @@ if mod_actual == "Dashboard General":
         use_container_width=True,
         hide_index=True,
     )
+
 # -----------------------------------------------------------------------------
 # REPORTE DE TALLER / COSTOS ACUMULADOS (MULTIFLOTILLA)
 # -----------------------------------------------------------------------------
 elif mod_actual in ["Reporte en Taller - Ambulancias", "Reporte en Taller - Administrativos", "Reporte en Taller - Institucionales"]:
     
-    # Mapeo dinámico del nombre del módulo actual a la categoría exacta de la columna 'flotilla' en Supabase
     map_flotilla = {
         "Reporte en Taller - Ambulancias": "Ambulancias",
         "Reporte en Taller - Administrativos": "Administrativos",
@@ -851,7 +872,6 @@ elif mod_actual in ["Reporte en Taller - Ambulancias", "Reporte en Taller - Admi
         unsafe_allow_html=True,
     )
 
-    # Consulta a Supabase filtrando estrictamente por la columna 'flotilla'
     try:
         response = supabase.table("reporte_semanal").select("*").eq("flotilla", flotilla_seleccionada).execute()
         df_taller_flota = pd.DataFrame(response.data)
@@ -862,17 +882,14 @@ elif mod_actual in ["Reporte en Taller - Ambulancias", "Reporte en Taller - Admi
     if df_taller_flota.empty:
         st.warning(f"⚠️ No se encontraron registros para la flotilla **{flotilla_seleccionada}** en la tabla `reporte_semanal`.")
     else:
-        # Procesamiento automático de días y costos (Cuota diaria: $3,249.00)
         CUOTA_DIARIA = 3249.00
         
         df_taller_flota["fecha_ingreso_dt"] = pd.to_datetime(df_taller_flota["fecha_ingreso"], format="%d/%m/%Y", errors="coerce")
         fecha_actual = pd.Timestamp.today().normalize()
         
-        # Cálculo exacto de días transcurridos y costo acumulado
         df_taller_flota["dias_en_taller"] = (fecha_actual - df_taller_flota["fecha_ingreso_dt"]).dt.days
         df_taller_flota["costo_acumulado"] = df_taller_flota["dias_en_taller"] * CUOTA_DIARIA
 
-        # Métricas ejecutivas del módulo
         total_unidades_taller = len(df_taller_flota)
         costo_total_acumulado = df_taller_flota["costo_acumulado"].sum()
         promedio_dias = df_taller_flota["dias_en_taller"].mean() if total_unidades_taller > 0 else 0
@@ -884,7 +901,6 @@ elif mod_actual in ["Reporte en Taller - Ambulancias", "Reporte en Taller - Admi
 
         st.markdown("---")
 
-        # Filtro opcional por adscripción
         adscripciones_list = ["Todas las Adscripciones"] + sorted(list(df_taller_flota["adscripcion"].dropna().unique()))
         ads_sel = st.selectbox("Filtrar por Adscripción:", adscripciones_list, key=f"sel_ads_{flotilla_seleccionada}")
 
@@ -894,7 +910,6 @@ elif mod_actual in ["Reporte en Taller - Ambulancias", "Reporte en Taller - Admi
             else df_taller_flota[df_taller_flota["adscripcion"] == ads_sel]
         )
 
-        # Columnas a mostrar
         cols_taller_show = [
             "semana_corte",
             "eco",
@@ -908,7 +923,6 @@ elif mod_actual in ["Reporte en Taller - Ambulancias", "Reporte en Taller - Admi
         
         df_final_show = df_taller_view[[c for c in cols_taller_show if c in df_taller_view.columns]].copy()
         
-        # Formato de moneda visual
         if "costo_acumulado" in df_final_show.columns:
             df_final_show["costo_acumulado"] = df_final_show["costo_acumulado"].apply(lambda x: f"${x:,.2f}" if pd.notnull(x) else "$0.00")
 
@@ -918,7 +932,6 @@ elif mod_actual in ["Reporte en Taller - Ambulancias", "Reporte en Taller - Admi
             hide_index=True,
         )
 
-        # Botón de descarga adaptado a la flotilla en curso
         csv_flota = df_taller_view.to_csv(index=False).encode("utf-8")
         st.download_button(
             label=f"📥 Descargar Reporte de {flotilla_seleccionada}",
@@ -927,6 +940,7 @@ elif mod_actual in ["Reporte en Taller - Ambulancias", "Reporte en Taller - Admi
             mime="text/csv",
             use_container_width=True
         )
+
 # -----------------------------------------------------------------------------
 # 2. SEMÁFORO DE MOVILIDAD POR CIUDAD
 # -----------------------------------------------------------------------------
@@ -951,18 +965,15 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
     )
 
     if not df_base.empty and "UBICACIÓN" in df_base.columns:
-        # Obtener eco en taller desde la sesión
         ecos_en_taller = {
             r.get("eco", r.get("ECO"))
             for r in st.session_state.get("taller_registros", [])
             if r.get("estatus", r.get("Estatus")) == "Activo (En Taller)"
         }
 
-        # Crear una copia para procesar de forma segura sin romper índices
         df_temp = df_base.copy()
         df_temp["en_taller"] = df_temp["eco"].isin(ecos_en_taller)
         
-        # Banderas condicionales vectorizadas
         df_temp["es_titular_activo"] = (df_temp["estatus"] == "Titular Activo") & (~df_temp["en_taller"])
         df_temp["es_sustituto"] = df_temp["estatus"] == "Sustituto Entregado"
         df_temp["es_inoperativo"] = df_temp["estatus"] == "Inoperativo / Baja"
@@ -1073,34 +1084,6 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
             use_container_width=True,
             hide_index=True,
         )
-# -----------------------------------------------------------------------------
-# SINCRONIZACIÓN AUTOMÁTICA DE TALLERES DESDE SUPABASE
-# -----------------------------------------------------------------------------
-try:
-    # 1. Consultar los ecos que están actualmente en taller/siniestro en Supabase para la flotilla activa (ej. 'Ambulancias')
-    res_taller = supabase.table("reporte_semanal").select("eco, estatus").eq("flotilla", cat_actual).execute()
-    df_ecos_taller = pd.DataFrame(res_taller.data)
-    
-    if not df_ecos_taller.empty:
-        # Obtener la lista de ECOS que están detenidos
-        ecos_en_taller_set = set(df_ecos_taller["eco"].astype(str).str.strip().unique())
-        
-        # 2. Si tu DataFrame principal de vehículos se llama df_base, marcamos el estatus
-        if 'df_base' in locals() and not df_base.empty:
-            # Suponiendo que la columna de eco en tu df_base se llama 'eco' o 'ECO' y el estatus 'estatus'
-            col_eco = 'eco' if 'eco' in df_base.columns else 'ECO'
-            col_estatus = 'estatus' if 'estatus' in df_base.columns else 'Estatus'
-            
-            # Si el ECO está en la lista de Supabase, forzamos su estatus a Taller/Inoperativo
-            df_base.loc[df_base[col_eco].astype(str).str.strip().isin(ecos_en_taller_set), col_estatus] = 'TALLER'
-            
-            # Forzamos recálculo de métricas del Dashboard
-            total_taller = len(df_base[df_base[col_estatus].isin(['TALLER', 'SINIESTRO', 'PATIO MALAS'])])
-            total_activos = len(df_base) - total_taler if 'total_taller' in locals() else len(df_base)
-            
-            print(f"Sincronizados {len(ecos_en_taller_set)} vehículos en taller para la flotilla {cat_actual}")
-except Exception as e:
-    st.error(f"Error al sincronizar talleres con Supabase: {e}")
 
 # -----------------------------------------------------------------------------
 # 3. CONTROL DEL POOL DE SUSTITUTOS (20%)
