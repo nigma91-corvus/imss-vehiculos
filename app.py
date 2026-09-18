@@ -1,66 +1,163 @@
+# =============================================================================
+# CÓDIGO COMPLETO - SISTEMA DE CONTROL VEHICULAR IMSS (PERSISTENCIA TOTAL SUPABASE)
+# Desarrollado por: eduardo.casas@imss.gob.mx
+# =============================================================================
 import streamlit as st
+import base64
+from datetime import datetime, date
+import os
+import io
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
-from supabase import create_client, Client
+from supabase import create_client
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
-# ==============================================================================
-# 1. CONFIGURACIÓN INICIAL Y CONEXIÓN A SUPABASE
-# ==============================================================================
-st.set_page_config(page_title="Control Vehicular IMSS", layout="wide")
+# Configura tus credenciales aquí (puedes leerlas desde st.secrets si las tienes ahí guardadas)
+cloudinary.config(
+  cloud_name = st.secrets["cloudinary"]["cloud_name"],
+  api_key = st.secrets["cloudinary"]["api_key"],
+  api_secret = st.secrets["cloudinary"]["api_secret"],
+  secure = True
+)
 
-# Asegúrate de tener tus secretos configurados en Streamlit (.streamlit/secrets.toml)
-try:
-    SUPABASE_URL = st.secrets["SUPABASE_URL"]
-    SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
-    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-except Exception as e:
-    supabase = None
-    st.error(f"Error de conexión con las credenciales de Supabase: {e}")
+# -----------------------------------------------------------------------------
+# CONFIGURACIÓN DE PÁGINA
+# -----------------------------------------------------------------------------
+st.set_page_config(
+    page_title="Sistema de Control Vehicular - IMSS",
+    page_icon="🚌",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+# --- DISEÑO COMPACTO Y FIJO PARA LA BARRA LATERAL (SIN ENCIMARSE) ---
+st.markdown(
+    """
+    <style>
+        /* 0. Reducir el padding superior de la barra lateral por defecto */
+        [data-testid="stSidebar"] > div:first-child {
+            padding-top: 1rem !important;
+            padding-bottom: 1rem !important;
+        }
 
-# ==============================================================================
-# 2. FUNCIONES DE CARGA Y UNIVERSO DINÁMICO
-# ==============================================================================
+        /* 1. Forzar que el contenedor de la barra lateral distribuya sus elementos de arriba a abajo */
+        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 20px);
+            justify-content: space-between;
+        }
 
-def obtener_universo_total_supabase():
-    """Calcula el padrón objetivo sumando las tres tablas principales de vehículos."""
-    if not supabase:
-        return 1200  # Fallback de seguridad
-    
-    tablas = ["vehiculos_administrativos", "vehiculos_ambulancias", "vehiculos_institucionales"]
-    total_unidades = 0
-    
-    for tabla in tablas:
-        try:
-            response = supabase.table(tabla).select("id", count="exact").execute()
-            if response.count is not None:
-                total_unidades += response.count
-        except Exception:
-            # Si falla una tabla individualmente, continuamos con las demás
-            pass
-            
-    return total_unidades if total_unidades > 0 else 1200
+        /* 1.1 Reducir y centrar el logo de la barra lateral */
+        [data-testid="stSidebar"] img {
+            max-width: 100px !important;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
 
+        /* 2. Compactar los espacios y márgenes del menú de radio */
+        [data-testid="stSidebar"] .stRadio label {
+            font-size: 12px !important;
+            line-height: 1.15 !important;
+            padding: 1px 0px !important;
+        }
 
+        /* 3. Reducir separación entre elementos de selección */
+        [data-testid="stSidebar"] .stRadio {
+            margin-top: -5px !important;
+        }
+
+        /* 4. Espaciado limpio entre los elementos de los módulos */
+        [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
+            gap: 2px !important;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+# =============================================================================
+# CONSTANTES Y CONFIGURACIÓN DE COLUMNAS Y PALETA INSTITUCIONAL (PANTONES)
+# =============================================================================
+COLORES_PANTONE = {
+    "7421": "#7A1332",
+    "7420": "#8A1538",
+    "627": "#1C3B30",
+    "626": "#275043",
+    "561": "#326053",
+    "504": "#421924",
+    "490": "#5A202E",
+    "465": "#A4855B",
+    "468": "#D3C281"
+}
+
+COLUMNAS_OFICIALES = [
+    "eco",
+    "tipo",
+    "linea",
+    "ubicacion",
+    "arrendadora",
+    "estatus",
+    "placas",
+    "vin",
+    "no_tc",
+    "ultimo_servicio",
+    "cuota_diaria",
+    "total_dias_servicio",
+    "costo_mensual_sin_iva",
+    "total_deduccion",
+    "total_a_pagar",
+]
+# -----------------------------------------------------------------------------
+# FUNCIÓN AUXILIAR PARA CONVERSIÓN SEGURA DE NÚMEROS
+# -----------------------------------------------------------------------------
+def parse_float(val):
+    try:
+        val_str = str(val).strip()
+        if val_str.lower() in ['nan', 'none', 'n/a', '', 'null']:
+            return 0.0
+        return float(val_str.replace('$', '').replace(',', ''))
+    except (ValueError, TypeError):
+        return 0.0
+
+# -----------------------------------------------------------------------------
+# CONEXIÓN CON SUPABASE
+# -----------------------------------------------------------------------------
+@st.cache_resource
+def conectar_supabase():
+    url = st.secrets["supabase"]["url"]
+    key = st.secrets["supabase"]["key"]
+    return create_client(url, key)
+
+supabase = conectar_supabase()
+supabase_url = st.secrets["supabase"]["url"] if supabase else ""
+
+# -----------------------------------------------------------------------------
+# 1. FUNCIÓN DE CARGA DINÁMICA POR TABLA EN SUPABASE
+# -----------------------------------------------------------------------------
 @st.cache_data(ttl=10)
-def cargar_movilidad_real_supabase(categoria_flota):
-    """Carga y pagina los registros de la tabla correspondiente en Supabase."""
+def cargar_movilidad_real_supabase(categoria_flota, semana_corte="Semana 37 - 2026"):
     if not supabase:
         return pd.DataFrame()
-    
-    cat_lower = str(categoria_flota).strip().lower()
-    if "admin" in cat_lower:
-        nombre_tabla = "vehiculos_administrativos"
-    elif "ambulanc" in cat_lower:
-        nombre_tabla = "vehiculos_ambulancias"
-    elif "instituc" in cat_lower:
-        nombre_tabla = "vehiculos_institucionales"
-    else:
-        nombre_tabla = "vehiculos_administrativos"
-
-    all_rows = []
-    batch_size = 1000
-    offset = 0
-    
     try:
+        # Mapeo exacto de la categoría seleccionada a su tabla correspondiente en Supabase
+        cat_lower = str(categoria_flota).strip().lower()
+        if "admin" in cat_lower:
+            nombre_tabla = "vehiculos_administrativos"
+        elif "ambulanc" in cat_lower:
+            nombre_tabla = "vehiculos_ambulancias"
+        elif "instituc" in cat_lower:
+            nombre_tabla = "vehiculos_institucionales"
+        else:
+            nombre_tabla = "vehiculos_administrativos" # Default de seguridad
+
+        all_rows = []
+        batch_size = 1000
+        offset = 0
+        
+        # Paginación para asegurar que traiga el universo completo de esa tabla
         while True:
             response = supabase.table(nombre_tabla).select("*").range(offset, offset + batch_size - 1).execute()
             data = response.data
@@ -75,7 +172,7 @@ def cargar_movilidad_real_supabase(categoria_flota):
         if all_rows:
             df = pd.DataFrame(all_rows)
             
-            # Estandarización de columnas críticas
+            # Limpieza y estandarización de estatus
             if "estatus" in df.columns and "estatus_actual" not in df.columns:
                 df["estatus_actual"] = df["estatus"]
 
@@ -84,41 +181,56 @@ def cargar_movilidad_real_supabase(categoria_flota):
             else:
                 df["estatus_limpio"] = "LABORANDO"
                 
+            # Estandarizar campo tipo si existe
+            if "tipo" in df.columns:
+                df["tipo"] = df["tipo"].replace({"Ambulancia": "Ambulancias", "ford": "Ford", "FORD": "Ford"})
+
             return df
         return pd.DataFrame()
     except Exception as e:
         st.error(f"Error al cargar la tabla {nombre_tabla}: {e}")
         return pd.DataFrame()
+# -----------------------------------------------------------------------------
+# 2. CÁLCULO DINÁMICO DEL UNIVERSO Y MÉTRICAS
+# -----------------------------------------------------------------------------
 
+# Función auxiliar rápida para contar registros reales en las tres tablas principales
+def obtener_universo_total_supabase():
+    if not supabase:
+        return 1200 # Fallback de seguridad
+    
+    tablas = ["vehiculos_administrativos", "vehiculos_ambulancias", "vehiculos_institucionales"]
+    total_unidades = 0
+    
+    for tabla in tablas:
+        try:
+            # Pedimos un conteo rápido (head o count)
+            response = supabase.table(tabla.lower()).select("id", count="exact").execute()
+            if response.count is not None:
+                total_unidades += response.count
+            else:
+                # Si la API no regresa el count directo, traemos los registros o un len
+                res_data = supabase.table(tabla.lower()).select("id").execute()
+                if res_data.data:
+                    total_unidades += len(res_data.data)
+        except Exception as e:
+            # Si una tabla falla o no existe, continuamos con las demás
+            pass
+            
+    return total_unidades if total_unidades > 0 else 1200
 
-# ==============================================================================
-# 3. INTERFAZ DE USUARIO Y FLUJO PRINCIPAL
-# ==============================================================================
-
-st.title("🚗 Control de Movilidad y Flota - IMSS")
-
-# Barra lateral para filtros organizados
-st.sidebar.header("Filtros de Consulta")
-categoria_flota = st.sidebar.selectbox(
-    "Selecciona Categoría de Flota",
-    ["Vehículos Administrativos", "Ambulancias", "Vehículos Institucionales"]
-)
-
-semana_corte = st.sidebar.selectbox(
-    "Semana de Corte",
-    ["Semana 37 - 2026", "Semana 38 - 2026", "Semana 39 - 2026"]
-)
-
-# Cálculo dinámico del universo total global
+# Obtenemos el universo real sumando las 3 tablas de Supabase
 TOTAL_UNIVERSO_REAL = obtener_universo_total_supabase()
 
-# Carga de datos según la categoría seleccionada
-df_movilidad = cargar_movilidad_real_supabase(categoria_flota)
+# (Opcional si dependes de la categoría seleccionada por el usuario en el selectbox)
+# categoria_actual = st.selectbox("Selecciona categoría", ["Administrativos", "Ambulancias", "Institucionales"])
+df_movilidad = cargar_movilidad_real_supabase(categoria_flota) # Usando la categoría activa
 
-# ==============================================================================
-# 4. PROCESAMIENTO DE MÉTRICAS
-# ==============================================================================
 if not df_movilidad.empty:
+    # Normalizamos el estatus para buscar sin errores de mayúsculas/espacios
+    df_movilidad["estatus_limpio"] = df_movilidad["estatus_actual"].astype(str).str.strip().str.upper()
+    
+    # Filtramos estrictamente las unidades fuera de circulación
     estatus_fuera = ["TALLER", "SINIESTRO", "PATIO MALAS CONDICIONES", "PATIO MALAS"]
     df_fuera = df_movilidad[df_movilidad["estatus_limpio"].isin(estatus_fuera)]
     
@@ -143,20 +255,2384 @@ else:
     n_activos = TOTAL_UNIVERSO_REAL
     porcentaje_movilidad = 100.0
     total_importe = 0.0
+    # -----------------------------------------------------------------------------
+    # PINTAR LAS TARJETAS EN STREAMLIT
+    # -----------------------------------------------------------------------------
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Universo Padrón Objetivo", f"{TOTAL_UNIVERSO_REAL:,}")
+    c2.metric("Unidades Laborando (Activas)", f"{n_activos:,}")
+    c3.metric("Unidades en Taller / Fuera", f"{n_taller:,}")
+    c4.metric("Porcentaje de Movilidad Real", f"{porcentaje_movilidad:.1f}%")
 
-# ==============================================================================
-# 5. PINTAR TARJETAS Y RESULTADOS EN PANTALLA
-# ==============================================================================
-st.subheader(f"Métricas Generales ({semana_corte})")
+    # (Opcional) Si quieres mostrar la métrica del costo total en dinero en otra tarjeta o sección:
+    st.metric("Costo Acumulado Total en Incidencias", f"${total_importe:,.2f}")
+   
+# -----------------------------------------------------------------------------
+# GESTIÓN DE IMÁGENES Y DOCUMENTOS DESDE SUPABASE STORAGE
+# -----------------------------------------------------------------------------
+def obtener_url_supabase(nombre_archivo, bucket="vehiculos-fotos"):
+  if supabase_url:
+    return f"{supabase_url}/storage/v1/object/public/{bucket}/{nombre_archivo}"
+  return ""
 
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Universo Padrón Objetivo", f"{TOTAL_UNIVERSO_REAL:,}")
-c2.metric("Unidades Laborando (Activas)", f"{n_activos:,}")
-c3.metric("Unidades en Taller / Fuera", f"{n_taller:,}")
-c4.metric("Porcentaje de Movilidad Real", f"{porcentaje_movilidad:.1f}%")
+def obtener_imagen_catalogo_supabase(tipo, linea):
+  tipo_str = str(tipo).upper().strip()
+  linea_str = str(linea).upper().strip()
 
-st.metric("Costo Acumulado Total en Incidencias", f"${total_importe:,.2f}")
+  if "PROMASTER" in linea_str:
+    archivo = "RAM_PROMASTER_GENERICA.png"
+  elif "TRANSIT" in linea_str:
+    archivo = "FORD_TRANSIT_GENERICA.png"
+  elif "CRETA" in linea_str or "SUV" in linea_str:
+    archivo = "creta-1-5l-gls-ivt.png"
+  elif "F-150" in linea_str or "PICK UP" in linea_str:
+    archivo = "f-150-xl.png"
+  elif "URVAN" in linea_str or "VAN" in linea_str:
+    archivo = "urvan-panel.png"
+  elif "V-DRIVE" in linea_str or "SEDÁN" in linea_str or "SEDAN" in linea_str:
+    archivo = "v-drive-tm-ac.png"
+  else:
+    archivo = "v-drive-tm-ac.png"
 
-# Vista previa opcional de los datos cargados
-with st.expander("Ver detalle de registros cargados"):
-    st.dataframe(df_movilidad)
+  url_supa = obtener_url_supabase(archivo, "vehiculos-fotos")
+  if url_supa:
+    return url_supa
+  return os.path.join("assets", archivo)
+
+url_logo_supa = obtener_url_supabase("logo_imss.png", "vehiculos-fotos")
+
+os.makedirs("data", exist_ok=True)
+os.makedirs("expedientes", exist_ok=True)
+os.makedirs("assets", exist_ok=True)
+
+# -----------------------------------------------------------------------------
+# CARGA DE DATOS DESDE SUPABASE (FLOTILLAS, TALLER, BITÁCORAS, REASIGNACIONES)
+# -----------------------------------------------------------------------------
+
+@st.cache_data(ttl=60)
+def cargar_datos_supabase(categoria):
+  if not supabase:
+    return pd.DataFrame(columns=COLUMNAS_OFICIALES)
+  try:
+    tabla_map = {
+        "Administrativos": "vehiculos_administrativos",
+        "Ambulancias": "vehiculos_ambulancias",
+        "Institucionales": "vehiculos_institucionales"
+    }
+    nombre_tabla = tabla_map.get(categoria, "vehiculos_administrativos")
+    
+    all_rows = []
+    batch_size = 1000
+    offset = 0
+    
+    while True:
+      response = supabase.table(nombre_tabla).select("*").range(offset, offset + batch_size - 1).execute()
+      data = response.data
+
+      
+      if not data:
+        break
+      all_rows.extend(data)
+      if len(data) < batch_size:
+        break
+      offset += batch_size
+
+    df = pd.DataFrame(all_rows)
+    if not df.empty:
+      df = df.astype(str)
+      df.columns = df.columns.str.strip()
+      if "id" in df.columns:
+        df = df.drop(columns=["id"])
+      
+      # Mapeo flexible para estandarizar columnas de identificación (eco, eco, etc.)
+      columnas_mapeo = {}
+      for col in df.columns:
+        c_clean = col.lower().replace(".", "").replace("_", " ").strip()
+        if c_clean in ["eco", "no eco", "noecco", "no_ecco"]:
+          columnas_mapeo[col] = "eco"
+        elif c_clean in ["ubicacion", "ubicación"]:
+          columnas_mapeo[col] = "UBICACIÓN"
+      if columnas_mapeo:
+        df = df.rename(columns=columnas_mapeo)
+    else:
+      return pd.DataFrame(columns=COLUMNAS_OFICIALES)
+    return df
+  except Exception as e:
+    return pd.DataFrame(columns=COLUMNAS_OFICIALES)
+
+@st.cache_data(ttl=60)
+def cargar_taller_supabase():
+    if not supabase:
+        return []
+    try:
+        res = supabase.table("taller_incidencias").select("*").execute()
+        rows = res.data or []
+        mapped = []
+        for r in rows:
+            mapped.append({
+                "ECO": r.get("eco") or r.get("ECO", ""),
+                "Tipo": r.get("tipo") or r.get("Tipo", ""),
+                "Fecha_Ingreso": r.get("fecha_ingreso") or r.get("Fecha_Ingreso", ""),
+                "Hora": r.get("hora") or r.get("Hora", ""),
+                "Responsable": r.get("responsable") or r.get("Responsable", ""),
+                "Taller": r.get("taller") or r.get("Taller", ""),
+                "Sustituto": r.get("sustituto") or r.get("Sustituto", ""),
+                "Estatus": r.get("estatus") or r.get("Estatus", ""),
+                "Observaciones": r.get("observaciones") or r.get("Observaciones", "")
+            })
+        return mapped
+    except Exception:
+        return []
+
+@st.cache_data(ttl=60)
+def cargar_bitacora_cargas_supabase():
+    if not supabase:
+        return []
+    try:
+        res = supabase.table("bitacora_cargas").select("*").execute()
+        rows = res.data or []
+        mapped = []
+        for r in rows:
+            mapped.append({
+                "Fecha": r.get("fecha") or r.get("Fecha", ""),
+                "Usuario": r.get("usuario") or r.get("Usuario", ""),
+                "Base": r.get("base") or r.get("Base", ""),
+                "Archivo": r.get("archivo") or r.get("Archivo", ""),
+                "Registros": int(r.get("registros") or r.get("Registros", 0)),
+                "Estado": r.get("estado") or r.get("Estado", "Exitoso")
+            })
+        return mapped
+    except Exception:
+        return []
+
+@st.cache_data(ttl=60)
+def cargar_reasignaciones_supabase():
+    if not supabase:
+        return []
+    try:
+        res = supabase.table("reasignaciones").select("*").execute()
+        rows = res.data or []
+        mapped = []
+        for r in rows:
+            mapped.append({
+                "ECO": r.get("eco") or r.get("ECO", ""),
+                "Sede_Origen": r.get("sede_origen") or r.get("Sede_Origen", ""),
+                "Sede_Destino": r.get("sede_destino") or r.get("Sede_Destino", ""),
+                "Fecha": r.get("fecha") or r.get("Fecha", ""),
+                "Motivo": r.get("motivo") or r.get("Motivo", ""),
+                "Oficio_Autorizacion": r.get("oficio_autorizacion") or r.get("Oficio_Autorizacion", "")
+            })
+        return mapped
+    except Exception:
+        return []
+
+# -----------------------------------------------------------------------------
+# GESTIÓN DEL ESTADO DE SESIÓN (SINCRONIZADO CON SUPABASE)
+# -----------------------------------------------------------------------------
+if "categoria_seleccionada" not in st.session_state:
+  st.session_state.categoria_seleccionada = "Administrativos"
+
+if "modulo_activo" not in st.session_state:
+  st.session_state.modulo_activo = "Dashboard General"
+
+if "taller_registros" not in st.session_state:
+  st.session_state.taller_registros = cargar_taller_supabase()
+
+if "bitacora_cargas" not in st.session_state:
+  st.session_state.bitacora_cargas = cargar_bitacora_cargas_supabase()
+
+if "reasignaciones_historial" not in st.session_state:
+  st.session_state.reasignaciones_historial = cargar_reasignaciones_supabase()
+
+if "admin_autenticado" not in st.session_state:
+  st.session_state.admin_autenticado = False
+
+if "expedientes_fotos" not in st.session_state:
+  st.session_state.expedientes_fotos = {}
+
+if "expedientes_docs" not in st.session_state:
+  st.session_state.expedientes_docs = {}
+
+if "pagos_cargados" not in st.session_state:
+  st.session_state.pagos_cargados = pd.DataFrame()
+
+def cambiar_categoria(cat):
+  st.session_state.categoria_seleccionada = cat
+  st.session_state.modulo_activo = "Dashboard General"
+
+cat_actual = st.session_state.categoria_seleccionada
+df_base = cargar_datos_supabase(cat_actual)
+
+# -----------------------------------------------------------------------------
+# ESTILOS CSS EXTENDIDOS
+# -----------------------------------------------------------------------------
+st.markdown(
+    f"""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
+    html, body, [class*="css"] {{ font-family: 'Montserrat', sans-serif !important; }}
+    .block-container {{ padding: 1.2rem 2rem 2rem 2rem !important; }}
+    .main {{ background-color: #FFFFFF; }}
+    [data-testid="stSidebar"] {{ background-color: {COLORES_PANTONE["627"]} !important; }}
+    [data-testid="stSidebar"] label, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] div {{ color: #FFFFFF !important; font-weight: 600; }}
+    [data-testid="stSidebar"] button[kind="primary"] {{ background-color: {COLORES_PANTONE["468"]} !important; color: {COLORES_PANTONE["627"]} !important; font-weight: 800 !important; border: 1px solid {COLORES_PANTONE["468"]} !important; }}
+    [data-testid="stSidebar"] button[kind="secondary"] {{ background-color: {COLORES_PANTONE["626"]} !important; color: #FFFFFF !important; font-weight: 700 !important; border: 1px solid {COLORES_PANTONE["561"]} !important; }}
+    [data-testid="stSidebar"] img {{ max-width: 100%; height: auto; object-fit: contain; }}
+    div[data-testid="stMetricValue"] {{ font-size: 22px !important; color: {COLORES_PANTONE["627"]} !important; font-weight: 800 !important; }}
+    div[data-testid="stMetricLabel"] {{ font-size: 11px !important; font-weight: 700 !important; color: #555555 !important; }}
+    .subtitulo-seccion {{ color: #222222; font-weight: 700; font-size: 18px; margin-bottom: 15px !important; }}
+    .badge-verde {{ background-color: #27ae60; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px; }}
+    .badge-amarillo {{ background-color: #f39c12; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px; }}
+    .badge-rojo {{ background-color: {COLORES_PANTONE["7420"]}; color: white; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 11px; }}
+    .card-resumen {{ background-color: #F8F9FA; border: 1px solid #E9ECEF; border-radius: 8px; padding: 14px; margin-bottom: 12px; }}
+    .image-container-full {{
+        width: 100%;
+        max-height: 220px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fdfdfd;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 8px;
+        overflow: hidden;
+    }}
+    .image-container-full img {{
+        max-width: 100% !important;
+        max-height: 200px !important;
+        object-fit: contain !important;
+    }}
+    .footer-firma {{
+        margin-top: 30px;
+        padding: 10px;
+        text-align: center;
+        border-top: 1px solid #E9ECEF;
+        font-size: 11px;
+        color: #555555;
+        font-weight: 600;
+    }}
+    </style>
+""",
+    unsafe_allow_html=True,
+)
+# -----------------------------------------------------------------------------
+# BARRA LATERAL (SIDEBAR)
+# -----------------------------------------------------------------------------
+# Definición de la URL fija del logo institucional en Cloudinary
+# (Asegúrate de colocar esto justo antes de la barra lateral)
+url_logo_supa = "https://res.cloudinary.com/apg9jptd/image/upload/v1788891026/logo_imss.png"
+with st.sidebar:
+    # Bloque de estilos CSS para controlar la separación y los botones
+    st.markdown(
+        """
+        <style>
+            /* 1. Controla la separación general entre los elementos de la barra lateral */
+            [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
+                gap: 4px !important;
+            }
+            
+            /* 2. Mantiene los botones de flotilla compactos y ordenados */
+            [data-testid="stSidebar"] .stButton button {
+                min-height: 32px !important;
+                padding: 2px 8px !important;
+            }
+
+            /* 3. Reduce el espacio vertical específico entre un botón y otro */
+            [data-testid="stSidebar"] .stButton {
+                margin-top: -110px !important;
+                margin-bottom: -110px !important;
+            }
+
+            /* 4. Sube el bloque completo de los Módulos del Sistema */
+            [data-testid="stSidebar"] div.stRadio {
+                margin-top: -110px !important;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    
+    # Logo compacto y centrado (con su margen superior negativo ya autorizado)
+    if url_logo_supa:
+        st.markdown(
+            f"""
+            <div style="display: flex; justify-content: center; align-items: center; margin-top: -185px; margin-bottom: 0px;">
+                <img src="{url_logo_supa}" style="max-height: 180px; width: auto; object-fit: contain;">
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            f"<h2 style='color:{COLORES_PANTONE['468']}; text-align:center; margin:0;'>IMSS</h2>",
+            unsafe_allow_html=True,
+        )
+
+    color_468 = COLORES_PANTONE["468"]
+
+    # Texto institucional debajo del logo (mantiene tu ajuste de posición)
+    st.markdown(
+        f"<div style='text-align: center; font-size: 11px; margin-top: -100px; margin-bottom: 0px; line-height: 1.0;'>"
+        "<b>Coordinación Técnica de Servicios Generales</b><br>"
+        f"<span style='font-size:9px; color:{color_468};'>"
+        "División de Transportes y Operación</span></div>",
+        unsafe_allow_html=True,
+    )
+    
+    # Etiqueta de selección de flotilla (mantiene tu ajuste de posición)
+    st.markdown(
+        "<p style='font-size: 11px; margin-top: -45px; margin-bottom: 2px;'><b>SELECCIONAR FLOTILLA:</b></p>",
+        unsafe_allow_html=True,
+    )
+
+    # Botón Administrativos
+    st.button(
+        "ADMINISTRATIVOS",
+        use_container_width=True,
+        type=(
+            "primary"
+            if st.session_state.categoria_seleccionada == "Administrativos"
+            else "secondary"
+        ),
+        on_click=cambiar_categoria,
+        args=("Administrativos",),
+    )
+    # Botón Ambulancias
+    st.button(
+        "AMBULANCIAS",
+        use_container_width=True,
+        type=(
+            "primary"
+            if st.session_state.categoria_seleccionada == "Ambulancias"
+            else "secondary"
+        ),
+        on_click=cambiar_categoria,
+        args=("Ambulancias",),
+    )
+    # Botón Institucionales
+    st.button(
+        "INSTITUCIONALES",
+        use_container_width=True,
+        type=(
+            "primary"
+            if st.session_state.categoria_seleccionada == "Institucionales"
+            else "secondary"
+        ),
+        on_click=cambiar_categoria,
+        args=("Institucionales",),
+    )
+
+    # Definición de los módulos del sistema
+    modulos = [
+        "Dashboard General",
+        "Semáforo de Movilidad por Ciudad",
+        "Control de Movilidad Real (1,200 Unidades)", # <--- NUEVA SECCIÓN AQUÍ
+        "Control del Pool de Sustitutos (20%)",
+        "Carga Inicial",
+        "Expediente por ECO y Documental",
+        "Registro de Taller e Incidencias",
+        "Reasignación por Necesidad de Servicio",
+        "Reportes y Exportación",
+        "Conciliación Financiera y Pagos",
+    ]
+
+    if st.session_state.modulo_activo not in modulos:
+        st.session_state.modulo_activo = "Dashboard General"
+
+    # Menú desplegable tipo radio para los módulos
+    st.session_state.modulo_activo = st.radio(
+        "Módulos del Sistema:",
+        modulos,
+        index=modulos.index(st.session_state.modulo_activo),
+    )
+
+    # Pie de página con créditos del sistema
+    st.markdown(
+        "<div style='text-align: center; font-size: 9px; color: #CCCCCC; line-height: 1.0; margin-top: 2px;'>Desarrollado por:<br><b>eduardo.casas@imss.gob.mx</b></div>",
+        unsafe_allow_html=True,
+    )
+# -----------------------------------------------------------------------------
+# ENCABEZADO INSTITUCIONAL ÚNICO
+# -----------------------------------------------------------------------------
+logo_html = f'<img src="{url_logo_supa}" style="height: 200px; width: auto; object-fit: contain; display: inline-block; vertical-align: middle;">' if url_logo_supa else f'<h2 style="color:{COLORES_PANTONE["468"]}; margin:0;">IMSS</h2>'
+
+st.markdown(
+    """
+    <style>
+        .block-container {
+            padding-top: 1rem !important; /* Mantenemos el padding compacto */
+            padding-bottom: 1rem !important;
+        }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    f"""
+    <div style="display: flex; align-items: flex-end; gap: 15px; width: 100%; margin: 0 0 15px 0;">
+        <div style="max-width: 65px; flex-shrink: 0;">
+            {logo_html.replace('<img ', '<img style="width: 100%; height: auto; display: block;" ')}
+        </div>
+        <div style="line-height: 1.2;">
+            <p style="color: {COLORES_PANTONE["627"]}; font-weight: 800; font-size: 20px; margin: 0;">Sistema de Gestión y Control Vehicular</p>
+            <p style="color: #555555; font-size: 11px; margin: 2px 0 0 0; font-weight: 600;">
+                <b>Flotilla Seleccionada:</b> <code>{st.session_state.categoria_seleccionada}</code> &nbsp;|&nbsp; 
+                <b>Módulo Activo:</b> <code>{st.session_state.modulo_activo}</code> &nbsp;|&nbsp; 
+                <b>Fecha de Operación:</b> {datetime.now().strftime('%d/%m/%Y')}
+            </p>
+        </div>
+    </div>
+    <hr style="margin: 0 0 15px 0; border: none; border-top: 1px solid #E9ECEF;">
+""",
+    unsafe_allow_html=True,
+)
+mod_actual = st.session_state.modulo_activo
+
+# -----------------------------------------------------------------------------
+# 1. FUNCIÓN AUXILIAR DE ESTILIZACIÓN DE TABLAS
+# -----------------------------------------------------------------------------
+def aplicar_estilo_tabla(df):
+  def estilo_filas(row):
+    if df.empty:
+      return []
+    # Destaca la última fila si coincide con un indicador de total
+    if row.name == len(df) - 1 and (
+        "TOTAL" in str(row.iloc[0]).upper()
+        or "TOTALES" in str(row.iloc[0]).upper()
+    ):
+      return ["background-color: #e6e6e6; font-weight: bold;" for _ in row.index]
+
+    # Alterna colores cebra entre filas pares e impares
+    if row.name % 2 == 0:
+      return ["background-color: #ffffff" for _ in row.index]
+    else:
+      return ["background-color: #f2f4f7" for _ in row.index]
+
+  return df.style.apply(estilo_filas, axis=1)
+
+
+# -----------------------------------------------------------------------------
+# 1. DASHBOARD GENERAL (CONECTADO A VISTA DE MOVILIDAD REAL - 1,200 UNIDADES)
+# -----------------------------------------------------------------------------
+if mod_actual == "Dashboard General":
+    st.markdown(
+        f'<p class="subtitulo-seccion">Dashboard General - Flotilla: {cat_actual}</p>',
+        unsafe_allow_html=True,
+    )
+
+    # Cargamos los datos pasando la categoría activa y la semana
+    df_dash = cargar_movilidad_real_supabase(cat_actual, "Semana 37 - 2026")
+
+    if df_dash.empty:
+        st.warning(f"⚠️ No se han encontrado registros en la vista de movilidad real para la flotilla **{cat_actual}**.")
+
+    col_filtro, col_exp = st.columns([3, 1])
+    
+    # Filtro dinámico por ubicación o unidad receptora si la columna existe
+    col_ubicacion_key = next((c for c in ["ubicacion", "UBICACIÓN", "base", "BASE"] if c in df_dash.columns), None)
+    
+    unidades_list = ["Todas las Ubicaciones (Nacional)"]
+    if col_ubicacion_key and not df_dash.empty:
+        unidades_list += list(df_dash[col_ubicacion_key].dropna().unique())
+
+    unidad_sel = col_filtro.selectbox(
+        "Filtrar Consulta por Unidad Receptora / Ubicación:", unidades_list
+    )
+
+    # Aplicar filtro de ubicación si se seleccionó una específica
+    if unidad_sel != "Todas las Ubicaciones (Nacional)" and col_ubicacion_key and not df_dash.empty:
+        df_dash = df_dash[df_dash[col_ubicacion_key] == unidad_sel]
+
+    # Universo fijo estandarizado y cálculo de métricas basado en estatus limpios
+    TOTAL_UNIVERSO_REAL = 1200
+    tot_unidades = len(df_dash) if not df_dash.empty else TOTAL_UNIVERSO_REAL
+
+    if not df_dash.empty and "estatus_limpio" in df_dash.columns:
+        # Contamos cuántas unidades están fuera de circulación según los criterios definidos
+        estatus_fuera = ["TALLER", "SINIESTRO", "PATIO MALAS CONDICIONES", "PATIO MALAS"]
+        df_fuera = df_dash[df_dash["estatus_limpio"].isin(estatus_fuera)]
+        
+        n_taller = len(df_fuera)
+        n_activos = TOTAL_UNIVERSO_REAL - n_taller
+        disponibilidad_operativa = (n_activos / TOTAL_UNIVERSO_REAL) * 100
+    else:
+        n_taller = 0
+        n_activos = TOTAL_UNIVERSO_REAL
+        disponibilidad_operativa = 100.0
+
+    # Pintar Tarjetas Métricas Principales Alineadas
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Universo Padrón Objetivo", f"{TOTAL_UNIVERSO_REAL:,}")
+    c2.metric("Unidades Laborando (Activas)", f"{n_activos:,}")
+    c3.metric("Unidades en Taller / Fuera", f"{n_taller:,}", delta_color="inverse")
+    c4.metric("Porcentaje de Movilidad Real", f"{disponibilidad_operativa:.1f}%")
+
+    st.markdown("---")
+    col_dona, col_barras, col_tabla = st.columns(
+        [1.2, 1.5, 1.3], gap="medium"
+    )
+
+    with col_dona:
+        st.markdown("##### **Estatus Operativo**")
+        valores_dona = [n_activos, n_taller]
+        etiquetas_dona = ["Laborando / Activas", "En Taller / Fuera"]
+        colores_dona = [COLORES_PANTONE["561"], COLORES_PANTONE["7420"]]
+
+        fig_d, ax_d = plt.subplots(figsize=(3.5, 3.5))
+        if sum(valores_dona) == 0:
+            ax_d.text(0.5, 0.5, "Sin Datos", ha="center", va="center", fontsize=12, color="gray")
+            ax_d.axis("off")
+        else:
+            wedges, _ = ax_d.pie(
+                valores_dona,
+                startangle=140,
+                colors=colores_dona,
+                wedgeprops=dict(width=0.4, edgecolor="white", linewidth=2),
+            )
+            ax_d.legend(
+                wedges,
+                [f"{e}: {v}" for e, v in zip(etiquetas_dona, valores_dona)],
+                loc="center",
+                bbox_to_anchor=(0.5, -0.15),
+                frameon=False,
+                fontsize=8,
+            )
+            ax_d.axis("equal")
+        fig_d.tight_layout()
+        st.pyplot(fig_d)
+
+    with col_barras:
+        st.markdown("##### **Distribución por Tipo de Vehículo**")
+        fig_v, ax_v = plt.subplots(figsize=(4.5, 3.5))
+        tipo_col = next((c for c in ["tipo", "TIPO", "linea", "LINEA"] if not df_dash.empty and c in df_dash.columns), None)
+        
+        if not df_dash.empty and tipo_col:
+            resumen_tipo = (
+                df_dash.groupby(tipo_col)
+                .size()
+                .reset_index(name="Cantidad")
+                .sort_values(by="Cantidad", ascending=False)
+            )
+
+            if not resumen_tipo.empty:
+                paleta_barras = [
+                    COLORES_PANTONE["7421"],
+                    COLORES_PANTONE["561"],
+                    COLORES_PANTONE["465"],
+                    COLORES_PANTONE["7420"],
+                    COLORES_PANTONE["626"],
+                    COLORES_PANTONE["468"],
+                ]
+                colores_asignados = [paleta_barras[i % len(paleta_barras)] for i in range(len(resumen_tipo))]
+
+                bars = ax_v.bar(
+                    resumen_tipo[tipo_col].astype(str), resumen_tipo["Cantidad"], color=colores_asignados
+                )
+                ax_v.tick_params(axis="x", rotation=30, labelsize=8)
+                ax_v.grid(axis="y", linestyle="--", alpha=0.5)
+                for bar in bars:
+                    h = bar.get_height()
+                    ax_v.text(
+                        bar.get_x() + bar.get_width() / 2,
+                        h + 0.5,
+                        f"{int(h)}",
+                        ha="center",
+                        va="bottom",
+                        fontweight="bold",
+                        fontsize=8,
+                    )
+            else:
+                ax_v.text(0.5, 0.5, "Sin Tipos Válidos", ha="center", va="center", fontsize=10, color="gray")
+                ax_v.axis("off")
+        else:
+            resumen_tipo = pd.DataFrame(columns=["tipo", "Cantidad"])
+            ax_v.text(0.5, 0.5, "Sin Datos", ha="center", va="center", fontsize=12, color="gray")
+            ax_v.axis("off")
+        fig_v.tight_layout()
+        st.pyplot(fig_v)
+
+    with col_tabla:
+        st.markdown("##### **Resumen Cantidades Detalladas**")
+        if not resumen_tipo.empty:
+            df_totales = pd.DataFrame(
+                [{resumen_tipo.columns[0]: "TOTAL UNIDADES", "Cantidad": resumen_tipo["Cantidad"].sum()}]
+            )
+            df_mostrar_res = pd.concat([resumen_tipo, df_totales], ignore_index=True)
+
+            st.dataframe(
+                aplicar_estilo_tabla(df_mostrar_res),
+                hide_index=True,
+                use_container_width=True,
+            )
+        else:
+            st.dataframe(
+                pd.DataFrame(columns=["tipo", "Cantidad"]),
+                hide_index=True,
+                use_container_width=True,
+            )
+
+    st.markdown("---")
+    st.markdown("##### **Vistas Detalladas de la Base de Datos Activa**")
+    
+    cols_mostrar = [
+        "eco",
+        "tipo",
+        "linea",
+        "ubicacion",
+        "estatus_actual",
+        "placas",
+        "vin",
+    ]
+    cols_existentes = [c for c in cols_mostrar if not df_dash.empty and c in df_dash.columns]
+
+    df_detallado = (
+        df_dash[cols_existentes]
+        if not df_dash.empty and cols_existentes
+        else df_dash
+    )
+
+    st.dataframe(
+        aplicar_estilo_tabla(df_detallado),
+        use_container_width=True,
+        hide_index=True,
+    )
+# -----------------------------------------------------------------------------
+# 2. SEMÁFORO DE MOVILIDAD POR CIUDAD
+# -----------------------------------------------------------------------------
+elif mod_actual == "Semáforo de Movilidad por Ciudad":
+    st.markdown(
+        f'<p class="subtitulo-seccion">Semáforo de Movilidad por Ciudad -'
+        f" Flotilla {cat_actual}</p>",
+        unsafe_allow_html=True,
+    )
+
+    lista_ciudades = (
+        list(df_base["UBICACIÓN"].dropna().unique())
+        if "UBICACIÓN" in df_base.columns
+        else []
+    )
+    
+    col_filtro_semaforo, col_descarga = st.columns([3, 1])
+    
+    ciudad_sel = col_filtro_semaforo.selectbox(
+        "Seleccionar Vista / Filtro de Ciudad:",
+        ["Todas las Ciudades (General)"] + lista_ciudades,
+    )
+
+    if not df_base.empty and "UBICACIÓN" in df_base.columns:
+        # Obtener eco en taller desde la sesión
+        ecos_en_taller = {
+            r.get("eco", r.get("ECO"))
+            for r in st.session_state.get("taller_registros", [])
+            if r.get("estatus", r.get("Estatus")) == "Activo (En Taller)"
+        }
+
+        # Crear una copia para procesar de forma segura sin romper índices
+        df_temp = df_base.copy()
+        df_temp["en_taller"] = df_temp["eco"].isin(ecos_en_taller)
+        
+        # Banderas condicionales vectorizadas
+        df_temp["es_titular_activo"] = (df_temp["estatus"] == "Titular Activo") & (~df_temp["en_taller"])
+        df_temp["es_sustituto"] = df_temp["estatus"] == "Sustituto Entregado"
+        df_temp["es_inoperativo"] = df_temp["estatus"] == "Inoperativo / Baja"
+
+        df_ciudades = (
+            df_temp.groupby("UBICACIÓN")
+            .agg(
+                Flotilla_Asignada=("eco", "count"),
+                Titulares_Activos=("es_titular_activo", "sum"),
+                Sustitutos_Entregados=("es_sustituto", "sum"),
+                En_Taller_Inoperativos=("es_inoperativo", "sum"),
+            )
+            .reset_index()
+        )
+
+        df_ciudades["Movilidad (%)"] = np.where(
+            df_ciudades["Flotilla_Asignada"] > 0,
+            (
+                (
+                    df_ciudades["Titulares_Activos"]
+                    + df_ciudades["Sustitutos_Entregados"]
+                )
+                / df_ciudades["Flotilla_Asignada"]
+                * 100
+            ).round(1),
+            0.0,
+        )
+        df_ciudades["Estado"] = np.where(
+            df_ciudades["Movilidad (%)"] >= 95,
+            "VERDE",
+            np.where(df_ciudades["Movilidad (%)"] >= 85, "AMARILLO", "ROJO"),
+        )
+        df_ciudades.rename(
+            columns={
+                "UBICACIÓN": "Ciudad / OOAD",
+                "Flotilla_Asignada": "Flotilla Asignada",
+                "Titulares_Activos": "Titulares Activos",
+                "Sustitutos_Entregados": "Sustitutos Entregados",
+                "En_Taller_Inoperativos": "En Taller / Inoperativos",
+            },
+            inplace=True,
+        )
+    else:
+        df_ciudades = pd.DataFrame(columns=[
+            "Ciudad / OOAD",
+            "Flotilla Asignada",
+            "Titulares Activos",
+            "Sustitutos Entregados",
+            "En Taller / Inoperativos",
+            "Movilidad (%)",
+            "Estado",
+        ])
+
+    if ciudad_sel != "Todas las Ciudades (General)":
+        df_ciudades = df_ciudades[df_ciudades["Ciudad / OOAD"] == ciudad_sel]
+
+    with col_descarga:
+        st.write("") 
+        csv_reporte = df_ciudades.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="📥 Descargar Reporte",
+            data=csv_reporte,
+            file_name=f"semaforo_movilidad_{cat_actual.lower().replace(' ', '_')}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+
+    st.markdown("---")
+
+    if df_ciudades.empty:
+        st.info("Sin registros cargados para evaluar semáforo de movilidad.")
+    else:
+        if ciudad_sel != "Todas las Ciudades (General)":
+            info_c = df_ciudades.iloc[0]
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Flotilla Asignada en Sede", info_c["Flotilla Asignada"])
+            m2.metric("Porcentaje Movilidad Real", f"{info_c['Movilidad (%)']}%")
+            m3.metric("Estatus del Semáforo", info_c["Estado"])
+        else:
+            st.info("ℹ️ Nota: Reporte métrico consolidado y tabla ejecutiva de cumplimiento por OOAD.")
+
+        def aplicar_estilo_semaforo(row):
+            if df_ciudades.empty:
+                return []
+            if row.name % 2 == 0:
+                return ["background-color: #ffffff" for _ in row.index]
+            else:
+                return ["background-color: #f2f4f7" for _ in row.index]
+
+        df_estilizado = df_ciudades.style.apply(aplicar_estilo_semaforo, axis=1)
+
+        def colorear_estado(val):
+            if val == "VERDE":
+                return "background-color: #27ae60; color: white; font-weight: bold;"
+            elif val == "AMARILLO":
+                return "background-color: #f39c12; color: white; font-weight: bold;"
+            elif val == "ROJO":
+                return f"background-color: {COLORES_PANTONE['7420']}; color: white; font-weight: bold;"
+            return ""
+
+        try:
+            df_estilizado = df_estilizado.map(colorear_estado, subset=["Estado"])
+        except AttributeError:
+            df_estilizado = df_estilizado.applymap(colorear_estado, subset=["Estado"])
+
+        st.dataframe(
+            df_estilizado,
+            use_container_width=True,
+            hide_index=True,
+        )
+# -----------------------------------------------------------------------------
+# 3. CONTROL DEL POOL DE SUSTITUTOS (20%)
+# -----------------------------------------------------------------------------
+elif mod_actual == "Control del Pool de Sustitutos (20%)":
+    if cat_actual == "Institucionales":
+        st.warning(
+            "El control del pool del 20% de sustitutos aplica únicamente para los"
+            " contratos de Arrendamiento (Administrativos y Ambulancias)."
+        )
+    else:
+        st.markdown(
+            f'<p class="subtitulo-seccion">Control del Pool del 20% de Sustitutos -'
+            f" Flotilla {cat_actual}</p>",
+            unsafe_allow_html=True,
+        )
+
+        tot_flotilla = len(df_base)
+        existentes = int(tot_flotilla * 0.20)
+        
+        # CORREGIDO: Usando "estatus" en minúsculas como viene en Supabase
+        asignadas = (
+            len(df_base[df_base["estatus"] == "Sustituto Entregado"])
+            if "estatus" in df_base.columns
+            else 0
+        )
+        disponibles = existentes - asignadas
+
+        k1, k2, k3 = st.columns(3)
+        k1.metric("Sustitutas Existentes en Pool (20%)", existentes)
+        k2.metric("Sustitutas Activas en Uso", asignadas)
+        if disponibles >= 0:
+            k3.metric("Sustitutas Disponibles en Pool", disponibles)
+        else:
+            k3.metric(
+                "Saturación de Pool",
+                f"{abs(disponibles)} Excedidas",
+                delta_color="inverse",
+            )
+            st.error(
+                f"⚠️ ALERTA DE CAPACIDAD: Se han asignado {asignadas} unidades"
+                f" sustitutas, superando el límite del pool contractual"
+                f" ({existentes})."
+            )
+
+        st.markdown("---")
+        st.markdown(
+            "##### **Solicitudes y Entregas de Sustitutos en Seguimiento (SLA 48 horas)**"
+        )
+        
+        # Integración dinámica con los registros de taller en sesión
+        taller_regs = st.session_state.get("taller_registros", [])
+        
+        if taller_regs:
+            data_tabla = []
+            for r in taller_regs:
+                data_tabla.append({
+                    "ECO Titular": r.get("eco", r.get("ECO", "")),
+                    "Ciudad / OOAD": r.get("ubicacion", r.get("UBICACIÓN", r.get("Ciudad", ""))),
+                    "Fecha/Hora Ingreso Taller": r.get("fecha_ingreso", r.get("Fecha Ingreso", "")),
+                    "ECO Sustituto Asignado": r.get("eco_sustituto", r.get("ECO Sustituto", "Pendiente")),
+                    "Estatus Cumplimiento SLA": r.get("estatus_sla", r.get("SLA", "En Tiempo")),
+                })
+            df_mostrar_sust = pd.DataFrame(data_tabla)
+        else:
+            df_mostrar_sust = pd.DataFrame(
+                columns=[
+                    "ECO Titular",
+                    "Ciudad / OOAD",
+                    "Fecha/Hora Ingreso Taller",
+                    "ECO Sustituto Asignado",
+                    "Estatus Cumplimiento SLA",
+                ]
+            )
+
+        st.dataframe(
+            df_mostrar_sust,
+            use_container_width=True,
+            hide_index=True,
+        )
+# -----------------------------------------------------------------------------
+# 4. CARGA INICIAL
+# -----------------------------------------------------------------------------
+elif mod_actual == "Carga Inicial":
+    st.markdown(
+        '<p class="subtitulo-seccion">Carga Inicial y Actualización Masiva de'
+        " Base de Datos</p>",
+        unsafe_allow_html=True,
+    )
+    st.info(
+        f"🔒 Módulo configurado para la carga directa en la tabla de Supabase"
+        f" correspondiente a la flotilla actual: **{cat_actual}**."
+    )
+
+    with st.expander(
+        "🔑 Autenticación de Administrador",
+        expanded=not st.session_state.get("admin_autenticado", False),
+    ):
+        usr = st.text_input("Usuario Administrador:", key="admin_user_input")
+        pwd = st.text_input("Contraseña:", type="password", key="admin_pwd_input")
+        if st.button("Iniciar Sesión"):
+            if usr == "e.casas" and pwd == "99094056":
+                st.session_state.admin_autenticado = True
+                st.success("Acceso concedido como Administrador Central.")
+                st.rerun()
+            else:
+                st.error("Credenciales incorrectas.")
+
+    if st.session_state.get("admin_autenticado", False):
+        st.markdown("##### **1. Descargar Plantilla Oficial**")
+        
+        columnas_plantilla = [
+            "eco",
+            "tipo",
+            "linea",
+            "ubicacion",
+            "arrendadora",
+            "estatus",
+            "placas",
+            "vin",
+            "no_tc",
+            "ultimo_servicio",
+            "cuota_diaria",
+            "total_dias_servicio",
+            "costo_mensual_sin_iva",
+            "total_deduccion",
+            "total_a_pagar",
+            "foto_frontal",
+            "foto_trasera",
+            "foto_lateral_der",
+            "foto_lateral_izq",
+            "documentos",
+        ]
+        
+        df_plantilla = pd.DataFrame(columns=columnas_plantilla)
+        csv_plantilla = df_plantilla.to_csv(index=False).encode("utf-8-sig")
+
+        st.download_button(
+            label="📥 Descargar Plantilla CSV Oficial",
+            data=csv_plantilla,
+            file_name=f"plantilla_carga_{cat_actual.lower()}.csv",
+            mime="text/csv",
+            help="Descarga el archivo modelo con los nombres exactos de las columnas de la base de datos.",
+        )
+
+        st.markdown("---")
+
+        st.markdown(
+            f"##### **2. Subir Archivo de Plantilla para: {cat_actual} (.xlsx o .csv)**"
+        )
+        up_file = st.file_uploader(
+            "Cargar libro de Excel o CSV con la estructura oficial:",
+            type=["xlsx", "csv"],
+        )
+        
+        if up_file is not None:
+            if st.button("Procesar y Guardar en Supabase"):
+                try:
+                    if up_file.name.endswith(".csv"):
+                        df_subido = pd.read_csv(up_file, dtype=str)
+                    else:
+                        df_subido = pd.read_excel(up_file, dtype=str)
+
+                    df_subido.columns = df_subido.columns.str.strip().str.lower()
+
+                    if "eco" not in df_subido.columns:
+                        st.error("⚠️ El archivo cargado no contiene la columna obligatoria 'eco'.")
+                    else:
+                        df_subido["eco"] = df_subido["eco"].astype(str).str.strip()
+
+                        duplicados_en_archivo = df_subido[df_subido.duplicated(subset=["eco"], keep=False)]
+                        if not duplicados_en_archivo.empty:
+                            ecos_dup_lista = duplicados_en_archivo["eco"].unique().tolist()
+                            st.error(
+                                f"⚠️ **ECOs duplicados dentro de tu archivo:** Se encontraron repetidos los siguientes ECOS: {', '.join(ecos_dup_lista)}. "
+                                "Corrige el archivo antes de subirlos para evitar conflictos."
+                            )
+                        else:
+                            tabla_map = {
+                                "Administrativos": "vehiculos_administrativos",
+                                "Ambulancias": "vehiculos_ambulancias",
+                                "Institucionales": "vehiculos_institucionales",
+                            }
+                            nombre_tabla = tabla_map.get(cat_actual, "vehiculos_administrativos")
+
+                            if supabase:
+                                response = supabase.table(nombre_tabla).select("eco").execute()
+                                ecos_existentes_db = {str(row["eco"]) for row in response.data} if response.data else set()
+
+                                ecos_en_archivo = set(df_subido["eco"])
+                                ya_registrados = ecos_en_archivo.intersection(ecos_existentes_db)
+
+                                if ya_registrados:
+                                    st.error(
+                                        f"⚠️ **Error de Duplicidad con la Base de Datos:** Los siguientes ECOS ya se encuentran registrados en Supabase ({cat_actual}): "
+                                        f"**{', '.join(list(ya_registrados))}**. "
+                                        "No se puede realizar la carga para evitar duplicar vehículos existentes."
+                                    )
+                                else:
+                                    df_subido = df_subido.where(pd.notnull(df_subido), None)
+                                    registros = df_subido.to_dict(orient="records")
+                                    
+                                    chunk_size = 500
+                                    for i in range(0, len(registros), chunk_size):
+                                        chunk = registros[i : i + chunk_size]
+                                        supabase.table(nombre_tabla).insert(chunk).execute()
+
+                                    nueva_bitacora = {
+                                        "fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                        "usuario": st.session_state.get("admin_user_input", "admin"),
+                                        "base": cat_actual,
+                                        "archivo": up_file.name,
+                                        "registros": len(df_subido),
+                                        "estado": "Exitoso",
+                                    }
+                                    supabase.table("bitacora_cargas").insert(nueva_bitacora).execute()
+
+                                    st.session_state.bitacora_cargas = cargar_bitacora_cargas_supabase()
+                                    st.cache_data.clear()
+                                    st.success(
+                                        f"¡Base de datos actualizada con éxito en Supabase! Se "
+                                        f"agregaron {len(df_subido)} unidades nuevas en la tabla "
+                                        f"'{nombre_tabla}'."
+                                    )
+                                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error al procesar y subir el archivo: {e}")
+
+        st.markdown("---")
+        st.markdown("##### **Histórico y Bitácora de Cargas Realizadas**")
+        st.dataframe(
+            pd.DataFrame(st.session_state.get("bitacora_cargas", [])),
+            use_container_width=True,
+            hide_index=True,
+        )
+import streamlit as st
+import unicodedata
+
+# -----------------------------------------------------------------------------
+# FUNCIONES AUXILIARES (Colócalas de preferencia arriba en tu archivo)
+# -----------------------------------------------------------------------------
+def limpiar_texto(texto):
+    """Función para limpiar acentos y convertir a minúsculas."""
+    if not texto:
+        return ""
+    return ''.join(
+        c for c in unicodedata.normalize('NFD', str(texto))
+        if unicodedata.category(c) != 'Mn'
+    ).lower()
+
+def obtener_imagen_catalogo_supabase(tipo_v, linea_v):
+    """Función definitiva con las URLs exactas y versiones de Cloudinary."""
+    texto_busqueda = limpiar_texto(f"{tipo_v} {linea_v}")
+    cloud_name = st.secrets["cloudinary"]["cloud_name"]
+
+    if "transit" in texto_busqueda:
+        return f"https://res.cloudinary.com/{cloud_name}/image/upload/v1788891028/FORD_TRANSIT_GENERICA.png"
+    elif "promaster" in texto_busqueda or "ram 2500" in texto_busqueda:
+        return f"https://res.cloudinary.com/{cloud_name}/image/upload/v1788891029/RAM_PROMASTER_GENERICA.png"
+    elif "silverado" in texto_busqueda:
+        return f"https://res.cloudinary.com/{cloud_name}/image/upload/v1788993595/silverado.png"
+    elif "urvan" in texto_busqueda:
+        return f"https://res.cloudinary.com/{cloud_name}/image/upload/v1788891027/urvan-panel.png"
+    elif "f-150" in texto_busqueda:
+        return f"https://res.cloudinary.com/{cloud_name}/image/upload/v1788891030/f-150-xl.png"
+    elif "v-drive" in texto_busqueda:
+        return f"https://res.cloudinary.com/{cloud_name}/image/upload/v1788891031/v-drive-tm-ac.png"
+    elif "creta" in texto_busqueda:
+        return f"https://res.cloudinary.com/{cloud_name}/image/upload/v1788891030/creta-1-5l-gls-ivt.png"
+
+    return ""
+    try:
+        cloud_name = st.secrets["cloudinary"]["cloud_name"]
+        if nombre_foto_limpio:
+            return f"https://res.cloudinary.com/{cloud_name}/image/upload/vehiculos_fotos/{nombre_foto_limpio}.png"
+    except Exception:
+        pass
+    
+    return ""
+
+
+# -----------------------------------------------------------------------------
+# 5. EXPEDIENTE POR ECO Y DOCUMENTAL (MÓDULO COMPLETO)
+# -----------------------------------------------------------------------------
+if mod_actual == "Expediente por ECO y Documental":
+    st.markdown(
+        f'<p class="subtitulo-seccion">Expediente Técnico y Documental por ECO - {cat_actual}</p>',
+        unsafe_allow_html=True,
+    )
+
+    if df_base.empty or "eco" not in df_base.columns:
+        st.warning(
+            f"No hay vehículos cargados en la base de datos para la flotilla **{cat_actual}**."
+        )
+        vehiculo_sel = pd.DataFrame()
+        v_data = None
+        eco_seleccionado = None
+    else:
+        # Obtenemos la lista única de ECOs de esta categoría y los ordenamos
+        lista_ecos = sorted(df_base["eco"].dropna().astype(str).unique().tolist())
+
+        if len(lista_ecos) > 0:
+            # Creamos la LISTA DESPLEGABLE en lugar de la cajita de texto
+            eco_seleccionado = st.selectbox(
+                f"Seleccione el ECO de la flotilla **{cat_actual}**:",
+                options=lista_ecos,
+            )
+
+            # Filtramos el DataFrame con el vehículo exacto que eligió el usuario
+            vehiculo_sel = df_base[df_base["eco"].astype(str) == eco_seleccionado]
+
+            if vehiculo_sel.empty:
+                v_data = None
+                eco_search = None
+            else:
+                eco_search = vehiculo_sel.iloc[0]["eco"]
+                v_data = vehiculo_sel.iloc[0]
+        else:
+            st.warning(f"No hay vehículos registrados para la flotilla **{cat_actual}**.")
+            vehiculo_sel = pd.DataFrame()
+            v_data = None
+            eco_seleccionado = None
+            eco_search = None
+
+        # Si se seleccionó o encontró un ECO válido, mostramos toda su información y pestañas
+        if eco_seleccionado and not vehiculo_sel.empty and v_data is not None:
+            st.markdown("---")
+            st.markdown(
+                f"#### 📋 Ficha Técnica y Descriptiva — ECO: `{v_data['eco']}`"
+            )
+
+            col_img_cat, col_info_cat = st.columns([1, 2.2], gap="small")
+
+                       # AQUI ESTÁ LA CARGA DE LA IMAGEN DE CLOUDINARY (Limpia y sin textos de prueba)
+            with col_img_cat:
+                tipo_v = v_data.get("tipo", "")
+                linea_v = v_data.get("linea", "")
+                
+                url_cat = obtener_imagen_catalogo_supabase(tipo_v, linea_v)
+                
+                if url_cat:
+                    st.markdown(
+                        f'<div class="image-container-full"><img src="{url_cat}" alt="Vehículo de Catálogo" style="width:100%; border-radius:8px;"></div>',
+                        unsafe_allow_html=True,
+                    )
+                    st.caption(f"Catálogo: {tipo_v} - {linea_v}")
+                else:
+                    st.info(f"📷 [Sin foto en catálogo para: {tipo_v} - {linea_v}]")
+            with col_info_cat:
+                en_taller = any(
+                    r["ECO"] == v_data["eco"]
+                    and r["Estatus"] == "Activo (En Taller)"
+                    for r in st.session_state.get("taller_registros", [])
+                )
+                estatus_veh = (
+                    "En Taller"
+                    if en_taller
+                    else str(v_data.get("estatus", "Titular Activo"))
+                )
+                badge_class = (
+                    "badge-verde"
+                    if "Activo" in estatus_veh
+                    else (
+                        "badge-amarillo"
+                        if "Taller" in estatus_veh
+                        else "badge-rojo"
+                    )
+                )
+
+                # Función auxiliar segura para evitar errores con valores NULL o None
+                def obtener_val(row, campo, default="N/A"):
+                    val = row.get(campo)
+                    if val is None or (isinstance(val, float) and pd.isna(val)) or str(val).strip() == "" or str(val).lower() == "nan":
+                        return default
+                    return val
+
+                cuota_raw = v_data.get("cuota_diaria")
+                try:
+                    cuota_val = float(cuota_raw) if cuota_raw is not None and not pd.isna(cuota_raw) else 0.0
+                except:
+                    cuota_val = 0.0
+
+                st.markdown(
+                    f"""
+                    <div class="card-resumen">
+                        <div style="margin-bottom: 6px;">
+                            <b>Estatus Operativo:</b> <span class="{badge_class}">{estatus_veh.upper()}</span>
+                        </div>
+                        <hr style="margin: 6px 0;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
+                            <div>
+                                <p><b>Placas:</b> {obtener_val(v_data, 'placas')}</p>
+                                <p><b>Número de Serie (VIN):</b> {obtener_val(v_data, 'vin')}</p>
+                                <p><b>No. Tarjeta Circulación:</b> {obtener_val(v_data, 'no_tc')}</p>
+                                <p><b>Arrendadora:</b> {obtener_val(v_data, 'arrendadora')}</p>
+                            </div>
+                            <div>
+                                <p><b>Tipo / Línea:</b> {obtener_val(v_data, 'tipo')} - {obtener_val(v_data, 'linea')}</p>
+                                <p><b>Ubicación / OOAD:</b> {obtener_val(v_data, 'ubicacion')}</p>
+                                <p><b>Último Servicio:</b> {obtener_val(v_data, 'ultimo_servicio')}</p>
+                                <p><b>Cuota Diaria:</b> ${cuota_val:,.2f}</p>
+                            </div>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+            st.markdown("---")
+            t1, t2, t3 = st.tabs([
+                "Galería de Inspección Física (4 Vistas)",
+                "Expediente Documental (PDF/Visor)",
+                "Historial de Mantenimientos",
+            ])
+
+            with t1:
+                st.markdown(
+                    "##### **Galería de Inspección Física (Vistas Reglamentarias)**"
+                )
+                st.info(
+                    "Sube un archivo o toma una fotografía directa. Las "
+                    "imágenes se cargan directamente a Cloudinary para optimizar espacio."
+                )
+
+                eco_limpio = (
+                    str(eco_search).replace(" ", "_").replace("/", "-")
+                )
+                vistas_inspeccion = {
+                    "Foto Frontal": "foto_frontal",
+                    "Foto Trasera": "foto_trasera",
+                    "Foto Lateral Derecho": "foto_lateral_der",
+                    "Foto Lateral Izquierdo": "foto_lateral_izq",
+                }
+
+                grid_cols = st.columns(2)
+
+                for idx, (nombre_vista, campo_key) in enumerate(
+                    vistas_inspeccion.items()
+                ):
+                    col_actual = grid_cols[idx % 2]
+
+                    with col_actual:
+                        st.markdown(f"**{nombre_vista}**")
+
+                        foto_guardada_url = v_data.get(campo_key)
+
+                        if foto_guardada_url and str(foto_guardada_url).startswith("http"):
+                            st.markdown(
+                                f"""
+                                <div style="width: 100%; max-height: 220px; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 8px;">
+                                    <img src="{foto_guardada_url}" style="max-width: 100%; max-height: 210px; object-fit: contain;" alt="{nombre_vista}">
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+                            st.success("✔ Imagen cargada desde Cloudinary")
+                        else:
+                            st.warning("⚠ Sin fotografía registrada")
+
+                        metodo_captura = st.radio(
+                            f"Método para {nombre_vista}:",
+                            ["Subir Imagen", "Tomar Foto con Cámara"],
+                            key=f"radio_{campo_key}_{eco_search}",
+                            horizontal=True,
+                        )
+
+                        imagen_a_guardar = None
+
+                        if metodo_captura == "Subir Imagen":
+                            imagen_a_guardar = st.file_uploader(
+                                f"Cargar {nombre_vista}",
+                                type=["jpg", "jpeg", "png"],
+                                key=f"upl_{campo_key}_{eco_search}",
+                            )
+                        else:
+                            imagen_a_guardar = st.camera_input(
+                                f"Tomar {nombre_vista}",
+                                key=f"cam_{campo_key}_{eco_search}",
+                            )
+
+                        if imagen_a_guardar is not None:
+                            if st.button(
+                                f"Guardar {nombre_vista}",
+                                key=f"btn_save_{campo_key}_{eco_search}",
+                            ):
+                                try:
+                                    bytes_f = imagen_a_guardar.getvalue()
+                                    public_id_nube = f"vehiculos/{eco_limpio}_{campo_key}"
+
+                                    import cloudinary.uploader
+
+                                    upload_result = cloudinary.uploader.upload(
+                                        bytes_f,
+                                        public_id=public_id_nube,
+                                        folder="tallercorvus/vehiculos",
+                                        overwrite=True,
+                                        resource_type="image"
+                                    )
+
+                                    url_cloudinary = upload_result.get("secure_url")
+
+                                    if url_cloudinary and supabase:
+                                        tabla_map = {
+                                            "Administrativos": "vehiculos_administrativos",
+                                            "Ambulancias": "vehiculos_ambulancias",
+                                            "Institucionales": "vehiculos_institucionales",
+                                        }
+                                        nombre_tabla_vehiculos = tabla_map.get(
+                                            cat_actual, "vehiculos_administrativos"
+                                        )
+
+                                        supabase.table(
+                                            nombre_tabla_vehiculos
+                                        ).update(
+                                            {campo_key: url_cloudinary}
+                                        ).eq(
+                                            "eco", eco_search
+                                        ).execute()
+
+                                        st.success(
+                                            f"✅ {nombre_vista} subida a Cloudinary y vinculada correctamente."
+                                        )
+
+                                        st.cache_data.clear()
+                                        if "df_base" in st.session_state:
+                                            del st.session_state["df_base"]
+
+                                        st.rerun()
+                                    else:
+                                        st.error("No se pudo obtener la URL de Cloudinary.")
+                                except Exception as e:
+                                    st.error(
+                                        f"Error al subir la imagen a Cloudinary: {e}"
+                                    )
+
+                        st.markdown("---")
+
+            with t2:
+                st.markdown("### Expediente y Documentación")
+                st.markdown("##### **Póliza de Seguro**")
+
+                poliza_url = v_data.get("poliza_seguro")
+
+                if poliza_url and str(poliza_url).startswith("http"):
+                    es_pdf = poliza_url.lower().endswith(".pdf") or "pdf" in poliza_url.lower()
+
+                    if es_pdf:
+                        st.markdown(
+                            f"""
+                            <div style="width: 100%; height: 400px; border-radius: 8px; border: 1px solid #dee2e6; overflow: hidden; margin-bottom: 10px;">
+                                <iframe src="{poliza_url}" width="100%" height="100%" style="border: none;"></iframe>
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        st.markdown(
+                            f"""
+                            <div style="width: 100%; max-height: 280px; overflow: hidden; display: flex; justify-content: center; align-items: center; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6; margin-bottom: 10px;">
+                                <img src="{poliza_url}" style="max-width: 100%; max-height: 270px; object-fit: contain;" alt="Póliza de Seguro">
+                            </div>
+                            """,
+                            unsafe_allow_html=True,
+                        )
+
+                    st.markdown(
+                        f'<div style="text-align: right; margin-bottom: 10px;"><a href="{poliza_url}" target="_blank" style="font-size: 13px; text-decoration: none;">🔍 Abrir documento en pantalla completa</a></div>',
+                        unsafe_allow_html=True,
+                    )
+                    st.success("✔ Documento cargado en el visor")
+                else:
+                    st.warning("⚠ Sin póliza de seguro registrada actualmente")
+
+                archivo_poliza = st.file_uploader(
+                    "Actualizar o subir Póliza de Seguro (PDF o Imagen)",
+                    type=["pdf", "png", "jpg", "jpeg"],
+                    key=f"upl_poliza_{eco_search}",
+                )
+
+                if archivo_poliza is not None:
+                    if st.button("Guardar Póliza", key=f"btn_save_poliza_{eco_search}"):
+                        try:
+                            bytes_poliza = archivo_poliza.getvalue()
+                            nombre_original = getattr(archivo_poliza, "name", "poliza.pdf")
+                            extension = nombre_original.split(".")[-1].lower()
+
+                            eco_limpio = str(eco_search).replace(" ", "_").replace("/", "-")
+                            public_id_nube = f"vehiculos/{eco_limpio}_poliza_seguro"
+
+                            import cloudinary.uploader
+
+                            res_type = "raw" if extension == "pdf" else "image"
+
+                            upload_result = cloudinary.uploader.upload(
+                                bytes_poliza,
+                                public_id=public_id_nube,
+                                folder="tallercorvus/vehiculos",
+                                overwrite=True,
+                                resource_type=res_type
+                            )
+
+                            url_cloudinary = upload_result.get("secure_url")
+
+                            if url_cloudinary and supabase:
+                                tabla_map = {
+                                    "Administrativos": "vehiculos_administrativos",
+                                    "Ambulancias": "vehiculos_ambulancias",
+                                    "Institucionales": "vehiculos_institucionales",
+                                }
+                                nombre_tabla_vehiculos = tabla_map.get(cat_actual, "vehiculos_administrativos")
+
+                                supabase.table(nombre_tabla_vehiculos).update(
+                                    {"poliza_seguro": url_cloudinary}
+                                ).eq("eco", eco_search).execute()
+
+                                st.success("✅ Póliza de seguro actualizada correctamente en Cloudinary.")
+
+                                st.cache_data.clear()
+                                if "df_base" in st.session_state:
+                                    del st.session_state["df_base"]
+                                st.rerun()
+
+                        except Exception as e:
+                            st.error(f"Error al subir la póliza: {e}")
+
+                st.markdown("---")
+                eco_actual_str = str(eco_search)
+                docs_guardados = st.session_state.get("expedientes_docs", {}).get(eco_actual_str, [])
+                if docs_guardados:
+                    df_docs_view = pd.DataFrame([
+                        {
+                            "Tipo": d.get("Tipo"),
+                            "Archivo en Servidor": d.get("NombreArchivoSistema", d.get("Nombre")),
+                            "Fecha": d.get("Fecha")
+                        } for d in docs_guardados
+                    ])
+
+                    st.dataframe(
+                        df_docs_view,
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+                    st.markdown("##### **Visor Rápido de Enlaces**")
+                    for doc in docs_guardados:
+                        nombre_etiqueta = doc.get("NombreArchivoSistema", doc.get('Nombre'))
+                        st.markdown(
+                            f"📄 **{doc['Tipo']}** — `[{nombre_etiqueta}]({doc['URL']})`"
+                            f" <small style='color:gray;'>({doc['Fecha']})</small>",
+                            unsafe_allow_html=True
+                        )
+                else:
+                    st.info("Sin documentos registrados para este vehículo.")
+
+            with t3:
+                st.markdown("##### **Historial de Mantenimientos**")
+                st.info("Consulta los servicios y reparaciones registradas para este vehículo.")
+          
+# 6. REGISTRO DE TALLER E INCIDENCIAS (PERSISTIDO EN SUPABASE)
+# -----------------------------------------------------------------------------
+elif mod_actual == "Registro de Taller e Incidencias":
+    st.markdown(
+        f'<p class="subtitulo-seccion">Registro de Taller, Incidencias y '
+        f"Siniestros - Flotilla {cat_actual}</p>",
+        unsafe_allow_html=True,
+    )
+
+    if "ultimo_envio_taller" not in st.session_state:
+        st.session_state.ultimo_envio_taller = None
+
+    lista_ecos_taller = (
+        sorted(df_base["eco"].dropna().astype(str).unique().tolist())
+        if not df_base.empty and "eco" in df_base.columns
+        else []
+    )
+    
+    tab_captura, tab_csv, tab_editar = st.tabs([
+        "📝 Captura de Altas / Salidas",
+        "📥 Carga Masiva CSV Incidencias",
+        "✏️ Editar / Corregir Registro",
+    ])
+
+    with tab_captura:
+        opcion_taller = st.radio(
+            "Seleccione la Operación a Realizar:",
+            [
+                "1. Ingreso a Taller (Mantenimiento Preventivo / Correctivo)",
+                "2. Ingreso a Taller por Siniestro",
+                "3. Salida de Taller",
+            ],
+            horizontal=True,
+        )
+        st.markdown("---")
+
+        # Función auxiliar para verificar si un ECO ya está en Taller
+        def eco_esta_activo(eco_ingresado):
+            for r in st.session_state.taller_registros:
+                r_eco = str(r.get("eco", r.get("ECO", "")))
+                r_estatus = str(r.get("estatus", r.get("Estatus", "")))
+                if r_eco == str(eco_ingresado) and "Activo" in r_estatus:
+                    return True
+            return False
+
+        if opcion_taller == "1. Ingreso a Taller (Mantenimiento Preventivo / Correctivo)":
+            with st.form(key="form_ingreso_mantenimiento"):
+                st.markdown("##### **Registro de Ingreso a Taller**")
+                c1, c2 = st.columns(2)
+                eco_t = c1.selectbox(
+                    "Número Económico (ECO):",
+                    lista_ecos_taller if lista_ecos_taller else ["Sin ECOs registrados"],
+                )
+                tipo_mantenimiento = c2.selectbox(
+                    "Tipo de Estatus / Servicio:",
+                    ["Mantenimiento Preventivo", "Mantenimiento Correctivo"],
+                )
+
+                c3, c4 = st.columns(2)
+                f_ent = c3.date_input("Fecha Ingreso Taller:", value=date.today())
+                h_ent = c4.time_input("Hora Ingreso Taller:")
+
+                st.markdown("---")
+                f_sal_est = st.date_input("📅 Fecha Estimada de Entrega / Salida del Vehículo:", value=date.today())
+                st.markdown("---")
+
+                c5, c6 = st.columns(2)
+                resp_t = c5.text_input("Responsable que Autoriza Ingreso:", value="")
+                taller_nom = c6.text_input("Nombre / Razón Social del Taller:", value="")
+
+                req_sust = "Sí" if tipo_mantenimiento == "Mantenimiento Correctivo" else "No"
+                if tipo_mantenimiento == "Mantenimiento Correctivo":
+                    st.info("ℹ️ **Mantenimiento Correctivo:** Requiere asignación de Vehículo Sustituto (Pool 20%).")
+                else:
+                    st.caption("ℹ️ **Mantenimiento Preventivo:** No aplica vehículo sustituto si la salida del taller no pasa de 48Hrs.")
+
+                evidencia = st.file_uploader(
+                    "Subir Diagnóstico / Orden de Entrada (PDF/JPG):",
+                    type=["pdf", "jpg", "png"],
+                    key="upl_evidencia_manto"
+                )
+                obs_m = st.text_area("Descripción detallada de fallas o trabajos a realizar:")
+                form_token = st.text_input("Token único", value=str(datetime.now().timestamp()), label_visibility="collapsed")
+
+                submitted_ingreso = st.form_submit_button("Registrar Ingreso a Taller")
+                if submitted_ingreso:
+                    if st.session_state.ultimo_envio_taller == form_token:
+                        st.warning("⚠️ Este registro ya fue procesado.")
+                    elif not lista_ecos_taller or eco_t == "Sin ECOs registrados":
+                        st.error("No se puede registrar sin vehículos válidos en la base.")
+                    elif eco_esta_activo(eco_t):
+                        st.error(f"🚫 El vehículo **{eco_t}** ya cuenta con un proceso activo en taller o siniestro. Debe registrar su salida antes de reingresarlo.")
+                    else:
+                        st.session_state.ultimo_envio_taller = form_token
+                        
+                        url_archivo = "N/A"
+                        if evidencia is not None:
+                            try:
+                                url_archivo = "https://res.cloudinary.com/demo/image/upload/sample.jpg" 
+                            except Exception as e:
+                                st.error(f"Error al subir archivo a Cloudinary: {e}")
+
+                        nuevo_reg = {
+                            "eco": str(eco_t),
+                            "tipo": str(tipo_mantenimiento),
+                            "fecha_ingreso": str(f_ent),
+                            "fecha_estimada_salida": str(f_sal_est),
+                            "hora": str(h_ent),
+                            "responsable": str(resp_t),
+                            "taller": str(taller_nom),
+                            "sustituto": str(req_sust),
+                            "estatus": "Activo (En Taller)",
+                            "observaciones": str(obs_m),
+                            "evidencia_url": str(url_archivo),
+                        }
+                        if supabase:
+                            try:
+                                supabase.table("taller_incidencias").insert(nuevo_reg).execute()
+                            except Exception as err:
+                                st.error(f"Error al guardar en Supabase: {err}")
+
+                        st.session_state.taller_registros = cargar_taller_supabase()
+                        st.success(f"Ingreso registrado para {eco_t} exitosamente.")
+                        st.rerun()
+
+        elif opcion_taller == "2. Ingreso a Taller por Siniestro":
+            with st.form(key="form_ingreso_siniestro"):
+                st.markdown("##### **Registro de Ingreso por Siniestro**")
+                s1, s2 = st.columns(2)
+                eco_s = s1.selectbox(
+                    "Número Económico (ECO):",
+                    lista_ecos_taller if lista_ecos_taller else ["Sin ECOs cargados"],
+                )
+                aseg = s2.selectbox(
+                    "Aseguradora:", ["Qualitas", "GNP", "AXA", "Banorte", "Inbursa", "Otra"]
+                )
+
+                s3, s4 = st.columns(2)
+                poliza_s = s3.text_input("Número de Póliza:", value="")
+                folio_s = s4.text_input("Número de Folio / Siniestro:", value="")
+
+                s6, s7 = st.columns(2)
+                f_sin = s6.date_input("Fecha del Siniestro:", value=date.today())
+                taller_sin = s7.text_input("Taller Asignado por Ajustador:", value="")
+
+                st.markdown("---")
+                f_sal_sin_est = st.date_input("📅 Fecha Estimada de Entrega / Salida del Siniestro:", value=date.today())
+                st.markdown("---")
+
+                st.info("ℹ️ **Siniestro:** Requiere asignación de Vehículo Sustituto (Pool 20%).")
+                evidencia_s = st.file_uploader(
+                    "Declaración de Siniestro / Fotos Impacto (PDF/JPG):",
+                    type=["pdf", "jpg", "png"],
+                    key="upl_evidencia_siniestro"
+                )
+                obs_s = st.text_area("Narrativa completa de los hechos e incidencia:")
+                form_token_sin = st.text_input("Token sin", value=str(datetime.now().timestamp()), label_visibility="collapsed")
+
+                submitted_siniestro = st.form_submit_button("Registrar Siniestro e Ingreso")
+                if submitted_siniestro:
+                    if st.session_state.ultimo_envio_taller == form_token_sin:
+                        st.warning("⚠️ Este registro ya fue procesado.")
+                    elif not lista_ecos_taller or eco_s == "Sin ECOs cargados":
+                        st.error("No se puede registrar sin vehículos válidos en la base.")
+                    elif eco_esta_activo(eco_s):
+                        st.error(f"🚫 El vehículo **{eco_s}** ya cuenta con un proceso activo en taller o siniestro. Debe registrar su salida antes de reingresarlo.")
+                    else:
+                        st.session_state.ultimo_envio_taller = form_token_sin
+
+                        url_archivo_s = "N/A"
+                        if evidencia_s is not None:
+                            try:
+                                url_archivo_s = "https://res.cloudinary.com/demo/image/upload/sample.jpg"
+                            except Exception as e:
+                                st.error(f"Error al subir archivo a Cloudinary: {e}")
+
+                        nuevo_reg_s = {
+                            "eco": str(eco_s),
+                            "tipo": "Siniestro",
+                            "fecha_ingreso": str(f_sin),
+                            "fecha_estimada_salida": str(f_sal_sin_est),
+                            "hora": datetime.now().strftime("%H:%M"),
+                            "responsable": f"Ajustador {aseg} (Póliza: {poliza_s}, Folio: {folio_s})",
+                            "taller": str(taller_sin),
+                            "sustituto": "Sí",
+                            "estatus": "Activo (En Taller)",
+                            "observaciones": str(obs_s),
+                            "evidencia_url": str(url_archivo_s),
+                        }
+                        if supabase:
+                            try:
+                                supabase.table("taller_incidencias").insert(nuevo_reg_s).execute()
+                            except Exception as err:
+                                st.error(f"Error al guardar en Supabase: {err}")
+
+                        st.session_state.taller_registros = cargar_taller_supabase()
+                        st.warning(f"Siniestro registrado para {eco_s} exitosamente.")
+                        st.rerun()
+
+        elif opcion_taller == "3. Salida de Taller":
+            st.markdown("##### **Formulario de Salida y Liberación de Vehículo**")
+            eco_salida = st.selectbox(
+                "Ingresar ECO de la Unidad que Saldrá del Taller:",
+                lista_ecos_taller if lista_ecos_taller else ["Sin ECOs cargados"],
+            )
+            
+            ingresos_activos = []
+            for r in st.session_state.taller_registros:
+                r_eco = str(r.get("eco", r.get("ECO", "")))
+                r_estatus = str(r.get("estatus", r.get("Estatus", "")))
+                if r_eco == str(eco_salida) and "Activo" in r_estatus:
+                    ingresos_activos.append(r)
+
+            if len(ingresos_activos) == 0:
+                st.error("⚠️ Vehículo sin registro de entrada activo en taller.")
+            else:
+                reg_previo = ingresos_activos[0]
+                t_tipo = reg_previo.get("tipo", reg_previo.get("Tipo", "N/A"))
+                f_ing = reg_previo.get("fecha_ingreso", reg_previo.get("Fecha_Ingreso", "N/A"))
+                st.success(
+                    f"✓ Entrada activa confirmada para **{eco_salida}** "
+                    f"({t_tipo} | Fecha Entrada: {f_ing})."
+                )
+
+                with st.form(key="form_salida_taller"):
+                    cs1, cs2 = st.columns(2)
+                    f_sal = cs1.date_input("Fecha Real de Salida:", value=date.today())
+                    h_sal = cs2.time_input("Hora de Salida:")
+                    recibe = st.text_input("Nombre del Personal que Recibe la Unidad:", value="")
+                    evidencia_salida = st.file_uploader(
+                        "Comprobante de Entrega / Conformidad (PDF/JPG):",
+                        type=["pdf", "jpg", "png"],
+                        key="upl_evidencia_salida"
+                    )
+                    obs_salida = st.text_area("Observaciones de Salida y Estado General del Vehículo:")
+                    form_token_sal = st.text_input("Token sal", value=str(datetime.now().timestamp()), label_visibility="collapsed")
+
+                    submitted_salida = st.form_submit_button("Confirmar y Liberar Salida")
+                    if submitted_salida:
+                        if st.session_state.ultimo_envio_taller == form_token_sal:
+                            st.warning("⚠️ Este registro ya fue procesado.")
+                        else:
+                            st.session_state.ultimo_envio_taller = form_token_sal
+
+                            url_salida = reg_previo.get("evidencia_url", "N/A")
+                            if evidencia_salida is not None:
+                                try:
+                                    url_salida = "https://res.cloudinary.com/demo/image/upload/sample.jpg"
+                                except Exception as e:
+                                    st.error(f"Error al subir archivo a Cloudinary: {e}")
+
+                            if supabase:
+                                try:
+                                    supabase.table("taller_incidencias") \
+                                        .update({
+                                            "estatus": "Concluido (Salida Completa)", 
+                                            "fecha_salida": str(f_sal),
+                                            "evidencia_url": str(url_salida),
+                                            "observaciones": f"Salida: {obs_salida} (Recibe: {recibe})"
+                                        }) \
+                                        .eq("eco", str(eco_salida)) \
+                                        .eq("estatus", "Activo (En Taller)") \
+                                        .execute()
+                                except Exception as err:
+                                    st.error(f"Error al actualizar en Supabase: {err}")
+
+                            st.session_state.taller_registros = cargar_taller_supabase()
+                            st.success(f"Salida registrada exitosamente para {eco_salida}.")
+                            st.rerun()
+
+    with tab_csv:
+        st.markdown("##### **Importación Masiva de Incidencias de Taller via CSV**")
+        st.info("Cargue el archivo CSV de reporte de incidencias para volcarlo directamente al sistema.")
+        archivo_csv_taller = st.file_uploader("Seleccionar archivo CSV de incidencias:", type=["csv"], key="csv_taller_up")
+        if archivo_csv_taller is not None:
+            if st.button("Procesar y Cargar CSV a Base de Taller"):
+                try:
+                    df_inc = pd.read_csv(archivo_csv_taller, dtype=str)
+                    df_inc.columns = df_inc.columns.str.strip()
+                    registros_inc = df_inc.to_dict(orient="records")
+                    
+                    inserts = []
+                    for ri in registros_inc:
+                        inserts.append({
+                            "eco": ri.get("ECO", ri.get("eco", "N/A")),
+                            "tipo": ri.get("Tipo", ri.get("tipo", "Mantenimiento Correctivo")),
+                            "fecha_ingreso": ri.get("Fecha_Ingreso", ri.get("fecha_ingreso", str(date.today()))),
+                            "fecha_estimada_salida": ri.get("Fecha_Estimada_Salida", ri.get("fecha_estimada_salida", str(date.today()))),
+                            "fecha_salida": ri.get("Fecha_Salida", ri.get("fecha_salida", None)),
+                            "hora": ri.get("Hora", ri.get("hora", "09:00")),
+                            "responsable": ri.get("Responsable", ri.get("responsable", "Importación CSV")),
+                            "taller": ri.get("Taller", ri.get("taller", "General")),
+                            "sustituto": ri.get("Sustituto", ri.get("sustituto", "Sí")),
+                            "estatus": ri.get("Estatus", ri.get("estatus", "Activo (En Taller)")),
+                            "observaciones": ri.get("Observaciones", ri.get("observaciones", "Carga por CSV")),
+                            "evidencia_url": ri.get("Evidencia_Url", ri.get("evidencia_url", "N/A"))
+                        })
+                    
+                    if supabase and inserts:
+                        supabase.table("taller_incidencias").insert(inserts).execute()
+
+                    st.session_state.taller_registros = cargar_taller_supabase()
+                    st.success(f"¡Se han importado {len(df_inc)} registros de incidencias exitosamente a Supabase!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error al procesar el archivo CSV: {e}")
+
+    with tab_editar:
+        st.markdown("##### **Módulo de Corrección de Registros Mal Capturados**")
+        if len(st.session_state.taller_registros) == 0:
+            st.info("No hay registros guardados en la bitácora para corregir.")
+        else:
+            opciones_reg = []
+            for idx, r in enumerate(st.session_state.taller_registros):
+                r_eco = r.get("eco", r.get("ECO", "N/A"))
+                r_tipo = r.get("tipo", r.get("Tipo", "N/A"))
+                r_fecha = r.get("fecha_ingreso", r.get("Fecha_Ingreso", "N/A"))
+                r_est = r.get("estatus", r.get("Estatus", "N/A"))
+                opciones_reg.append(f"ID: {idx} | ECO: {r_eco} | Tipo: {r_tipo} | Fecha: {r_fecha} | Estatus: {r_est}")
+
+            sel_str = st.selectbox(
+                "Seleccione el registro que desea modificar o corregir:",
+                opciones_reg,
+            )
+            idx_sel = int(sel_str.split(" | ")[0].replace("ID: ", ""))
+            reg_actual = st.session_state.taller_registros[idx_sel]
+
+            with st.form(key="form_corregir_taller_extension"):
+                st.markdown(f"**Modificando Registro seleccionado**")
+                ce1, ce2 = st.columns(2)
+                e_eco = ce1.text_input("ECO Correcto:", value=reg_actual.get("eco", reg_actual.get("ECO", "")))
+
+                tipos_m_list = [
+                    "Mantenimiento Preventivo",
+                    "Mantenimiento Correctivo",
+                    "Siniestro",
+                ]
+                tipo_actual = reg_actual.get("tipo", reg_actual.get("Tipo", ""))
+                idx_t = tipos_m_list.index(tipo_actual) if tipo_actual in tipos_m_list else 0
+                e_tipo = ce2.selectbox("Tipo Correcto:", tipos_m_list, index=idx_t)
+
+                ce3, ce4 = st.columns(2)
+                e_resp = ce3.text_input("Responsable:", value=reg_actual.get("responsable", reg_actual.get("Responsable", "")))
+                e_taller = ce4.text_input("Taller:", value=reg_actual.get("taller", reg_actual.get("Taller", "")))
+
+                estatus_list = [
+                    "Activo (En Taller)",
+                    "Concluido (Salida Completa)",
+                    "Anulado por Error",
+                ]
+                est_actual = reg_actual.get("estatus", reg_actual.get("Estatus", ""))
+                idx_est = estatus_list.index(est_actual) if est_actual in estatus_list else 0
+                e_estatus = st.selectbox("Estatus del Registro:", estatus_list, index=idx_est)
+
+                f_salida_val = reg_actual.get("fecha_salida", reg_actual.get("Fecha_Salida", None))
+                try:
+                    parsed_date = date.fromisoformat(f_salida_val) if f_salida_val else date.today()
+                except Exception:
+                    parsed_date = date.today()
+                e_f_salida = st.date_input("Fecha de Salida (Modificable):", value=parsed_date)
+
+                e_obs = st.text_area(
+                    "Observaciones o notas de la corrección:",
+                    value=reg_actual.get("observaciones", reg_actual.get("Observaciones", "")),
+                )
+
+                submitted_editar = st.form_submit_button("💾 Guardar Cambios en Bitácora")
+                if submitted_editar:
+                    datos_actualizados = {
+                        "eco": str(e_eco),
+                        "tipo": str(e_tipo),
+                        "responsable": str(e_resp),
+                        "taller": str(e_taller),
+                        "estatus": str(e_estatus),
+                        "fecha_salida": str(e_f_salida),
+                        "observaciones": str(e_obs),
+                    }
+                    if supabase:
+                        try:
+                            registro_id = reg_actual.get("id")
+                            if registro_id:
+                                supabase.table("taller_incidencias").update(datos_actualizados).eq("id", registro_id).execute()
+                            else:
+                                orig_eco = reg_actual.get("eco", reg_actual.get("ECO", ""))
+                                orig_fecha = reg_actual.get("fecha_ingreso", reg_actual.get("Fecha_Ingreso", ""))
+                                supabase.table("taller_incidencias").update(datos_actualizados).eq("eco", orig_eco).eq("fecha_ingreso", orig_fecha).execute()
+                        except Exception as err:
+                            st.error(f"Error al actualizar en Supabase: {err}")
+
+                    st.session_state.taller_registros = cargar_taller_supabase()
+                    st.success("¡El registro ha sido actualizado correctamente en Supabase!")
+                    st.rerun()
+
+    st.markdown("---")
+    st.markdown("##### **Bitácora de Control de Taller e Incidencias**")
+    if len(st.session_state.taller_registros) > 0:
+        df_bitacora = pd.DataFrame(st.session_state.taller_registros)
+        
+        # Normalizar nombres de columnas a minúsculas
+        df_bitacora.columns = [str(c).lower() for c in df_bitacora.columns]
+
+        cols_preferidas = ["eco", "tipo", "fecha_ingreso", "fecha_estimada_salida", "fecha_salida", "hora", "responsable", "taller", "sustituto", "estatus", "evidencia_url", "observaciones"]
+        cols_existentes = [c for c in cols_preferidas if c in df_bitacora.columns]
+        otras_cols = [c for c in df_bitacora.columns if c not in cols_existentes]
+        df_bitacora = df_bitacora[cols_existentes + otras_cols]
+
+        # Tabla con LinkColumn configurado para la columna evidencia_url
+        st.dataframe(
+            df_bitacora,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "evidencia_url": st.column_config.LinkColumn(
+                    "Evidencia (PDF/Foto)",
+                    help="Haz clic para abrir el archivo en Cloudinary",
+                    display_text="Ver Documento 📁"
+                )
+            }
+        )
+    else:
+        st.info("No hay registros en la bitácora de taller actualmente.")
+
+# -----------------------------------------------------------------------------
+# 7. REASIGNACIÓN POR NECESIDAD DE SERVICIO (PERSISTIDA EN SUPABASE)
+# -----------------------------------------------------------------------------
+elif mod_actual == "Reasignación por Necesidad de Servicio":
+    st.markdown(
+        '<p class="subtitulo-seccion">Reasignación Geográfica de Vehículos por Necesidad de Servicio</p>',
+        unsafe_allow_html=True,
+    )
+    st.info(
+        "Permite la transferencia oficial de unidades entre sedes u OOAD por necesidades operativas o de cobertura."
+    )
+
+    def _to_str(val):
+        if val is None:
+            return ""
+        if isinstance(val, dict):
+            for k in ["nombre", "ubicacion", "name", "descripcion", "valor", "sede"]:
+                if k in val and val[k] is not None:
+                    return str(val[k]).strip()
+            return str(list(val.values())[0]) if val else ""
+        if isinstance(val, list):
+            return ", ".join([str(v) for v in val])
+        return str(val).strip()
+
+    lista_ecos_reasignacion = []
+    if not df_base.empty and "eco" in df_base.columns:
+        lista_ecos_reasignacion = sorted(list(set([_to_str(x) for x in df_base["eco"].dropna() if _to_str(x)])))
+
+    col_ubicacion_key = None
+    if not df_base.empty:
+        for col in df_base.columns:
+            if col.strip().lower() in ["ubicacion", "ubicación", "sede"]:
+                col_ubicacion_key = col
+                break
+
+    ciudades_raw = []
+    if not df_base.empty and col_ubicacion_key:
+        for item in df_base[col_ubicacion_key].dropna():
+            val_limpia = _to_str(item)
+            if val_limpia:
+                ciudades_raw.append(val_limpia)
+
+    lista_ciudades_dinamica = (
+        sorted(list(set(ciudades_raw)))
+        if ciudades_raw
+        else ["Aguascalientes", "Colima", "Manzanillo", "Tepic", "Mazatlán", "Zacatecas"]
+    )
+
+    if not lista_ecos_reasignacion:
+        st.warning("⚠️ No hay vehículos cargados para reasignar en esta categoría.")
+    else:
+        st.markdown("##### **Selección de Unidad**")
+        col_sel1, col_sel2 = st.columns(2)
+        
+        eco_r = col_sel1.selectbox(
+            "Seleccione el ECO a Reasignar:",
+            lista_ecos_reasignacion,
+            key="select_eco_reasignacion"
+        )
+
+        sede_origen = "Sin asignar"
+        if not df_base.empty and "eco" in df_base.columns and col_ubicacion_key:
+            try:
+                for idx, row in df_base.iterrows():
+                    eco_fila = _to_str(row.get("eco", ""))
+                    if eco_fila == str(eco_r).strip():
+                        val_ubi = row.get(col_ubicacion_key)
+                        sede_origen = _to_str(val_ubi) or "Sin asignar"
+                        break
+            except Exception:
+                sede_origen = "Error al leer sede"
+
+        # Se removió la key para permitir que el valor se actualice dinámicamente al cambiar de ECO
+        col_sel2.text_input("Sede de Origen Actual (Detectada):", value=sede_origen, disabled=True)
+
+        st.markdown("---")
+
+        with st.form(key="form_reasignacion"):
+            st.markdown("##### **Formulario Oficial de Reasignación**")
+            
+            col_r3, col_r4 = st.columns(2)
+            sedes_dest = [s for s in lista_ciudades_dinamica if s != sede_origen]
+            if not sedes_dest:
+                sedes_dest = lista_ciudades_dinamica
+                
+            sede_destino = col_r3.selectbox("Sede de Destino / Nueva OOAD:", sedes_dest)
+            oficio = col_r4.text_input("Número de Oficio de Autorización:", value="")
+
+            motivo = st.text_area("Justificación Técnica / Necesidad de Servicio:")
+
+            submitted_reasig = st.form_submit_button("Registrar y Transferir Unidad")
+            if submitted_reasig:
+                nueva_reasig = {
+                    "eco": str(eco_r),
+                    "sede_origen": str(sede_origen),
+                    "sede_destino": str(sede_destino),
+                    "fecha": str(date.today()),
+                    "motivo": str(motivo),
+                    "oficio_autorizacion": str(oficio),
+                }
+                if supabase:
+                    try:
+                        supabase.table("reasignaciones").insert(nueva_reasig).execute()
+                    except Exception as err:
+                        st.error(f"Error al guardar reasignación en Supabase: {err}")
+
+                st.session_state.reasignaciones_historial = cargar_reasignaciones_supabase()
+                st.success(
+                    f"La unidad {eco_r} ha sido reasignada exitosamente de "
+                    f"{sede_origen} a {sede_destino}."
+                )
+                st.rerun()
+
+    st.markdown("---")
+    st.markdown("##### **Histórico de Reasignaciones Realizadas**")
+    if "reasignaciones_historial" in st.session_state and len(st.session_state.reasignaciones_historial) > 0:
+        st.dataframe(
+            pd.DataFrame(st.session_state.reasignaciones_historial),
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.info("No hay registros históricos de reasignación actualmente.")
+# -----------------------------------------------------------------------------
+# 8. REPORTES Y EXPORTACIÓN
+# -----------------------------------------------------------------------------
+elif mod_actual == "Reportes y Exportación":
+  st.markdown(
+      f'<p class="subtitulo-seccion">Módulo Consolidado de Reportes y'
+      f" Exportación - {cat_actual}</p>",
+      unsafe_allow_html=True,
+  )
+  st.markdown("##### **Parámetros de Reporte**")
+  rc1, rc2, rc3 = st.columns(3)
+  tipo_rep = rc1.selectbox(
+      "Tipo de Reporte:",
+      [
+          "Inventario General de Flotilla",
+          "Estatus de Movilidad por Ciudad",
+          "Bitácora Mantenimiento y Siniestros",
+          "Consolidado Deducciones y Pagos",
+      ],
+  )
+  formato_rep = rc2.selectbox(
+      "Formato de Salida:", ["Excel (.xlsx)", "CSV (.csv)"]
+  )
+  periodo_rep = rc3.selectbox(
+      "Periodo:", ["Septiembre 2026", "Agosto 2026", "Histórico Acumulado"]
+  )
+
+  st.markdown("---")
+  
+  if st.button("🚀 Generar y Descargar Reporte Consolidado"):
+    try:
+      if "Inventario" in tipo_rep:
+        df_export = df_base.copy()
+      elif "Movilidad" in tipo_rep:
+        df_export = df_ciudades if 'df_ciudades' in locals() and not df_ciudades.empty else df_base.copy()
+      elif "Mantenimiento" in tipo_rep:
+        df_export = pd.DataFrame(st.session_state.taller_registros) if st.session_state.taller_registros else pd.DataFrame(columns=["Mensaje"])
+        if df_export.empty: df_export = pd.DataFrame([{"Mensaje": "Sin registros en bitácora de taller"}])
+      else:
+        df_export = df_base.copy()
+
+      buffer = io.BytesIO()
+      
+      if "Excel" in formato_rep:
+        file_name_ext = f"Reporte_{tipo_rep.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.xlsx"
+        try:
+          with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+            df_export.to_excel(writer, index=False, sheet_name='Reporte_IMSS')
+          buffer.seek(0)
+          st.download_button(
+              label="📥 Clic aquí para descargar el archivo Excel generado",
+              data=buffer,
+              file_name=file_name_ext,
+              mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          )
+        except ImportError:
+          file_name_ext = f"Reporte_{tipo_rep.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.csv"
+          csv_data = df_export.to_csv(index=False).encode('utf-8')
+          st.warning("⚠️ Librería 'openpyxl' no disponible; el reporte se generó en formato CSV.")
+          st.download_button(
+              label="📥 Clic aquí para descargar el archivo CSV generado",
+              data=csv_data,
+              file_name=file_name_ext,
+              mime="text/csv"
+          )
+      else:
+        file_name_ext = f"Reporte_{tipo_rep.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.csv"
+        csv_data = df_export.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Clic aquí para descargar el archivo CSV generado",
+            data=csv_data,
+            file_name=file_name_ext,
+            mime="text/csv"
+        )
+        
+      st.success(f"Reporte '{tipo_rep}' generado exitosamente.")
+    except Exception as e:
+      st.error(f"Error al generar el archivo de descarga: {e}")
+
+# -----------------------------------------------------------------------------
+# 9. CONCILIACIÓN FINANCIERA Y PAGOS
+# -----------------------------------------------------------------------------
+elif mod_actual == "Conciliación Financiera y Pagos":
+    st.markdown(
+        f'<p class="subtitulo-seccion">Conciliación Financiera y Control de Pagos'
+        f" Mensuales - Flotilla {cat_actual}</p>",
+        unsafe_allow_html=True,
+    )
+    st.info(
+        f"💡 **Control y Sincronización Supabase:** Cargue su archivo mensual de conciliación para **{cat_actual}** (asegúrese de incluir la columna de flotilla o clasificarla previamente)."
+    )
+
+    f_up_col1, f_up_col2 = st.columns(2)
+    with f_up_col1:
+        archivo_p = st.file_uploader(
+            "Cargar Archivo Mensual de Conciliación (.xlsx / .xls / .csv):", 
+            type=["xlsx", "xls", "csv"],
+            key=f"uploader_{cat_actual}"
+        )
+    with f_up_col2:
+        archivo_pdf_mensual = st.file_uploader(
+            "Cargar PDF de Evidencias / Constancias (.pdf):", 
+            type=["pdf"],
+            key=f"pdf_uploader_{cat_actual}"
+        )
+
+    # 1. Procesamiento de archivo y lectura de la columna "flotilla" del archivo
+    if archivo_p is not None:
+        try:
+            if archivo_p.name.endswith('.csv'):
+                try:
+                    st.session_state.pagos_cargados = pd.read_csv(archivo_p, encoding='utf-8-sig', dtype=str)
+                except UnicodeDecodeError:
+                    st.session_state.pagos_cargados = pd.read_csv(archivo_p, encoding='latin1', dtype=str)
+            else:
+                st.session_state.pagos_cargados = pd.read_excel(archivo_p, dtype=str)
+            
+            st.session_state.pagos_cargados.columns = st.session_state.pagos_cargados.columns.str.strip()
+            st.success(f"✅ Archivo '{archivo_p.name}' leído correctamente en memoria.")
+            
+            # Botón para sincronizar masivamente con Supabase respetando la flotilla del archivo o la pantalla actual
+            if supabase and st.button(f"💾 Sincronizar y Guardar en Supabase"):
+                with st.spinner("Guardando registros en Supabase..."):
+                    registros = []
+                    df_temp = st.session_state.pagos_cargados
+                    
+                    mes_registro = mes_corte if 'mes_corte' in locals() and mes_corte != "Acumulado Histórico Total" else "Julio 2025"
+                    
+                    for _, row in df_temp.iterrows():
+                        def val(col_candidates, default=""):
+                            if isinstance(col_candidates, str):
+                                col_candidates = [col_candidates]
+                            for c in col_candidates:
+                                if c in row and not pd.isna(row[c]):
+                                    return str(row[c])
+                            return default
+
+                        def num(col_candidates):
+                            if isinstance(col_candidates, str):
+                                col_candidates = [col_candidates]
+                            for c in col_candidates:
+                                if c in row and not pd.isna(row[c]):
+                                    v = row[c]
+                                    try:
+                                        return float(str(v).replace("$", "").replace(",", ""))
+                                    except:
+                                        pass
+                            return 0.0
+
+                        # Captura la flotilla directamente del archivo si trae la columna, si no, usa la del menú lateral
+                        flotilla_fila = val(["flotilla", "Flotilla", "FLOTILLA"], cat_actual)
+
+                        registros.append({
+                            "mes_corte": mes_registro,
+                            "flotilla": flotilla_fila,  # <--- Lee la clasificación exacta del CSV/Excel
+                            "arrendadora": val(["arrendadora", "Arrendadora"], arr_sel_p if 'arr_sel_p' in locals() else "General"),
+                            "part": val(["part", "Part"]),
+                            "no_orden": val(["no_orden", "No. ", "No. de Orden"]),
+                            "eco": val(["eco", "No. Ecco.", "ECO"]),
+                            "ast": val(["ast", "AST"]),
+                            "tipo": val(["tipo", "Tipo"]),
+                            "linea": val(["linea", "Linea"]),
+                            "ubicacion": val(["ubicacion", "UBICACIÓN", "Ubicación"]),
+                            "fecha_acta_inicio": val(["fecha_acta_inicio", "FECHA ACTA DE INICIO      (Ultima Fecha Hugo)"])[:10] if val(["fecha_acta_inicio", "FECHA ACTA DE INICIO      (Ultima Fecha Hugo)"]) else None,
+                            "fecha_constancia": val(["fecha_constancia", "FECHA CONSTANCIA"])[:10] if val(["fecha_constancia", "FECHA CONSTANCIA"]) else None,
+                            "obs": val(["obs", "OBS"]),
+                            **{f"d_{d}": val(f"d_{d}") for d in range(1, 31) if f"d_{d}" in df_temp.columns},
+                            "col_a": val(["col_a", "A"]),
+                            "col_x": val(["col_x", "X"]),
+                            "total_dias_servicio": num(["total_dias_servicio", "TOTAL DÍAS DE SERVICIO"]),
+                            "cuota_diaria": num(["cuota_diaria", "CUOTA DIARIA"]),
+                            "costo_mensual_sin_iva": num(["costo_mensual_sin_iva", "COSTO MENSUAL SIN IVA (a)"]),
+                            "total_a_pagar": num(["total_a_pagar", "TOTAL A PAGAR (b)"]),
+                            "observaciones": val(["observaciones", "OBSERVACIONES"]),
+                            "dia_natural_retraso": num(["dia_natural_retraso", "DÍA NATURAL DE RETRASO"]),
+                            "dias_reales_deductivas": num(["dias_reales_deductivas", "DIAS REALES DE DEDUCTIVAS"]),
+                            "tasa_1_porciento": num(["tasa_1_porciento", "1% TARIFA DIARIA"]),
+                            "total_deduccion": num(["total_deduccion", "TOTAL DE DEDUCCIÓN"]),
+                            "fecha_corte": str(date.today())
+                        })
+                    
+                    supabase.table("reportes_mensuales").insert(registros).execute()
+                    st.success("✅ ¡Histórico sincronizado y almacenado correctamente en Supabase segmentado por su flotilla!")
+        except Exception as e:
+            st.error(f"Error al procesar el archivo: {e}")
+
+    # 2. Subida de PDF a Supabase Storage
+    if archivo_pdf_mensual is not None and supabase:
+        try:
+            pdf_bytes = archivo_pdf_mensual.getvalue()
+            file_name_pdf = f"CONCILIACION_{cat_actual}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            supabase.storage.from_("evidencias-pdf").upload(
+                file=pdf_bytes,
+                path=file_name_pdf,
+                file_options={"content-type": "application/pdf", "upsert": "true"},
+            )
+            st.success("✅ PDF de evidencias mensuales vinculado y almacenado en Supabase Storage.")
+        except Exception as e:
+            pass
+
+    st.markdown("---")
+    st.markdown(f"##### **Selección de Meses - Vista de Flotilla: {cat_actual}**")
+    
+    # Carga Dinámica de Meses filtrados exclusivamente para la Flotilla seleccionada en la app
+    meses_disponibles = []
+    if supabase:
+        try:
+            res_meses = supabase.table("reportes_mensuales").select("mes_corte").eq("flotilla", cat_actual).execute()
+            if res_meses.data:
+                df_meses_db = pd.DataFrame(res_meses.data)
+                if "mes_corte" in df_meses_db.columns:
+                    meses_unicos = df_meses_db["mes_corte"].dropna().unique().tolist()
+                    
+                    orden_meses = {
+                        "Enero": 1, "Febrero": 2, "Marzo": 3, "Abril": 4, 
+                        "Mayo": 5, "Junio": 6, "Julio": 7, "Agosto": 8, 
+                        "Septiembre": 9, "Octubre": 10, "Noviembre": 11, "Diciembre": 12
+                    }
+                    
+                    def clave_orden(m):
+                        partes = str(m).split()
+                        if len(partes) == 2:
+                            mes_txt, anio_txt = partes[0], partes[1]
+                            return (int(anio_txt), orden_meses.get(mes_txt, 0))
+                        return (0, 0)
+                    
+                    meses_unicos.sort(key=clave_orden, reverse=True)
+                    meses_disponibles = meses_unicos
+        except Exception:
+            pass
+
+    if not meses_disponibles:
+        meses_disponibles = ["Julio 2025", "Agosto 2025", "Septiembre 2025"]
+
+    # Selector múltiple con llave independiente por categoría
+    meses_seleccionados = st.multiselect(
+        "Seleccione uno o varios meses para acumular y sumar:",
+        options=meses_disponibles,
+        default=meses_disponibles[:1] if meses_disponibles else [],
+        key=f"multiselect_meses_{cat_actual}"
+    )
+
+    # 3. Consulta Inteligente filtrando estrictamente por Meses Y por la Flotilla actual
+    df_p = pd.DataFrame()
+    if supabase and meses_seleccionados:
+        try:
+            res = supabase.table("reportes_mensuales").select("*").eq("flotilla", cat_actual).in_("mes_corte", meses_seleccionados).execute()
+            if res.data:
+                df_p = pd.DataFrame(res.data)
+        except Exception as e:
+            st.warning(f"No se pudo consultar Supabase directamente: {e}.")
+
+    if df_p.empty and "pagos_cargados" in st.session_state and not st.session_state.pagos_cargados.empty:
+        df_p = st.session_state.pagos_cargados.copy()
+        if "flotilla" in df_p.columns:
+            df_p = df_p[df_p["flotilla"] == cat_actual]
+
+    # Normalizar nombres de columnas
+    if not df_p.empty:
+        df_p.columns = [str(c).strip() for c in df_p.columns]
+        if "arrendadora" in df_p.columns and "Arrendadora" not in df_p.columns:
+            df_p["Arrendadora"] = df_p["arrendadora"]
+        if "costo_mensual_sin_iva" in df_p.columns and "COSTO MENSUAL SIN IVA (a)" not in df_p.columns:
+            df_p["COSTO MENSUAL SIN IVA (a)"] = df_p["costo_mensual_sin_iva"]
+        if "total_deduccion" in df_p.columns and "TOTAL DE DEDUCCIÓN" not in df_p.columns:
+            df_p["TOTAL DE DEDUCCIÓN"] = df_p["total_deduccion"]
+        if "total_a_pagar" in df_p.columns and "TOTAL A PAGAR (b)" not in df_p.columns:
+            df_p["TOTAL A PAGAR (b)"] = df_p["total_a_pagar"]
+        if "ubicacion" in df_p.columns and "UBICACIÓN" not in df_p.columns:
+            df_p["UBICACIÓN"] = df_p["ubicacion"]
+
+    arr_opciones = ["Todas"] + (
+        list(df_p["Arrendadora"].dropna().unique())
+        if "Arrendadora" in df_p.columns
+        else []
+    )
+    arr_sel_p = st.selectbox("Filtrar por Arrendadora:", arr_opciones, key=f"arr_sel_{cat_actual}")
+
+    if arr_sel_p != "Todas" and not df_p.empty and "Arrendadora" in df_p.columns:
+        df_p = df_p[df_p["Arrendadora"] == arr_sel_p]
+
+    # 4. Cálculo de métricas financieras acumuladas
+    monto_sub = (
+        pd.to_numeric(df_p["COSTO MENSUAL SIN IVA (a)"], errors="coerce").sum()
+        if "COSTO MENSUAL SIN IVA (a)" in df_p.columns
+        else 0.0
+    )
+    monto_ded = (
+        pd.to_numeric(df_p["TOTAL DE DEDUCCIÓN"], errors="coerce").sum()
+        if "TOTAL DE DEDUCCIÓN" in df_p.columns
+        else 0.0
+    )
+    monto_neto = (
+        pd.to_numeric(df_p["TOTAL A PAGAR (b)"], errors="coerce").sum()
+        if "TOTAL A PAGAR (b)" in df_p.columns
+        else 0.0
+    )
+
+    c_m1, c_m2, c_m3 = st.columns(3)
+    c_m1.metric("Subtotal Sin IVA Acumulado", f"${monto_sub:,.2f}")
+    c_m2.metric(
+        "Deducciones Totales Aplicadas",
+        f"${monto_ded:,.2f}",
+        delta_color="inverse",
+    )
+    c_m3.metric("Total Neto Pagado/Conciliado", f"${monto_neto:,.2f}")
+
+    st.markdown("---")
+    st.markdown("##### **Detalle por Registro de Unidad**")
+    cols_fin = [
+        "eco",
+        "UBICACIÓN",
+        "Arrendadora",
+        "CUOTA DIARIA",
+        "TOTAL DÍAS DE SERVICIO",
+        "COSTO MENSUAL SIN IVA (a)",
+        "TOTAL DE DEDUCCIÓN",
+        "TOTAL A PAGAR (b)",
+    ]
+    cols_fin_existentes = [c for c in cols_fin if c in df_p.columns]
+    st.dataframe(
+        df_p[cols_fin_existentes]
+        if not df_p.empty
+        else pd.DataFrame(columns=cols_fin),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+# -----------------------------------------------------------------------------
+# 10. CONTROL DE MOVILIDAD REAL (1,200 UNIDADES)
+# -----------------------------------------------------------------------------
+elif mod_actual == "Control de Movilidad Real (1,200 Unidades)":
+    st.markdown(
+        f'<p class="subtitulo-seccion">Control de Movilidad Real y Padrón Maestro (Universo Fijo: 1,200 Unidades)</p>',
+        unsafe_allow_html=True,
+    )
+    st.info("💡 Este módulo evalúa de forma estricta el parque vehicular total registrado en el catálogo maestro frente a los reportes semanales, garantizando un cálculo de movilidad exacto y sin sobrepasar el 100%.")
+
+    # Selector de semana de corte
+    col_s1, col_s2 = st.columns([2, 2])
+    semana_seleccionada = col_s1.selectbox(
+        "Seleccionar Semana de Corte:",
+        ["Semana 37 - 2026", "Semana 38 - 2026", "Semana 39 - 2026"]
+    )
+
+    # Cargar datos desde la vista inteligente
+    df_mov_real = cargar_movilidad_real_supabase(semana_seleccionada)
+
+    TOTAL_UNIVERSO_REAL = 1200  # Universo fijo institucional
+
+    if not df_mov_real.empty:
+        total_registrados_cat = len(df_mov_real)
+        
+        n_laborando = len(df_mov_real[df_mov_real["estatus_actual"].str.lower() == "laborando"])
+        n_taller = len(df_mov_real[df_mov_real["estatus_actual"].str.lower().str.contains("taller")])
+        n_siniestro = len(df_mov_real[df_mov_real["estatus_actual"].str.lower().str.contains("siniestro")])
+        n_otros = total_registrados_cat - (n_laborando + n_taller + n_siniestro)
+
+        porcentaje_movilidad = (n_laborando / TOTAL_UNIVERSO_REAL) * 100
+
+        mc1, mc2, mc3, mc4 = st.columns(4)
+        mc1.metric("Universo Padrón Objetivo", f"{TOTAL_UNIVERSO_REAL:,}")
+        mc2.metric("Unidades Laborando (Activas)", f"{n_laborando:,}")
+        mc3.metric("Unidades en Taller / Fuera", f"{n_taller + n_siniestro:,}", delta_color="inverse")
+        mc4.metric("Porcentaje de Movilidad Real", f"{porcentaje_movilidad:.1f}%")
+
+        st.markdown("---")
+        st.markdown(f"##### **Desglose Detallado del Padrón — {semana_seleccionada}**")
+
+        estatus_unicos = ["Todos"] + list(df_mov_real["estatus_actual"].dropna().unique())
+        filtro_est = st.selectbox("Filtrar vista por Estatus Actual:", estatus_unicos)
+
+        df_tabla_mostrar = df_mov_real.copy()
+        if filtro_est != "Todos":
+            df_tabla_mostrar = df_tabla_mostrar[df_tabla_mostrar["estatus_actual"] == filtro_est]
+
+        st.dataframe(
+            df_tabla_mostrar,
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.warning(f"⚠️ No se encontraron registros en la vista inteligente para la **{semana_seleccionada}**. Asegúrate de haber subido tu catálogo maestro y los reportes semanales correspondientes.")
+# -----------------------------------------------------------------------------
+# FIRMA INSTITUCIONAL FINAL OBLIGATORIA
+# -----------------------------------------------------------------------------
+st.markdown("""
+    <div class="footer-firma">
+        Sistema de Control Vehicular IMSS &nbsp;|&nbsp; Creado y desarrollado por: <b>eduardo.casas@imss.gob.mx</b>
+    </div>
+""", unsafe_allow_html=True)
