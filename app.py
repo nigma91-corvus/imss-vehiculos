@@ -191,40 +191,11 @@ def cargar_movilidad_real_supabase(categoria_flota, semana_corte="Semana 37 - 20
         st.error(f"Error al cargar la tabla {nombre_tabla}: {e}")
         return pd.DataFrame()
 # -----------------------------------------------------------------------------
-# 2. CÁLCULO DINÁMICO DEL UNIVERSO Y MÉTRICAS
+# 2. CÁLCULO DE MÉTRICAS (UNIVERSO EXACTO DE 1,200)
 # -----------------------------------------------------------------------------
+TOTAL_UNIVERSO_REAL = 1200
 
-# Función auxiliar rápida para contar registros reales en las tres tablas principales
-def obtener_universo_total_supabase():
-    if not supabase:
-        return 1200 # Fallback de seguridad
-    
-    tablas = ["vehiculos_administrativos", "vehiculos_ambulancias", "vehiculos_institucionales"]
-    total_unidades = 0
-    
-    for tabla in tablas:
-        try:
-            # Pedimos un conteo rápido (head o count)
-            response = supabase.table(tabla.lower()).select("id", count="exact").execute()
-            if response.count is not None:
-                total_unidades += response.count
-            else:
-                # Si la API no regresa el count directo, traemos los registros o un len
-                res_data = supabase.table(tabla.lower()).select("id").execute()
-                if res_data.data:
-                    total_unidades += len(res_data.data)
-        except Exception as e:
-            # Si una tabla falla o no existe, continuamos con las demás
-            pass
-            
-    return total_unidades if total_unidades > 0 else 1200
-
-# Obtenemos el universo real sumando las 3 tablas de Supabase
-TOTAL_UNIVERSO_REAL = obtener_universo_total_supabase()
-
-# (Opcional si dependes de la categoría seleccionada por el usuario en el selectbox)
-# categoria_actual = st.selectbox("Selecciona categoría", ["Administrativos", "Ambulancias", "Institucionales"])
-df_movilidad = cargar_movilidad_real_supabase(categoria_flota) # Usando la categoría activa
+df_movilidad = cargar_movilidad_real_supabase("Semana 37 - 2026")
 
 if not df_movilidad.empty:
     # Normalizamos el estatus para buscar sin errores de mayúsculas/espacios
@@ -236,7 +207,7 @@ if not df_movilidad.empty:
     
     n_taller = len(df_fuera)
     n_activos = TOTAL_UNIVERSO_REAL - n_taller
-    porcentaje_movilidad = (n_activos / TOTAL_UNIVERSO_REAL) * 100 if TOTAL_UNIVERSO_REAL > 0 else 0
+    porcentaje_movilidad = (n_activos / TOTAL_UNIVERSO_REAL) * 100
 
     # Limpieza del costo acumulado
     if "costo_acumulado" in df_movilidad.columns:
