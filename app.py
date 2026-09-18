@@ -605,7 +605,7 @@ except Exception as e:
 # -----------------------------------------------------------------------------
 # 1. DASHBOARD GENERAL
 # -----------------------------------------------------------------------------
-if mod_actual == "Dashboard General":
+elif mod_actual == "Dashboard General":
     st.markdown(
         f'<p class="subtitulo-seccion">Dashboard General - Flotilla:'
         f" {cat_actual}</p>",
@@ -637,42 +637,21 @@ if mod_actual == "Dashboard General":
     )
 
     tot_unidades = len(df_dash)
-    ecos_filtrados = (
-        set(df_dash["eco"].unique()) if "eco" in df_dash.columns else set()
-    )
+    
+    # Detección unificada de unidades en Taller / Inoperativos basada en la columna 'estatus' actualizada
+    col_estatus_val = 'estatus' if 'estatus' in df_dash.columns else 'Estatus'
+    col_eco_val = 'eco' if 'eco' in df_dash.columns else 'ECO'
 
-    ecos_en_taller = {
-        r.get("eco", r.get("ECO"))
-        for r in st.session_state.get("taller_registros", [])
-        if r.get("estatus", r.get("Estatus")) == "Activo (En Taller)" 
-        and r.get("eco", r.get("ECO")) in ecos_filtrados
-    }
-    n_taller = len(ecos_en_taller)
-    n_baja = (
-        len(df_dash[df_dash["estatus"] == "Inoperativo / Baja"])
-        if "estatus" in df_dash.columns
-        else 0
-    )
-    n_sust = (
-        len(
-            df_dash[
-                (df_dash["estatus"] == "Sustituto Entregado")
-                & (~df_dash["eco"].isin(ecos_en_taller))
-            ]
-        )
-        if "estatus" in df_dash.columns
-        else 0
-    )
-    n_activos = (
-        len(
-            df_dash[
-                (df_dash["estatus"] == "Titular Activo")
-                & (~df_dash["eco"].isin(ecos_en_taller))
-            ]
-        )
-        if "estatus" in df_dash.columns
-        else 0
-    )
+    n_taller = len(df_dash[df_dash[col_estatus_val].isin(['TALLER', 'Activo (En Taller)'])])
+    n_baja = len(df_dash[df_dash[col_estatus_val] == "Inoperativo / Baja"])
+    n_siniestro = len(df_dash[df_dash[col_estatus_val] == "SINIESTRO"])
+    n_patio = len(df_dash[df_dash[col_estatus_val] == "PATIO MALAS"])
+    
+    # Total real de detenidos en taller/inoperativos/bajas
+    total_detenidos_taller = n_taller + n_baja + n_siniestro + n_patio
+
+    n_sust = len(df_dash[df_dash[col_estatus_val] == "Sustituto Entregado"])
+    n_activos = len(df_dash[df_dash[col_estatus_val] == "Titular Activo"])
 
     disponibilidad = (
         ((n_activos + n_sust) / tot_unidades * 100) if tot_unidades > 0 else 0.0
@@ -682,7 +661,7 @@ if mod_actual == "Dashboard General":
     c1.metric("Total Unidades Registradas", f"{tot_unidades:,}")
     c2.metric("Titulares / Sustitutos Activos", f"{n_activos + n_sust:,}")
     c3.metric(
-        "En Taller / Inoperativos", f"{n_taller + n_baja:,}", delta_color="inverse"
+        "En Taller / Inoperativos", f"{total_detenidos_taller:,}", delta_color="inverse"
     )
     c4.metric("Disponibilidad Operativa Real", f"{disponibilidad:.1f}%")
 
@@ -693,7 +672,7 @@ if mod_actual == "Dashboard General":
 
     with col_dona:
         st.markdown("##### **Estatus Operativo**")
-        valores_dona = [n_activos, n_sust, n_taller, n_baja]
+        valores_dona = [n_activos, n_sust, total_detenidos_taller, n_baja]
         etiquetas_dona = [
             "Activas",
             "Sustitutos",
@@ -976,7 +955,7 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
         
         df_temp["es_titular_activo"] = (df_temp["estatus"] == "Titular Activo") & (~df_temp["en_taller"])
         df_temp["es_sustituto"] = df_temp["estatus"] == "Sustituto Entregado"
-        df_temp["es_inoperativo"] = df_temp["estatus"] == "Inoperativo / Baja"
+        df_temp["es_inoperativo"] = df_temp["estatus"].isin(["Inoperativo / Baja", "TALLER", "SINIESTRO", "PATIO MALAS"])
 
         df_ciudades = (
             df_temp.groupby("UBICACIÓN")
@@ -1016,6 +995,10 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
             },
             inplace=True,
         )
+        
+        # ORDENAR DE MENOR A MAYOR PORCENTAJE DE MOVILIDAD (Prioridad de análisis)
+        df_ciudades = df_ciudades.sort_values(by="Movilidad (%)", ascending=True).reset_index(drop=True)
+
     else:
         df_ciudades = pd.DataFrame(columns=[
             "Ciudad / OOAD",
@@ -1084,7 +1067,6 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
             use_container_width=True,
             hide_index=True,
         )
-
 # -----------------------------------------------------------------------------
 # 3. CONTROL DEL POOL DE SUSTITUTOS (20%)
 # -----------------------------------------------------------------------------
