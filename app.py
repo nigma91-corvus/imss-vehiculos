@@ -2560,7 +2560,6 @@ if 'df_semanal' in locals() and not df_semanal.empty:
             
             df_lineas = df_pivot.cumsum()
             
-            # --- DISEÑO COMPACTO Y ELEGANTE ---
             fig_lin, ax_lin = plt.subplots(figsize=(8, 2.2))
             colores_lineas = {"patio malas": "#8b0000", "siniestro": "#d4af37", "taller": "#1b4d3e"}
             
@@ -2588,11 +2587,14 @@ if 'df_semanal' in locals() and not df_semanal.empty:
 
     st.markdown("---")
 
-    # 5. IMPACTO FINANCIERO TOTAL ($)
+    # 5. IMPACTO FINANCIERO TOTAL ($) Y DESGLOSE DE DÍAS
     col_izq, col_der = st.columns([2, 1])
     
     with col_izq:
         st.markdown(f"**Registros encontrados:** {len(df_modulo)}")
+        if "dias_en_taller" in df_modulo.columns:
+            total_dias_acumulados = int(df_modulo["dias_en_taller"].sum())
+            st.markdown(f"💡 **Total días acumulados:** {total_dias_acumulados:,} días *(Costo unitario de referencia: $3,249.00 / día)*")
         
     with col_der:
         if "costo_acumulado" in df_modulo.columns:
@@ -2601,7 +2603,7 @@ if 'df_semanal' in locals() and not df_semanal.empty:
         else:
             st.metric(label="Impacto Financiero Total ($)", value="$0.00")
 
-    # 6. LIMPIEZA DE COLUMNAS
+    # 6. LIMPIEZA DE COLUMNAS Y APLICACIÓN DE FORMATO DE PESOS
     columnas_a_eliminar = [
         "no_orden", 
         "observaciones_modulo", 
@@ -2612,6 +2614,10 @@ if 'df_semanal' in locals() and not df_semanal.empty:
     ]
     
     df_mostrar = df_modulo.drop(columns=[c for c in columnas_a_eliminar if c in df_modulo.columns], errors="ignore")
+    
+    # Formateamos la columna costo_acumulado con signo de pesos y comas para que luzca perfecta en la tabla
+    if "costo_acumulado" in df_mostrar.columns:
+        df_mostrar["costo_acumulado"] = df_mostrar["costo_acumulado"].apply(lambda x: f"${x:,.2f}" if pd.notnull(x) else "$0.00")
 
     # 7. TABLA DETALLADA Y DESCARGA
     if 'aplicar_estilo_tabla' in globals():
