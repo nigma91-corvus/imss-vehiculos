@@ -2525,26 +2525,21 @@ if 'df_semanal' in locals() and not df_semanal.empty:
 
     # 3. CÁLCULO DE DÍAS Y COSTO ACUMULADO POR UNIDAD
     if "fecha_ingreso" in df_modulo.columns and not df_modulo.empty:
-        # Usamos dayfirst=True para que lea correctamente el formato de día/mes/año
         df_modulo["fecha_ingreso_dt"] = pd.to_datetime(df_modulo["fecha_ingreso"], errors="coerce", dayfirst=True)
         hoy = pd.Timestamp("2026-09-18")
         
-        # Calculamos los días acumulados bajo el nombre exacto solicitado: "dias_en_taller"
         df_modulo["dias_en_taller"] = df_modulo["fecha_ingreso_dt"].apply(
             lambda x: (hoy - x).days if pd.notnull(x) else 0
         )
         df_modulo["dias_en_taller"] = df_modulo["dias_en_taller"].apply(lambda x: x if x >= 0 else 0)
         
-        # Calculamos el costo acumulado individual por unidad (días * $3,249)
         df_modulo["costo_acumulado"] = df_modulo["dias_en_taller"] * 3249
-        
-        # Ordenar la tabla: Las que tienen MÁS días en taller van hasta arriba
         df_modulo = df_modulo.sort_values(by="dias_en_taller", ascending=False)
 
     st.markdown("---")
 
-    # 4. GRÁFICA DE LÍNEAS ACUMULATIVA POR FECHA DE INGRESO
-    st.markdown("##### 📈 Evolución Histórica Acumulativa por Fecha de Ingreso")
+    # 4. GRÁFICA DE LÍNEAS ACUMULATIVA (MÁS PEQUEÑA Y ELEGANTE)
+    st.markdown("##### 📈 Evolución Histórica Acumulativa")
     
     if "fecha_ingreso_dt" in df_modulo.columns and not df_modulo.empty:
         df_grafica = df_modulo.copy()
@@ -2565,7 +2560,8 @@ if 'df_semanal' in locals() and not df_semanal.empty:
             
             df_lineas = df_pivot.cumsum()
             
-            fig_lin, ax_lin = plt.subplots(figsize=(10, 3.5))
+            # --- DISEÑO COMPACTO Y ELEGANTE ---
+            fig_lin, ax_lin = plt.subplots(figsize=(8, 2.2))
             colores_lineas = {"patio malas": "#8b0000", "siniestro": "#d4af37", "taller": "#1b4d3e"}
             
             for est in ["patio malas", "siniestro", "taller"]:
@@ -2574,15 +2570,17 @@ if 'df_semanal' in locals() and not df_semanal.empty:
                         df_lineas.index, 
                         df_lineas[est], 
                         marker="o", 
-                        linewidth=2, 
+                        markersize=3,
+                        linewidth=1.5, 
                         label=est.capitalize(),
                         color=colores_lineas.get(est, "#333333")
                     )
                     
-            ax_lin.set_xlabel("Fecha de Ingreso", fontsize=9)
-            ax_lin.set_ylabel("Casos Acumulados", fontsize=9)
-            ax_lin.legend(frameon=False, fontsize=8)
-            ax_lin.grid(True, linestyle="--", alpha=0.5)
+            ax_lin.tick_params(axis='both', which='major', labelsize=8)
+            ax_lin.set_xlabel("Fecha de Ingreso", fontsize=8)
+            ax_lin.set_ylabel("Casos Acum.", fontsize=8)
+            ax_lin.legend(frameon=False, fontsize=7, loc="upper left")
+            ax_lin.grid(True, linestyle=":", alpha=0.4)
             fig_lin.tight_layout()
             st.pyplot(fig_lin)
         else:
@@ -2603,7 +2601,7 @@ if 'df_semanal' in locals() and not df_semanal.empty:
         else:
             st.metric(label="Impacto Financiero Total ($)", value="$0.00")
 
-    # 6. LIMPIEZA DE COLUMNAS (Eliminar las que pediste y auxiliares)
+    # 6. LIMPIEZA DE COLUMNAS
     columnas_a_eliminar = [
         "no_orden", 
         "observaciones_modulo", 
