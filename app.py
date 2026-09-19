@@ -2497,7 +2497,7 @@ with st.expander("📤 Carga de Nuevos Reportes y Plantilla"):
     with c_sub1:
         st.markdown("##### 📥 Descargar Formato CSV")
         st.markdown("Usa esta plantilla para asegurar que la estructura y fechas sean correctas al subir.")
-        csv_plantilla = "placa,economico,tipo,estatus,fecha_ingreso,observaciones\nABC-123,ECO-01,Sedan,taller,10/09/2026,Revisión general\nXYZ-789,ECO-02,SUV,siniestro,12/09/2026,Frente dañado"
+        csv_plantilla = "placa,eco,tipo,estatus,fecha_ingreso,observaciones\nABC-123,ECO-01,Sedan,taller,10/09/2026,Revisión general\nXYZ-789,ECO-02,SUV,siniestro,12/09/2026,Frente dañado"
         st.download_button(
             label="📄 Descargar Plantilla CSV",
             data=csv_plantilla.encode('utf-8'),
@@ -2659,7 +2659,9 @@ if 'df_semanal' in locals() and not df_semanal.empty:
                 df_base_inc["estatus"] = df_base_inc["estatus"].astype(str).str.lower().str.strip()
             
             cols_agrupacion = ["placa"]
-            if "economico" in df_base_inc.columns:
+            if "eco" in df_base_inc.columns:
+                cols_agrupacion.append("eco")
+            elif "economico" in df_base_inc.columns:
                 cols_agrupacion.append("economico")
                 
             if "estatus" in df_base_inc.columns:
@@ -2682,9 +2684,10 @@ if 'df_semanal' in locals() and not df_semanal.empty:
     with col_rank2:
         st.markdown("##### ⏳ Unidades con Mayor Acumulado de Días")
         if "dias_en_taller" in df_modulo.columns:
-            # Agrupamos por unidad sumando los días totales acumulados y costo
             cols_dias_grp = ["placa"]
-            if "economico" in df_modulo.columns:
+            if "eco" in df_modulo.columns:
+                cols_dias_grp.append("eco")
+            elif "economico" in df_modulo.columns:
                 cols_dias_grp.append("economico")
                 
             df_dias_acum = df_modulo.groupby(cols_dias_grp).agg({
@@ -2698,7 +2701,7 @@ if 'df_semanal' in locals() and not df_semanal.empty:
 
     st.markdown("---")
 
-    # 7. TÍTULO Y TABLA DETALLADA PRINCIPAL CON FORMATO
+    # 7. TÍTULO Y TABLA DETALLADA PRINCIPAL CON FORMATO (PRESERVADA)
     st.markdown("##### 🔍 Detalle Operativo por Unidad y Costos Acumulados")
     
     columnas_a_eliminar = [
