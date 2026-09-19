@@ -2648,46 +2648,59 @@ if 'df_semanal' in locals() and not df_semanal.empty:
 
     st.markdown("---")
 
-    # 6. SECCIÓN POTENCIADA: UNIDADES CON MAYOR INCIDENCIA ACUMULADA (GENERAL)
-    st.markdown("##### 🚨 Unidades con Mayor Incidencia Acumulada (Histórico General)")
-    st.markdown("Ranking de vehículos que registran más eventos de forma global, sin importar el estatus (Taller, Patio Malas o Siniestro).")
+    # 6. SECCIONES DE ANÁLISIS: INCIDENCIAS (EVENTOS) Y DÍAS ACUMULADOS
+    col_rank1, col_rank2 = st.columns(2)
     
-    if "placa" in df_semanal.columns:
-        df_base_inc = df_semanal.copy()
-        if "estatus" in df_base_inc.columns:
-            df_base_inc["estatus"] = df_base_inc["estatus"].astype(str).str.lower().str.strip()
-        
-        # Identificamos columnas clave si existen
-        cols_agrupacion = ["placa"]
-        if "economico" in df_base_inc.columns:
-            cols_agrupacion.append("economico")
+    with col_rank1:
+        st.markdown("##### 🚨 Unidades con Más Eventos (Frecuencia)")
+        if "placa" in df_semanal.columns:
+            df_base_inc = df_semanal.copy()
+            if "estatus" in df_base_inc.columns:
+                df_base_inc["estatus"] = df_base_inc["estatus"].astype(str).str.lower().str.strip()
             
-        # Creamos una tabla pivote para contar incidencias totales y desglosarlas por estatus
-        if "estatus" in df_base_inc.columns:
-            df_desglose_estatus = df_base_inc.pivot_table(
-                index=cols_agrupacion,
-                columns="estatus",
-                values="fecha_ingreso" if "fecha_ingreso" in df_base_inc.columns else df_base_inc.columns[0],
-                aggfunc="count",
-                fill_value=0
-            ).reset_index()
+            cols_agrupacion = ["placa"]
+            if "economico" in df_base_inc.columns:
+                cols_agrupacion.append("economico")
+                
+            if "estatus" in df_base_inc.columns:
+                df_desglose_estatus = df_base_inc.pivot_table(
+                    index=cols_agrupacion,
+                    columns="estatus",
+                    values="fecha_ingreso",
+                    aggfunc="count",
+                    fill_value=0
+                ).reset_index()
+                
+                estatus_cols = [c for c in df_desglose_estatus.columns if c not in cols_agrupacion]
+                df_desglose_estatus["Total Eventos"] = df_desglose_estatus[estatus_cols].sum(axis=1)
+                df_desglose_estatus = df_desglose_estatus.sort_values(by="Total Eventos", ascending=False)
+                st.dataframe(df_desglose_estatus.head(5), hide_index=True, use_container_width=True)
+            else:
+                df_inc = df_base_inc.groupby(cols_agrupacion).size().reset_index(name="Total Eventos")
+                st.dataframe(df_inc.sort_values(by="Total Eventos", ascending=False).head(5), hide_index=True, use_container_width=True)
+
+    with col_rank2:
+        st.markdown("##### ⏳ Unidades con Mayor Acumulado de Días")
+        if "dias_en_taller" in df_modulo.columns:
+            # Agrupamos por unidad sumando los días totales acumulados y costo
+            cols_dias_grp = ["placa"]
+            if "economico" in df_modulo.columns:
+                cols_dias_grp.append("economico")
+                
+            df_dias_acum = df_modulo.groupby(cols_dias_grp).agg({
+                "dias_en_taller": "sum",
+                "costo_acumulado": "sum"
+            }).reset_index()
             
-            # Calculamos el total general de incidencias sumando los estatus
-            estatus_cols = [c for c in df_desglose_estatus.columns if c not in cols_agrupacion]
-            df_desglose_estatus["Total Incidencias"] = df_desglose_estatus[estatus_cols].sum(axis=1)
-            df_desglose_estatus = df_desglose_estatus.sort_values(by="Total Incidencias", ascending=False)
-            
-            # Mostramos el Top 10 con su respectivo desglose
-            st.dataframe(df_desglose_estatus.head(10), hide_index=True, use_container_width=True)
-        else:
-            # Respaldo simple si no hay columna estatus
-            df_incidencias = df_base_inc.groupby(cols_agrupacion).size().reset_index(name="Total Incidencias")
-            df_incidencias = df_incidencias.sort_values(by="Total Incidencias", ascending=False).head(10)
-            st.dataframe(df_incidencias, hide_index=True, use_container_width=True)
+            df_dias_acum = df_dias_acum.sort_values(by="dias_en_taller", ascending=False)
+            df_dias_acum["costo_acumulado"] = df_dias_acum["costo_acumulado"].apply(lambda x: f"${x:,.2f}")
+            st.dataframe(df_dias_acum.head(5), hide_index=True, use_container_width=True)
 
     st.markdown("---")
 
-    # 7. LIMPIEZA DE COLUMNAS Y APLICACIÓN DE FORMATO DE PESOS
+    # 7. TÍTULO Y TABLA DETALLADA PRINCIPAL CON FORMATO
+    st.markdown("##### 🔍 Detalle Operativo por Unidad y Costos Acumulados")
+    
     columnas_a_eliminar = [
         "no_orden", 
         "observaciones_modulo", 
@@ -2702,7 +2715,6 @@ if 'df_semanal' in locals() and not df_semanal.empty:
     if "costo_acumulado" in df_mostrar.columns:
         df_mostrar["costo_acumulado"] = df_mostrar["costo_acumulado"].apply(lambda x: f"${x:,.2f}" if pd.notnull(x) else "$0.00")
 
-    # 8. TABLA DETALLADA Y DESCARGA
     if 'aplicar_estilo_tabla' in globals():
         st.dataframe(aplicar_estilo_tabla(df_mostrar), hide_index=True, use_container_width=True)
     else:
