@@ -2523,33 +2523,47 @@ if 'df_semanal' in locals() and not df_semanal.empty:
 
     st.markdown("---")
 
-    # 3. GRÁFICA DE LÍNEAS (Las 3 líneas por fecha de ingreso)
-    st.markdown("##### 📈 Evolución Histórica por Fecha de Ingreso")
-    
+    # 3. CÁLCULO DE DÍAS DE TALLER Y ORDENAMIENTO
     if "fecha_ingreso" in df_modulo.columns and not df_modulo.empty:
+        # Limpiar fecha y calcular días transcurridos hasta hoy (18 de septiembre de 2026)
+        df_modulo["fecha_ingreso_dt"] = pd.to_datetime(df_modulo["fecha_ingreso"], errors="coerce")
+        hoy = pd.Timestamp("2026-09-18")
         
-        # Copiamos para no afectar la tabla original de abajo
+        # Calculamos los días de taller (si la fecha es válida, restamos; si no, ponemos 0)
+        df_modulo["dias_taller"] = df_modulo["fecha_ingreso_dt"].apply(
+            lambda x: (hoy - x).days if pd.notnull(x) else 0
+        )
+        # Asegurarnos que no queden días negativos por un error de captura futura
+        df_modulo["dias_taller"] = df_modulo["dias_taller"].apply(lambda x: x if x >= 0 else 0)
+        
+        # Ordenar la tabla: Las que tienen MÁS días de taller van hasta arriba
+        df_modulo = df_modulo.sort_values(by="dias_taller", ascending=False)
+
+    st.markdown("---")
+
+    # 4. GRÁFICA DE LÍNEAS ACUMULATIVA POR FECHA DE INGRESO
+    st.markdown("##### 📈 Evolución Histórica Acumulativa por Fecha de Ingreso")
+    
+    if "fecha_ingreso_dt" in df_modulo.columns and not df_modulo.empty:
         df_grafica = df_modulo.copy()
-        
-        # Limpiamos estatus a minúsculas para que coincidan exactos con los colores
         if "estatus" in df_grafica.columns:
             df_grafica["estatus"] = df_grafica["estatus"].astype(str).str.lower().str.strip()
-        
-        # Convertimos a fecha real y quitamos la hora (00:00:00) para evitar conflictos
-        df_grafica["fecha_ingreso"] = pd.to_datetime(df_grafica["fecha_ingreso"], errors="coerce").dt.date
-        
-        # Filtramos solo los que tengan una fecha válida (pero dejamos que los 127 sigan en la tabla de abajo)
-        df_grafica_valida = df_grafica.dropna(subset=["fecha_ingreso"])
+            
+        df_grafica["fecha_solo"] = df_grafica["fecha_ingreso_dt"].dt.date
+        df_grafica_valida = df_grafica.dropna(subset=["fecha_solo"])
         
         if not df_grafica_valida.empty:
-            # Agrupamos por fecha y estatus contando las unidades
-            df_lineas = df_grafica_valida.pivot_table(
-                index="fecha_ingreso", 
+            # Agrupamos por día y estatus
+            df_pivot = df_grafica_valida.pivot_table(
+                index="fecha_solo", 
                 columns="estatus", 
                 values="tipo" if "tipo" in df_grafica_valida.columns else df_grafica_valida.columns[0], 
                 aggfunc="count", 
                 fill_value=0
             )
+            
+            # Convertimos a acumulativo (va sumando los casos conforme avanzan los días)
+            df_lineas = df_pivot.cumsum()
             
             fig_lin, ax_lin = plt.subplots(figsize=(10, 3.5))
             colores_lineas = {"patio malas": "#8b0000", "siniestro": "#d4af37", "taller": "#1b4d3e"}
@@ -2565,43 +2579,46 @@ if 'df_semanal' in locals() and not df_semanal.empty:
                         color=colores_lineas.get(est, "#333333")
                     )
                     
-            ax_lin.set_xlabel("Fecha de Ingreso (Día/Mes/Año)", fontsize=9)
-            ax_lin.set_ylabel("Cantidad de Unidades", fontsize=9)
+            ax_lin.set_xlabel("Fecha de Ingreso", fontsize=9)
+            ax_lin.set_ylabel("Casos Acumulados", fontsize=9)
             ax_lin.legend(frameon=False, fontsize=8)
             ax_lin.grid(True, linestyle="--", alpha=0.5)
             fig_lin.tight_layout()
             st.pyplot(fig_lin)
         else:
-            st.info("No hay fechas de ingreso válidas para mostrar en la gráfica.")
-    else:
-        st.info("La columna 'fecha_ingreso' no se encuentra en esta tabla.")
-        
-    # 4. IMPACTO FINANCIERO ($)
+            st.info("No hay fechas válidas para la gráfica acumulativa.")
+
+    st.markdown("---")
+
+    # 5. IMPACTO FINANCIERO ($) BASADO EN DÍAS DE TALLER * $3,249
     col_izq, col_der = st.columns([2, 1])
+    
     with col_izq:
         st.markdown(f"**Registros encontrados:** {len(df_modulo)}")
+        
     with col_der:
-        cols_costo = [c for c in df_modulo.columns if c.lower() in ["costo", "monto", "importe", "gasto"]]
-        if cols_costo:
-            total_dinero = df_modulo[cols_costo[0]].sum()
-            st.metric(label="Impacto Financiero ($)", value=f"${total_dinero:,.2f}")
+        if "dias_taller" in df_modulo.columns:
+            total_dias = df_modulo["dias_taller"].sum()
+            impacto_financiero = total_dias * 3249
+            st.metric(label="Impacto Financiero Total ($)", value=f"${impacto_financiero:,.2f}")
         else:
-            st.metric(label="Impacto Financiero ($)", value="$0.00")
+            st.metric(label="Impacto Financiero Total ($)", value="$0.00")
 
-    # 5. TABLA Y DESCARGA
+    # 6. TABLA DETALLADA Y DESCARGA
+    # Ocultamos columnas auxiliares internas para que la vista quede limpia
+    df_mostrar = df_modulo.drop(columns=["fecha_ingreso_dt"], errors="ignore")
+    
     if 'aplicar_estilo_tabla' in globals():
-        st.dataframe(aplicar_estilo_tabla(df_modulo), hide_index=True, use_container_width=True)
+        st.dataframe(aplicar_estilo_tabla(df_mostrar), hide_index=True, use_container_width=True)
     else:
-        st.dataframe(df_modulo, hide_index=True, use_container_width=True)
+        st.dataframe(df_mostrar, hide_index=True, use_container_width=True)
 
     st.download_button(
         label="📥 Descargar Reporte Filtrado (CSV)",
-        data=df_modulo.to_csv(index=False).encode('utf-8'),
-        file_name="reporte_detallado_imss.csv",
+        data=df_mostrar.to_csv(index=False).encode('utf-8'),
+        file_name="reporte_detallado_financiero.csv",
         mime="text/csv",
     )
-else:
-    st.warning("La tabla 'reporte_semanal' en Supabase está vacía o no se pudo cargar.")
 # -----------------------------------------------------------------------------
 # FIRMA INSTITUCIONAL FINAL OBLIGATORIA
 # -----------------------------------------------------------------------------
