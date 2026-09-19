@@ -717,8 +717,8 @@ if mod_actual == "Dashboard General":
         st.pyplot(fig_d)
 
     with col_barras:
-        st.markdown("##### **Distribución por Tipo de Vehículo**")
-        fig_v, ax_v = plt.subplots(figsize=(4.5, 3.5))
+        st.markdown("##### **Distribución: Actual vs. Requerido por Tipo**")
+        fig_v, ax_v = plt.subplots(figsize=(4.8, 3.5))
         if not df_dash.empty and "tipo" in df_dash.columns:
             df_tipo_filtrado = df_dash[
                 ~df_dash["tipo"]
@@ -727,42 +727,62 @@ if mod_actual == "Dashboard General":
                 .isin(["SONORA", "SINALOA", "BAJA CALIFORNIA", "CHIHUAHUA", "N/A", "NAN"])
             ]
 
-            resumen_tipo = (
+            # 1. Cantidad Actual por tipo
+            resumen_actual = (
                 df_tipo_filtrado.groupby("tipo")
                 .size()
-                .reset_index(name="Cantidad")
-                .sort_values(by="Cantidad", ascending=False)
+                .reset_index(name="Actual")
             )
 
-            if not resumen_tipo.empty:
-                paleta_barras = [
-                    COLORES_PANTONE["7421"],
-                    COLORES_PANTONE["561"],
-                    COLORES_PANTONE["465"],
-                    COLORES_PANTONE["7420"],
-                    COLORES_PANTONE["626"],
-                    COLORES_PANTONE["468"],
-                ]
-                colores_asignados = [
-                    paleta_barras[i % len(paleta_barras)] for i in range(len(resumen_tipo))
-                ]
+            # 2. Cantidad Requerida (Si tu base tiene columna de plantilla/requerido se usa, si no, se toma de referencia)
+            col_req_candidatas = [c for c in df_tipo_filtrado.columns if c.lower() in ["requerido", "plantilla", "meta", "autorizado"]]
+            if col_req_candidatas:
+                col_req = col_req_candidatas[0]
+                resumen_req = df_tipo_filtrado.groupby("tipo")[col_req].sum().reset_index(name="Requerido")
+                resumen_tipo = pd.merge(resumen_actual, resumen_req, on="tipo", how="outer").fillna(0)
+            else:
+                # Si no existe columna de requeridos en el DataFrame, puedes definir una base o duplicar/ajustar temporalmente
+                resumen_tipo = resumen_actual.copy()
+                resumen_tipo["Requerido"] = resumen_tipo["Actual"]  # Reemplaza o ajusta según tu lógica de plantilla
 
-                bars = ax_v.bar(
-                    resumen_tipo["tipo"], resumen_tipo["Cantidad"], color=colores_asignados
+            resumen_tipo = resumen_tipo.sort_values(by="Actual", ascending=False)
+
+            if not resumen_tipo.empty:
+                x = np.arange(len(resumen_tipo["tipo"]))
+                width = 0.35  # Ancho de cada barra
+
+                # Primera barra: Actual
+                bars1 = ax_v.bar(
+                    x - width/2, 
+                    resumen_tipo["Actual"], 
+                    width, 
+                    label="Actual", 
+                    color=COLORES_PANTONE["7421"]
                 )
-                ax_v.tick_params(axis="x", rotation=30, labelsize=8)
+                
+                # Segunda barra: Requerido
+                bars2 = ax_v.bar(
+                    x + width/2, 
+                    resumen_tipo["Requerido"], 
+                    width, 
+                    label="Requerido", 
+                    color=COLORES_PANTONE["561"]
+                )
+
+                ax_v.set_xticks(x)
+                ax_v.set_xticklabels(resumen_tipo["tipo"], rotation=30, ha="right", fontsize=8)
+                ax_v.legend(loc="upper right", fontsize=8, frameon=False)
                 ax_v.grid(axis="y", linestyle="--", alpha=0.5)
-                for bar in bars:
+
+                # Etiquetas de valores sobre las barras
+                for bar in bars1:
                     h = bar.get_height()
-                    ax_v.text(
-                        bar.get_x() + bar.get_width() / 2,
-                        h + 0.5,
-                        f"{int(h)}",
-                        ha="center",
-                        va="bottom",
-                        fontweight="bold",
-                        fontsize=8,
-                    )
+                    if h > 0:
+                        ax_v.text(bar.get_x() + bar.get_width()/2, h + 0.5, f"{int(h)}", ha="center", va="bottom", fontsize=7, fontweight="bold")
+                for bar in bars2:
+                    h = bar.get_height()
+                    if h > 0:
+                        ax_v.text(bar.get_x() + bar.get_width()/2, h + 0.5, f"{int(h)}", ha="center", va="bottom", fontsize=7, fontweight="bold")
             else:
                 ax_v.text(
                     0.5,
@@ -775,13 +795,39 @@ if mod_actual == "Dashboard General":
                 )
                 ax_v.axis("off")
         else:
-            resumen_tipo = pd.DataFrame(columns=["tipo", "Cantidad"])
+            resumen_tipo = pd.DataFrame(columns=["tipo", "Actual", "Requerido"])
             ax_v.text(
                 0.5, 0.5, "Sin Datos", ha="center", va="center", fontsize=12, color="gray"
             )
             ax_v.axis("off")
         fig_v.tight_layout()
         st.pyplot(fig_v)
+
+    with col_tabla:
+        st.markdown("##### **Resumen Cantidades Detalladas**")
+        if "resumen_tipo" in locals() and not resumen_tipo.empty:
+            df_tabla_res = resumen_tipo.copy()
+            
+            total_actual = df_tabla_res["Actual"].sum()
+            total_req = df_tabla_res["Requerido"].sum() if "Requerido" in df_tabla_res.columns else total_actual
+            
+            df_totales = pd.DataFrame(
+                [{"tipo": "TOTAL UNIDADES", "Actual": total_actual, "Requerido": total_req}]
+            )
+            df_mostrar_res = pd.concat([df_tabla_res, df_totales], ignore_index=True)
+            df_mostrar_res.columns = ["Tipo de Vehículo", "Cantidad Actual", "Cantidad Requerida"]
+
+            st.dataframe(
+                aplicar_estilo_tabla(df_mostrar_res),
+                hide_index=True,
+                use_container_width=True,
+            )
+        else:
+            st.dataframe(
+                pd.DataFrame(columns=["Tipo de Vehículo", "Cantidad Actual", "Cantidad Requerida"]),
+                hide_index=True,
+                use_container_width=True,
+            )
 
     with col_tabla:
         st.markdown("##### **Resumen Cantidades Detalladas**")
