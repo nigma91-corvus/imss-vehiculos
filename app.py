@@ -719,6 +719,7 @@ if mod_actual == "Dashboard General":
     with col_barras:
         st.markdown("##### **Distribución por Tipo de Vehículo**")
         fig_v, ax_v = plt.subplots(figsize=(4.5, 3.5))
+        
         if not df_dash.empty and "tipo" in df_dash.columns:
             df_tipo_filtrado = df_dash[
                 ~df_dash["tipo"]
@@ -764,6 +765,7 @@ if mod_actual == "Dashboard General":
                         fontsize=8,
                     )
             else:
+                resumen_tipo = pd.DataFrame(columns=["tipo", "Cantidad"])
                 ax_v.text(
                     0.5,
                     0.5,
@@ -780,12 +782,13 @@ if mod_actual == "Dashboard General":
                 0.5, 0.5, "Sin Datos", ha="center", va="center", fontsize=12, color="gray"
             )
             ax_v.axis("off")
+            
         fig_v.tight_layout()
         st.pyplot(fig_v)
 
     with col_tabla:
         st.markdown("##### **Resumen Cantidades Detalladas**")
-        if "resumen_tipo" in locals() and not resumen_tipo.empty:
+        if 'resumen_tipo' in locals() and not resumen_tipo.empty:
             df_totales = pd.DataFrame(
                 [{"tipo": "TOTAL UNIDADES", "Cantidad": resumen_tipo["Cantidad"].sum()}]
             )
