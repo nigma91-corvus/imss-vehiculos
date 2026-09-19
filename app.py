@@ -2490,32 +2490,80 @@ elif mod_actual == "Conciliación Financiera y Pagos":
 st.markdown("### 📋 Detalle Operativo y Control Financiero")
 st.markdown("Seguimiento detallado de unidades críticas, evolución temporal y costos.")
 
+# --- SECCIÓN DE CARGA INTELIGENTE Y PLANTILLA ---
+with st.expander("📤 Carga de Nuevos Reportes y Plantilla"):
+    c_sub1, c_sub2 = st.columns(2)
+    
+    with c_sub1:
+        st.markdown("##### 📥 Descargar Formato CSV")
+        st.markdown("Usa esta plantilla para asegurar que la estructura y fechas sean correctas al subir.")
+        # Plantilla de ejemplo en CSV
+        csv_plantilla = "placa,economico,tipo,estatus,fecha_ingreso,observaciones\nABC-123,ECO-01,Sedan,taller,10/09/2026,Revisión general\nXYZ-789,ECO-02,SUV,siniestro,12/09/2026,Frente dañado"
+        st.download_button(
+            label="📄 Descargar Plantilla CSV",
+            data=csv_plantilla.encode('utf-8'),
+            file_name="plantilla_reporte_semanal.csv",
+            mime="text/csv"
+        )
+        
+    with c_sub2:
+        st.markdown("##### ⬆️ Subir Archivo Inteligente")
+        archivo_subido = st.file_uploader("Sube tu CSV (omite duplicados por fecha/unidad)", type=["csv"])
+        
+        if archivo_subido is not None:
+            try:
+                df_nuevo = pd.read_csv(archivo_subido)
+                # Validar que existan columnas clave
+                if "placa" in df_nuevo.columns and "fecha_ingreso" in df_nuevo.columns:
+                    # Traemos los registros actuales de Supabase para comparar
+                    res_actual = supabase.table("reporte_semanal").select("placa, fecha_ingreso").execute()
+                    df_existente = pd.DataFrame(res_actual.data)
+                    
+                    nuevos_a_insertar = []
+                    for _, row in df_nuevo.iterrows():
+                        placa_val = str(row.get("placa", "")).strip()
+                        fecha_val = str(row.get("fecha_ingreso", "")).strip()
+                        
+                        # Verificamos si ya existe la misma placa con la misma fecha de ingreso
+                        if not df_existente.empty and ((df_existente["placa"].astype(str).str.strip() == placa_val) & 
+                                                       (df_existente["fecha_ingreso"].astype(str).str.strip() == fecha_val)).any():
+                            continue # Si ya está, se omite para evitar duplicados
+                        else:
+                            nuevos_a_insertar.append(row.to_dict())
+                    
+                    if nuevos_a_insertar:
+                        # Insertar en Supabase
+                        response_insert = supabase.table("reporte_semanal").insert(nuevos_a_insertar).execute()
+                        st.success(f"¡Carga exitosa! Se agregaron {len(nuevos_a_insertar)} registros nuevos (se omitieron los duplicados).")
+                        st.rerun()
+                    else:
+                        st.info("El archivo no contiene registros nuevos; todas las unidades y fechas ya estaban registradas.")
+                else:
+                    st.error("El archivo CSV no cuenta con las columnas obligatorias ('placa' y 'fecha_ingreso'). Usa la plantilla.")
+            except Exception as e:
+                st.error(f"Error al procesar el archivo: {e}")
+
+st.markdown("---")
+
 response = supabase.table("reporte_semanal").select("*").execute()
 df_semanal = pd.DataFrame(response.data)
 
 if 'df_semanal' in locals() and not df_semanal.empty:
     df_modulo = df_semanal.copy()
 
-    # 2. FILTROS VISUALES SUPERIORES
-    c1, c2, c3 = st.columns(3)
+    # 2. FILTROS VISUALES SUPERIORES (SIN FILTRO DE TIPO)
+    c1, c2 = st.columns(2)
     
     with c1:
         opciones_estatus = ["Todos", "patio malas", "siniestro", "taller"]
         estatus_elegido = st.selectbox("Filtrar por Estatus:", opciones_estatus)
 
     with c2:
-        tipos_disponibles = ["Todos"] + list(df_modulo["tipo"].dropna().unique()) if "tipo" in df_modulo.columns else ["Todos"]
-        tipo_elegido = st.selectbox("Filtrar por Tipo:", tipos_disponibles)
-
-    with c3:
         texto_busqueda = st.text_input("Buscar (Placa, Económico):", "")
 
     # Aplicando filtros
     if estatus_elegido != "Todos" and "estatus" in df_modulo.columns:
         df_modulo = df_modulo[df_modulo["estatus"].astype(str).str.lower() == estatus_elegido]
-        
-    if tipo_elegido != "Todos" and "tipo" in df_modulo.columns:
-        df_modulo = df_modulo[df_modulo["tipo"] == tipo_elegido]
         
     if texto_busqueda:
         mask = df_modulo.astype(str).apply(lambda x: x.str.contains(texto_busqueda, case=False, na=False)).any(axis=1)
@@ -2538,7 +2586,7 @@ if 'df_semanal' in locals() and not df_semanal.empty:
 
     st.markdown("---")
 
-    # 4. GRÁFICA DE LÍNEAS ACUMULATIVA (MÁS PEQUEÑA Y ELEGANTE)
+    # 4. GRÁFICA DE LÍNEAS ACUMULATIVA (COMPACTA Y ELEGANTE)
     st.markdown("##### 📈 Evolución Histórica Acumulativa")
     
     if "fecha_ingreso_dt" in df_modulo.columns and not df_modulo.empty:
@@ -2553,7 +2601,7 @@ if 'df_semanal' in locals() and not df_semanal.empty:
             df_pivot = df_grafica_valida.pivot_table(
                 index="fecha_solo", 
                 columns="estatus", 
-                values="tipo" if "tipo" in df_grafica_valida.columns else df_grafica_valida.columns[0], 
+                values="placa" if "placa" in df_grafica_valida.columns else df_grafica_valida.columns[0], 
                 aggfunc="count", 
                 fill_value=0
             )
@@ -2603,7 +2651,19 @@ if 'df_semanal' in locals() and not df_semanal.empty:
         else:
             st.metric(label="Impacto Financiero Total ($)", value="$0.00")
 
-    # 6. LIMPIEZA DE COLUMNAS Y APLICACIÓN DE FORMATO DE PESOS
+    st.markdown("---")
+
+    # 6. NUEVA SECCIÓN: UNIDADES CON MAYOR INCIDENCIA GENERAL
+    st.markdown("##### 🚨 Unidades con Mayor Incidencia (Histórico General)")
+    if "placa" in df_semanal.columns:
+        # Agrupamos por placa y económico sin importar el estatus
+        df_incidencias = df_semanal.groupby(["placa", "economico"] if "economico" in df_semanal.columns else ["placa"]).size().reset_index(name="total_incidencias")
+        df_incidencias = df_incidencias.sort_values(by="total_incidencias", ascending=False).head(5) # Top 5 más problemáticas
+        st.dataframe(df_incidencias, hide_index=True, use_container_width=True)
+
+    st.markdown("---")
+
+    # 7. LIMPIEZA DE COLUMNAS Y APLICACIÓN DE FORMATO DE PESOS
     columnas_a_eliminar = [
         "no_orden", 
         "observaciones_modulo", 
@@ -2615,11 +2675,10 @@ if 'df_semanal' in locals() and not df_semanal.empty:
     
     df_mostrar = df_modulo.drop(columns=[c for c in columnas_a_eliminar if c in df_modulo.columns], errors="ignore")
     
-    # Formateamos la columna costo_acumulado con signo de pesos y comas para que luzca perfecta en la tabla
     if "costo_acumulado" in df_mostrar.columns:
         df_mostrar["costo_acumulado"] = df_mostrar["costo_acumulado"].apply(lambda x: f"${x:,.2f}" if pd.notnull(x) else "$0.00")
 
-    # 7. TABLA DETALLADA Y DESCARGA
+    # 8. TABLA DETALLADA Y DESCARGA
     if 'aplicar_estilo_tabla' in globals():
         st.dataframe(aplicar_estilo_tabla(df_mostrar), hide_index=True, use_container_width=True)
     else:
