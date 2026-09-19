@@ -2523,21 +2523,23 @@ if 'df_semanal' in locals() and not df_semanal.empty:
 
     st.markdown("---")
 
-    # 3. CÁLCULO DE DÍAS DE TALLER Y ORDENAMIENTO
+    # 3. CÁLCULO DE DÍAS Y COSTO ACUMULADO POR UNIDAD
     if "fecha_ingreso" in df_modulo.columns and not df_modulo.empty:
-        # Limpiar fecha y calcular días transcurridos hasta hoy (18 de septiembre de 2026)
-        df_modulo["fecha_ingreso_dt"] = pd.to_datetime(df_modulo["fecha_ingreso"], errors="coerce")
+        # Usamos dayfirst=True para que lea correctamente el formato de día/mes/año
+        df_modulo["fecha_ingreso_dt"] = pd.to_datetime(df_modulo["fecha_ingreso"], errors="coerce", dayfirst=True)
         hoy = pd.Timestamp("2026-09-18")
         
-        # Calculamos los días de taller (si la fecha es válida, restamos; si no, ponemos 0)
-        df_modulo["dias_taller"] = df_modulo["fecha_ingreso_dt"].apply(
+        # Calculamos los días acumulados bajo el nombre exacto solicitado: "dias_en_taller"
+        df_modulo["dias_en_taller"] = df_modulo["fecha_ingreso_dt"].apply(
             lambda x: (hoy - x).days if pd.notnull(x) else 0
         )
-        # Asegurarnos que no queden días negativos por un error de captura futura
-        df_modulo["dias_taller"] = df_modulo["dias_taller"].apply(lambda x: x if x >= 0 else 0)
+        df_modulo["dias_en_taller"] = df_modulo["dias_en_taller"].apply(lambda x: x if x >= 0 else 0)
         
-        # Ordenar la tabla: Las que tienen MÁS días de taller van hasta arriba
-        df_modulo = df_modulo.sort_values(by="dias_taller", ascending=False)
+        # Calculamos el costo acumulado individual por unidad (días * $3,249)
+        df_modulo["costo_acumulado"] = df_modulo["dias_en_taller"] * 3249
+        
+        # Ordenar la tabla: Las que tienen MÁS días en taller van hasta arriba
+        df_modulo = df_modulo.sort_values(by="dias_en_taller", ascending=False)
 
     st.markdown("---")
 
@@ -2553,7 +2555,6 @@ if 'df_semanal' in locals() and not df_semanal.empty:
         df_grafica_valida = df_grafica.dropna(subset=["fecha_solo"])
         
         if not df_grafica_valida.empty:
-            # Agrupamos por día y estatus
             df_pivot = df_grafica_valida.pivot_table(
                 index="fecha_solo", 
                 columns="estatus", 
@@ -2562,7 +2563,6 @@ if 'df_semanal' in locals() and not df_semanal.empty:
                 fill_value=0
             )
             
-            # Convertimos a acumulativo (va sumando los casos conforme avanzan los días)
             df_lineas = df_pivot.cumsum()
             
             fig_lin, ax_lin = plt.subplots(figsize=(10, 3.5))
@@ -2590,24 +2590,32 @@ if 'df_semanal' in locals() and not df_semanal.empty:
 
     st.markdown("---")
 
-    # 5. IMPACTO FINANCIERO ($) BASADO EN DÍAS DE TALLER * $3,249
+    # 5. IMPACTO FINANCIERO TOTAL ($)
     col_izq, col_der = st.columns([2, 1])
     
     with col_izq:
         st.markdown(f"**Registros encontrados:** {len(df_modulo)}")
         
     with col_der:
-        if "dias_taller" in df_modulo.columns:
-            total_dias = df_modulo["dias_taller"].sum()
-            impacto_financiero = total_dias * 3249
-            st.metric(label="Impacto Financiero Total ($)", value=f"${impacto_financiero:,.2f}")
+        if "costo_acumulado" in df_modulo.columns:
+            impacto_financiero_total = df_modulo["costo_acumulado"].sum()
+            st.metric(label="Impacto Financiero Total ($)", value=f"${impacto_financiero_total:,.2f}")
         else:
             st.metric(label="Impacto Financiero Total ($)", value="$0.00")
 
-    # 6. TABLA DETALLADA Y DESCARGA
-    # Ocultamos columnas auxiliares internas para que la vista quede limpia
-    df_mostrar = df_modulo.drop(columns=["fecha_ingreso_dt"], errors="ignore")
+    # 6. LIMPIEZA DE COLUMNAS (Eliminar las que pediste y auxiliares)
+    columnas_a_eliminar = [
+        "no_orden", 
+        "observaciones_modulo", 
+        "fecha de registro", 
+        "fecha_registro", 
+        "dias_taller", 
+        "fecha_ingreso_dt"
+    ]
     
+    df_mostrar = df_modulo.drop(columns=[c for c in columnas_a_eliminar if c in df_modulo.columns], errors="ignore")
+
+    # 7. TABLA DETALLADA Y DESCARGA
     if 'aplicar_estilo_tabla' in globals():
         st.dataframe(aplicar_estilo_tabla(df_mostrar), hide_index=True, use_container_width=True)
     else:
@@ -2619,6 +2627,8 @@ if 'df_semanal' in locals() and not df_semanal.empty:
         file_name="reporte_detallado_financiero.csv",
         mime="text/csv",
     )
+else:
+    st.warning("La tabla 'reporte_semanal' en Supabase está vacía o no se pudo cargar.")
 # -----------------------------------------------------------------------------
 # FIRMA INSTITUCIONAL FINAL OBLIGATORIA
 # -----------------------------------------------------------------------------
