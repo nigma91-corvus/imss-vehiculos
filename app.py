@@ -2497,7 +2497,7 @@ with st.expander("📤 Carga de Nuevos Reportes y Plantilla"):
     with c_sub1:
         st.markdown("##### 📥 Descargar Formato CSV")
         st.markdown("Usa esta plantilla para asegurar que la estructura y fechas sean correctas al subir.")
-        csv_plantilla = "placa,eco,tipo,estatus,fecha_ingreso,observaciones\nABC-123,ECO-01,Sedan,taller,10/09/2026,Revisión general\nXYZ-789,ECO-02,SUV,siniestro,12/09/2026,Frente dañado"
+        csv_plantilla = "placa,eco,adscripcion,tipo,estatus,fecha_ingreso,observaciones\nABC-123,ECO-01,NUEVO LEÓN,Sedan,taller,10/09/2026,Revisión general\nXYZ-789,ECO-02,VERACRUZ SUR,SUV,siniestro,12/09/2026,Frente dañado"
         st.download_button(
             label="📄 Descargar Plantilla CSV",
             data=csv_plantilla.encode('utf-8'),
@@ -2554,7 +2554,7 @@ if 'df_semanal' in locals() and not df_semanal.empty:
         estatus_elegido = st.selectbox("Filtrar por Estatus:", opciones_estatus)
 
     with c2:
-        texto_busqueda = st.text_input("Buscar (Placa, Económico):", "")
+        texto_busqueda = st.text_input("Buscar (Placa, Económico, Adscripción):", "")
 
     # Aplicando filtros
     if estatus_elegido != "Todos" and "estatus" in df_modulo.columns:
@@ -2648,21 +2648,17 @@ if 'df_semanal' in locals() and not df_semanal.empty:
 
     st.markdown("---")
 
-    # 6. SECCIONES DE ANÁLISIS: INCIDENCIAS (EVENTOS) Y DÍAS ACUMULADOS
+    # 6. SECCIONES DE ANÁLISIS: INCIDENCIAS Y DÍAS ACUMULADOS AGRUPADOS POR ADSCRIPCIÓN
     col_rank1, col_rank2 = st.columns(2)
     
     with col_rank1:
-        st.markdown("##### 🚨 Unidades con Más Eventos (Frecuencia)")
-        if "placa" in df_semanal.columns:
+        st.markdown("##### 🚨 Adscripciones con Más Eventos (Frecuencia)")
+        if "adscripcion" in df_semanal.columns:
             df_base_inc = df_semanal.copy()
             if "estatus" in df_base_inc.columns:
                 df_base_inc["estatus"] = df_base_inc["estatus"].astype(str).str.lower().str.strip()
             
-            cols_agrupacion = ["placa"]
-            if "eco" in df_base_inc.columns:
-                cols_agrupacion.append("eco")
-            elif "economico" in df_base_inc.columns:
-                cols_agrupacion.append("economico")
+            cols_agrupacion = ["adscripcion"]
                 
             if "estatus" in df_base_inc.columns:
                 df_desglose_estatus = df_base_inc.pivot_table(
@@ -2680,15 +2676,13 @@ if 'df_semanal' in locals() and not df_semanal.empty:
             else:
                 df_inc = df_base_inc.groupby(cols_agrupacion).size().reset_index(name="Total Eventos")
                 st.dataframe(df_inc.sort_values(by="Total Eventos", ascending=False).head(5), hide_index=True, use_container_width=True)
+        else:
+            st.info("La columna 'adscripcion' no está disponible en los datos.")
 
     with col_rank2:
-        st.markdown("##### ⏳ Unidades con Mayor Acumulado de Días")
-        if "dias_en_taller" in df_modulo.columns:
-            cols_dias_grp = ["placa"]
-            if "eco" in df_modulo.columns:
-                cols_dias_grp.append("eco")
-            elif "economico" in df_modulo.columns:
-                cols_dias_grp.append("economico")
+        st.markdown("##### ⏳ Adscripciones con Mayor Acumulado de Días")
+        if "dias_en_taller" in df_modulo.columns and "adscripcion" in df_modulo.columns:
+            cols_dias_grp = ["adscripcion"]
                 
             df_dias_acum = df_modulo.groupby(cols_dias_grp).agg({
                 "dias_en_taller": "sum",
@@ -2698,6 +2692,8 @@ if 'df_semanal' in locals() and not df_semanal.empty:
             df_dias_acum = df_dias_acum.sort_values(by="dias_en_taller", ascending=False)
             df_dias_acum["costo_acumulado"] = df_dias_acum["costo_acumulado"].apply(lambda x: f"${x:,.2f}")
             st.dataframe(df_dias_acum.head(5), hide_index=True, use_container_width=True)
+        else:
+            st.info("La columna 'adscripcion' no está disponible para calcular días.")
 
     st.markdown("---")
 
