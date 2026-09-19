@@ -2490,9 +2490,8 @@ elif mod_actual == "Conciliación Financiera y Pagos":
 st.markdown("### 📋 Detalle Operativo y Control Financiero")
 st.markdown("Seguimiento detallado de unidades críticas, evolución temporal y costos.")
 
-# 1. Asegurarnos de traer los datos de la tabla "reporte_semanal" de Supabase
-# (Si ya tienes una función que los carga antes, solo asegúrate que la variable se llame df_semanal)
-df_semanal = conn.query('SELECT * FROM reporte_semanal;', ttl=0) 
+response = supabase.table("reporte_semanal").select("*").execute()
+df_semanal = pd.DataFrame(response.data)
 
 if 'df_semanal' in locals() and not df_semanal.empty:
     df_modulo = df_semanal.copy()
