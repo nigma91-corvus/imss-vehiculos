@@ -2528,18 +2528,25 @@ if 'df_semanal' in locals() and not df_semanal.empty:
     
     if "fecha_ingreso" in df_modulo.columns and not df_modulo.empty:
         
-        # --- AQUÍ ESTÁ EL TRUCO: Forzamos a que Python entienda la columna como fecha real ---
-        df_modulo["fecha_ingreso"] = pd.to_datetime(df_modulo["fecha_ingreso"], errors="coerce")
+        # Copiamos para no afectar la tabla original de abajo
+        df_grafica = df_modulo.copy()
         
-        # Eliminamos por si hay filas con fechas vacías o inválidas para que no truene
-        df_modulo = df_modulo.dropna(subset=["fecha_ingreso"])
+        # Limpiamos estatus a minúsculas para que coincidan exactos con los colores
+        if "estatus" in df_grafica.columns:
+            df_grafica["estatus"] = df_grafica["estatus"].astype(str).str.lower().str.strip()
         
-        # Si después de limpiar aún quedan datos, dibujamos la gráfica
-        if not df_modulo.empty:
-            df_lineas = df_modulo.pivot_table(
+        # Convertimos a fecha real y quitamos la hora (00:00:00) para evitar conflictos
+        df_grafica["fecha_ingreso"] = pd.to_datetime(df_grafica["fecha_ingreso"], errors="coerce").dt.date
+        
+        # Filtramos solo los que tengan una fecha válida (pero dejamos que los 127 sigan en la tabla de abajo)
+        df_grafica_valida = df_grafica.dropna(subset=["fecha_ingreso"])
+        
+        if not df_grafica_valida.empty:
+            # Agrupamos por fecha y estatus contando las unidades
+            df_lineas = df_grafica_valida.pivot_table(
                 index="fecha_ingreso", 
                 columns="estatus", 
-                values="tipo" if "tipo" in df_modulo.columns else df_modulo.columns[0], 
+                values="tipo" if "tipo" in df_grafica_valida.columns else df_grafica_valida.columns[0], 
                 aggfunc="count", 
                 fill_value=0
             )
@@ -2558,16 +2565,17 @@ if 'df_semanal' in locals() and not df_semanal.empty:
                         color=colores_lineas.get(est, "#333333")
                     )
                     
-            ax_lin.set_xlabel("Fecha de Ingreso", fontsize=9)
-            ax_lin.set_ylabel("Cantidad", fontsize=9)
+            ax_lin.set_xlabel("Fecha de Ingreso (Día/Mes/Año)", fontsize=9)
+            ax_lin.set_ylabel("Cantidad de Unidades", fontsize=9)
             ax_lin.legend(frameon=False, fontsize=8)
             ax_lin.grid(True, linestyle="--", alpha=0.5)
             fig_lin.tight_layout()
             st.pyplot(fig_lin)
         else:
-            st.info("No hay fechas de ingreso válidas para mostrar en la gráfica temporal.")
+            st.info("No hay fechas de ingreso válidas para mostrar en la gráfica.")
     else:
         st.info("La columna 'fecha_ingreso' no se encuentra en esta tabla.")
+        
     # 4. IMPACTO FINANCIERO ($)
     col_izq, col_der = st.columns([2, 1])
     with col_izq:
