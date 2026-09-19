@@ -806,12 +806,6 @@ if mod_actual == "Dashboard General":
                 hide_index=True,
                 use_container_width=True,
             )
-        else:
-            st.dataframe(
-                pd.DataFrame(columns=["Tipo de Vehículo", "Cantidad Actual", "Cantidad Requerida"]),
-                hide_index=True,
-                use_container_width=True,
-            )
 
     with col_tabla:
         st.markdown("##### **Resumen Cantidades Detalladas**")
