@@ -500,6 +500,7 @@ with st.sidebar:
         "Reasignación por Necesidad de Servicio",
         "Reportes y Exportación",
         "Conciliación Financiera y Pagos",
+        "Detalle y Análisis Financiero",
     ]
 
     if st.session_state.modulo_activo not in modulos:
