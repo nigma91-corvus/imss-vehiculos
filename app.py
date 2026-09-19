@@ -721,11 +721,14 @@ if mod_actual == "Dashboard General":
         fig_v, ax_v = plt.subplots(figsize=(4.5, 3.5))
         
         if not df_dash.empty and "tipo" in df_dash.columns:
+            # FILTRO CRUCIAL: Asegurarnos de tomar únicamente las unidades Activas / Operativas
+            # (Validamos contra columnas comunes de estatus como 'estatus', 'estado' o 'operativo')
             df_activos = df_dash.copy()
             col_estatus_candidatas = [c for c in df_activos.columns if c.lower() in ["estatus", "estado", "operativo", "situacion"]]
             
             if col_estatus_candidatas:
                 col_est = col_estatus_candidatas[0]
+                # Filtramos texto que contenga "activo", "operativa", etc., según tu base
                 df_activos = df_activos[
                     df_activos[col_est].astype(str).str.upper().str.contains("ACTIVO|OPERATIV", na=False)
                 ]
@@ -812,26 +815,6 @@ if mod_actual == "Dashboard General":
         else:
             st.dataframe(
                 pd.DataFrame(columns=["Tipo de Vehículo", "Cantidad"]),
-                hide_index=True,
-                use_container_width=True,
-            )
-
-    with col_tabla:
-        st.markdown("##### **Resumen Cantidades Detalladas**")
-        if "resumen_tipo" in locals() and not resumen_tipo.empty:
-            df_totales = pd.DataFrame(
-                [{"tipo": "TOTAL UNIDADES", "Cantidad": resumen_tipo["Cantidad"].sum()}]
-            )
-            df_mostrar_res = pd.concat([resumen_tipo, df_totales], ignore_index=True)
-
-            st.dataframe(
-                aplicar_estilo_tabla(df_mostrar_res),
-                hide_index=True,
-                use_container_width=True,
-            )
-        else:
-            st.dataframe(
-                pd.DataFrame(columns=["tipo", "Cantidad"]),
                 hide_index=True,
                 use_container_width=True,
             )
