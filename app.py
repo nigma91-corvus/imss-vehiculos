@@ -2497,7 +2497,6 @@ with st.expander("📤 Carga de Nuevos Reportes y Plantilla"):
     with c_sub1:
         st.markdown("##### 📥 Descargar Formato CSV")
         st.markdown("Usa esta plantilla para asegurar que la estructura y fechas sean correctas al subir.")
-        # Plantilla de ejemplo en CSV
         csv_plantilla = "placa,economico,tipo,estatus,fecha_ingreso,observaciones\nABC-123,ECO-01,Sedan,taller,10/09/2026,Revisión general\nXYZ-789,ECO-02,SUV,siniestro,12/09/2026,Frente dañado"
         st.download_button(
             label="📄 Descargar Plantilla CSV",
@@ -2513,9 +2512,7 @@ with st.expander("📤 Carga de Nuevos Reportes y Plantilla"):
         if archivo_subido is not None:
             try:
                 df_nuevo = pd.read_csv(archivo_subido)
-                # Validar que existan columnas clave
                 if "placa" in df_nuevo.columns and "fecha_ingreso" in df_nuevo.columns:
-                    # Traemos los registros actuales de Supabase para comparar
                     res_actual = supabase.table("reporte_semanal").select("placa, fecha_ingreso").execute()
                     df_existente = pd.DataFrame(res_actual.data)
                     
@@ -2524,15 +2521,13 @@ with st.expander("📤 Carga de Nuevos Reportes y Plantilla"):
                         placa_val = str(row.get("placa", "")).strip()
                         fecha_val = str(row.get("fecha_ingreso", "")).strip()
                         
-                        # Verificamos si ya existe la misma placa con la misma fecha de ingreso
                         if not df_existente.empty and ((df_existente["placa"].astype(str).str.strip() == placa_val) & 
                                                        (df_existente["fecha_ingreso"].astype(str).str.strip() == fecha_val)).any():
-                            continue # Si ya está, se omite para evitar duplicados
+                            continue 
                         else:
                             nuevos_a_insertar.append(row.to_dict())
                     
                     if nuevos_a_insertar:
-                        # Insertar en Supabase
                         response_insert = supabase.table("reporte_semanal").insert(nuevos_a_insertar).execute()
                         st.success(f"¡Carga exitosa! Se agregaron {len(nuevos_a_insertar)} registros nuevos (se omitieron los duplicados).")
                         st.rerun()
@@ -2653,13 +2648,42 @@ if 'df_semanal' in locals() and not df_semanal.empty:
 
     st.markdown("---")
 
-    # 6. NUEVA SECCIÓN: UNIDADES CON MAYOR INCIDENCIA GENERAL
-    st.markdown("##### 🚨 Unidades con Mayor Incidencia (Histórico General)")
+    # 6. SECCIÓN POTENCIADA: UNIDADES CON MAYOR INCIDENCIA ACUMULADA (GENERAL)
+    st.markdown("##### 🚨 Unidades con Mayor Incidencia Acumulada (Histórico General)")
+    st.markdown("Ranking de vehículos que registran más eventos de forma global, sin importar el estatus (Taller, Patio Malas o Siniestro).")
+    
     if "placa" in df_semanal.columns:
-        # Agrupamos por placa y económico sin importar el estatus
-        df_incidencias = df_semanal.groupby(["placa", "economico"] if "economico" in df_semanal.columns else ["placa"]).size().reset_index(name="total_incidencias")
-        df_incidencias = df_incidencias.sort_values(by="total_incidencias", ascending=False).head(5) # Top 5 más problemáticas
-        st.dataframe(df_incidencias, hide_index=True, use_container_width=True)
+        df_base_inc = df_semanal.copy()
+        if "estatus" in df_base_inc.columns:
+            df_base_inc["estatus"] = df_base_inc["estatus"].astype(str).str.lower().str.strip()
+        
+        # Identificamos columnas clave si existen
+        cols_agrupacion = ["placa"]
+        if "economico" in df_base_inc.columns:
+            cols_agrupacion.append("economico")
+            
+        # Creamos una tabla pivote para contar incidencias totales y desglosarlas por estatus
+        if "estatus" in df_base_inc.columns:
+            df_desglose_estatus = df_base_inc.pivot_table(
+                index=cols_agrupacion,
+                columns="estatus",
+                values="fecha_ingreso" if "fecha_ingreso" in df_base_inc.columns else df_base_inc.columns[0],
+                aggfunc="count",
+                fill_value=0
+            ).reset_index()
+            
+            # Calculamos el total general de incidencias sumando los estatus
+            estatus_cols = [c for c in df_desglose_estatus.columns if c not in cols_agrupacion]
+            df_desglose_estatus["Total Incidencias"] = df_desglose_estatus[estatus_cols].sum(axis=1)
+            df_desglose_estatus = df_desglose_estatus.sort_values(by="Total Incidencias", ascending=False)
+            
+            # Mostramos el Top 10 con su respectivo desglose
+            st.dataframe(df_desglose_estatus.head(10), hide_index=True, use_container_width=True)
+        else:
+            # Respaldo simple si no hay columna estatus
+            df_incidencias = df_base_inc.groupby(cols_agrupacion).size().reset_index(name="Total Incidencias")
+            df_incidencias = df_incidencias.sort_values(by="Total Incidencias", ascending=False).head(10)
+            st.dataframe(df_incidencias, hide_index=True, use_container_width=True)
 
     st.markdown("---")
 
