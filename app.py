@@ -2525,42 +2525,49 @@ if 'df_semanal' in locals() and not df_semanal.empty:
 
     # 3. GRÁFICA DE LÍNEAS (Las 3 líneas por fecha de ingreso)
     st.markdown("##### 📈 Evolución Histórica por Fecha de Ingreso")
+    
     if "fecha_ingreso" in df_modulo.columns and not df_modulo.empty:
+        
+        # --- AQUÍ ESTÁ EL TRUCO: Forzamos a que Python entienda la columna como fecha real ---
         df_modulo["fecha_ingreso"] = pd.to_datetime(df_modulo["fecha_ingreso"], errors="coerce")
         
-        df_lineas = df_modulo.pivot_table(
-            index="fecha_ingreso", 
-            columns="estatus", 
-            values="tipo" if "tipo" in df_modulo.columns else df_modulo.columns[0], 
-            aggfunc="count", 
-            fill_value=0
-        )
+        # Eliminamos por si hay filas con fechas vacías o inválidas para que no truene
+        df_modulo = df_modulo.dropna(subset=["fecha_ingreso"])
         
-        fig_lin, ax_lin = plt.subplots(figsize=(10, 3.5))
-        colores_lineas = {"patio malas": "#8b0000", "siniestro": "#d4af37", "taller": "#1b4d3e"}
-        
-        for est in ["patio malas", "siniestro", "taller"]:
-            if est in df_lineas.columns:
-                ax_lin.plot(
-                    df_lineas.index, 
-                    df_lineas[est], 
-                    marker="o", 
-                    linewidth=2, 
-                    label=est.capitalize(),
-                    color=colores_lineas.get(est, "#333333")
-                )
-                
-        ax_lin.set_xlabel("Fecha de Ingreso", fontsize=9)
-        ax_lin.set_ylabel("Cantidad", fontsize=9)
-        ax_lin.legend(frameon=False, fontsize=8)
-        ax_lin.grid(True, linestyle="--", alpha=0.5)
-        fig_lin.tight_layout()
-        st.pyplot(fig_lin)
+        # Si después de limpiar aún quedan datos, dibujamos la gráfica
+        if not df_modulo.empty:
+            df_lineas = df_modulo.pivot_table(
+                index="fecha_ingreso", 
+                columns="estatus", 
+                values="tipo" if "tipo" in df_modulo.columns else df_modulo.columns[0], 
+                aggfunc="count", 
+                fill_value=0
+            )
+            
+            fig_lin, ax_lin = plt.subplots(figsize=(10, 3.5))
+            colores_lineas = {"patio malas": "#8b0000", "siniestro": "#d4af37", "taller": "#1b4d3e"}
+            
+            for est in ["patio malas", "siniestro", "taller"]:
+                if est in df_lineas.columns:
+                    ax_lin.plot(
+                        df_lineas.index, 
+                        df_lineas[est], 
+                        marker="o", 
+                        linewidth=2, 
+                        label=est.capitalize(),
+                        color=colores_lineas.get(est, "#333333")
+                    )
+                    
+            ax_lin.set_xlabel("Fecha de Ingreso", fontsize=9)
+            ax_lin.set_ylabel("Cantidad", fontsize=9)
+            ax_lin.legend(frameon=False, fontsize=8)
+            ax_lin.grid(True, linestyle="--", alpha=0.5)
+            fig_lin.tight_layout()
+            st.pyplot(fig_lin)
+        else:
+            st.info("No hay fechas de ingreso válidas para mostrar en la gráfica temporal.")
     else:
-        st.info("No hay datos suficientes o columna de fecha de ingreso para generar la gráfica temporal.")
-
-    st.markdown("---")
-
+        st.info("La columna 'fecha_ingreso' no se encuentra en esta tabla.")
     # 4. IMPACTO FINANCIERO ($)
     col_izq, col_der = st.columns([2, 1])
     with col_izq:
