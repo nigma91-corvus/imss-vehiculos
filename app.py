@@ -727,31 +727,29 @@ if mod_actual == "Dashboard General":
                 .isin(["SONORA", "SINALOA", "BAJA CALIFORNIA", "CHIHUAHUA", "N/A", "NAN"])
             ]
 
-            # 1. Cantidad Actual por tipo
+            # Cantidad Actual
             resumen_actual = (
                 df_tipo_filtrado.groupby("tipo")
                 .size()
                 .reset_index(name="Actual")
             )
 
-            # 2. Cantidad Requerida (Si tu base tiene columna de plantilla/requerido se usa, si no, se toma de referencia)
+            # Cantidad Requerida (Si existe columna de plantilla o requerido, si no, se define o se ajusta)
             col_req_candidatas = [c for c in df_tipo_filtrado.columns if c.lower() in ["requerido", "plantilla", "meta", "autorizado"]]
             if col_req_candidatas:
                 col_req = col_req_candidatas[0]
                 resumen_req = df_tipo_filtrado.groupby("tipo")[col_req].sum().reset_index(name="Requerido")
                 resumen_tipo = pd.merge(resumen_actual, resumen_req, on="tipo", how="outer").fillna(0)
             else:
-                # Si no existe columna de requeridos en el DataFrame, puedes definir una base o duplicar/ajustar temporalmente
                 resumen_tipo = resumen_actual.copy()
-                resumen_tipo["Requerido"] = resumen_tipo["Actual"]  # Reemplaza o ajusta según tu lógica de plantilla
+                resumen_tipo["Requerido"] = resumen_tipo["Actual"]  # Valor base temporal idéntico si no hay columna física
 
             resumen_tipo = resumen_tipo.sort_values(by="Actual", ascending=False)
 
             if not resumen_tipo.empty:
                 x = np.arange(len(resumen_tipo["tipo"]))
-                width = 0.35  # Ancho de cada barra
+                width = 0.35
 
-                # Primera barra: Actual
                 bars1 = ax_v.bar(
                     x - width/2, 
                     resumen_tipo["Actual"], 
@@ -759,8 +757,6 @@ if mod_actual == "Dashboard General":
                     label="Actual", 
                     color=COLORES_PANTONE["7421"]
                 )
-                
-                # Segunda barra: Requerido
                 bars2 = ax_v.bar(
                     x + width/2, 
                     resumen_tipo["Requerido"], 
@@ -774,7 +770,6 @@ if mod_actual == "Dashboard General":
                 ax_v.legend(loc="upper right", fontsize=8, frameon=False)
                 ax_v.grid(axis="y", linestyle="--", alpha=0.5)
 
-                # Etiquetas de valores sobre las barras
                 for bar in bars1:
                     h = bar.get_height()
                     if h > 0:
@@ -784,21 +779,11 @@ if mod_actual == "Dashboard General":
                     if h > 0:
                         ax_v.text(bar.get_x() + bar.get_width()/2, h + 0.5, f"{int(h)}", ha="center", va="bottom", fontsize=7, fontweight="bold")
             else:
-                ax_v.text(
-                    0.5,
-                    0.5,
-                    "Sin Tipos Válidos",
-                    ha="center",
-                    va="center",
-                    fontsize=10,
-                    color="gray",
-                )
+                ax_v.text(0.5, 0.5, "Sin Tipos Válidos", ha="center", va="center", fontsize=10, color="gray")
                 ax_v.axis("off")
         else:
             resumen_tipo = pd.DataFrame(columns=["tipo", "Actual", "Requerido"])
-            ax_v.text(
-                0.5, 0.5, "Sin Datos", ha="center", va="center", fontsize=12, color="gray"
-            )
+            ax_v.text(0.5, 0.5, "Sin Datos", ha="center", va="center", fontsize=12, color="gray")
             ax_v.axis("off")
         fig_v.tight_layout()
         st.pyplot(fig_v)
