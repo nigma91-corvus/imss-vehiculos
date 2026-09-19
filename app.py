@@ -2490,27 +2490,28 @@ elif mod_actual == "Conciliación Financiera y Pagos":
 st.markdown("### 📋 Detalle Operativo y Control Financiero")
 st.markdown("Seguimiento detallado de unidades críticas, evolución temporal y costos.")
 
-if 'df_base' in locals() and not df_base.empty:
-    df_modulo = df_base.copy()
+# 1. Asegurarnos de traer los datos de la tabla "reporte_semanal" de Supabase
+# (Si ya tienes una función que los carga antes, solo asegúrate que la variable se llame df_semanal)
+df_semanal = conn.query('SELECT * FROM reporte_semanal;', ttl=0) 
 
-    # 1. FILTROS VISUALES SUPERIORES
+if 'df_semanal' in locals() and not df_semanal.empty:
+    df_modulo = df_semanal.copy()
+
+    # 2. FILTROS VISUALES SUPERIORES
     c1, c2, c3 = st.columns(3)
     
     with c1:
-        # Filtro por los estatus específicos que acordamos
         opciones_estatus = ["Todos", "patio malas", "siniestro", "taller"]
         estatus_elegido = st.selectbox("Filtrar por Estatus:", opciones_estatus)
 
     with c2:
-        # Filtro por Tipo de Vehículo
         tipos_disponibles = ["Todos"] + list(df_modulo["tipo"].dropna().unique()) if "tipo" in df_modulo.columns else ["Todos"]
         tipo_elegido = st.selectbox("Filtrar por Tipo:", tipos_disponibles)
 
     with c3:
-        # Buscador libre de texto (Placas, económico, etc.)
         texto_busqueda = st.text_input("Buscar (Placa, Económico):", "")
 
-    # Aplicando los filtros a los datos
+    # Aplicando filtros
     if estatus_elegido != "Todos" and "estatus" in df_modulo.columns:
         df_modulo = df_modulo[df_modulo["estatus"].astype(str).str.lower() == estatus_elegido]
         
@@ -2523,12 +2524,11 @@ if 'df_base' in locals() and not df_base.empty:
 
     st.markdown("---")
 
-    # 2. GRÁFICA LINEAL DE TENDENCIA (Las 3 líneas por fecha de ingreso)
+    # 3. GRÁFICA DE LÍNEAS (Las 3 líneas por fecha de ingreso)
     st.markdown("##### 📈 Evolución Histórica por Fecha de Ingreso")
     if "fecha_ingreso" in df_modulo.columns and not df_modulo.empty:
         df_modulo["fecha_ingreso"] = pd.to_datetime(df_modulo["fecha_ingreso"], errors="coerce")
         
-        # Tabla pivote para separar las 3 líneas
         df_lineas = df_modulo.pivot_table(
             index="fecha_ingreso", 
             columns="estatus", 
@@ -2538,8 +2538,6 @@ if 'df_base' in locals() and not df_base.empty:
         )
         
         fig_lin, ax_lin = plt.subplots(figsize=(10, 3.5))
-        
-        # Colores personalizados para las 3 líneas
         colores_lineas = {"patio malas": "#8b0000", "siniestro": "#d4af37", "taller": "#1b4d3e"}
         
         for est in ["patio malas", "siniestro", "taller"]:
@@ -2564,28 +2562,24 @@ if 'df_base' in locals() and not df_base.empty:
 
     st.markdown("---")
 
-    # 3. IMPACTO FINANCIERO ($) Y MÉTRICAS
+    # 4. IMPACTO FINANCIERO ($)
     col_izq, col_der = st.columns([2, 1])
-    
     with col_izq:
         st.markdown(f"**Registros encontrados:** {len(df_modulo)}")
-        
     with col_der:
-        # Buscamos si existe alguna columna de costos para sumar el impacto económico
         cols_costo = [c for c in df_modulo.columns if c.lower() in ["costo", "monto", "importe", "gasto"]]
         if cols_costo:
             total_dinero = df_modulo[cols_costo[0]].sum()
             st.metric(label="Impacto Financiero ($)", value=f"${total_dinero:,.2f}")
         else:
-            st.metric(label="Impacto Financiero ($)", value="$0.00 (Sin columna de costo)")
+            st.metric(label="Impacto Financiero ($)", value="$0.00")
 
-    # 4. TABLA DETALLADA Y BOTÓN DE DESCARGA
+    # 5. TABLA Y DESCARGA
     if 'aplicar_estilo_tabla' in globals():
         st.dataframe(aplicar_estilo_tabla(df_modulo), hide_index=True, use_container_width=True)
     else:
         st.dataframe(df_modulo, hide_index=True, use_container_width=True)
 
-    # Botón para descargar a Excel/CSV
     st.download_button(
         label="📥 Descargar Reporte Filtrado (CSV)",
         data=df_modulo.to_csv(index=False).encode('utf-8'),
@@ -2593,7 +2587,7 @@ if 'df_base' in locals() and not df_base.empty:
         mime="text/csv",
     )
 else:
-    st.warning("Carga primero los datos principales para visualizar este módulo.")
+    st.warning("La tabla 'reporte_semanal' en Supabase está vacía o no se pudo cargar.")
 # -----------------------------------------------------------------------------
 # FIRMA INSTITUCIONAL FINAL OBLIGATORIA
 # -----------------------------------------------------------------------------
