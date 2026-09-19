@@ -717,12 +717,24 @@ if mod_actual == "Dashboard General":
         st.pyplot(fig_d)
 
     with col_barras:
-        st.markdown("##### **Distribución por Tipo de Vehículo**")
+        st.markdown("##### **Distribución de Unidades Activas por Tipo**")
         fig_v, ax_v = plt.subplots(figsize=(4.5, 3.5))
         
         if not df_dash.empty and "tipo" in df_dash.columns:
-            df_tipo_filtrado = df_dash[
-                ~df_dash["tipo"]
+            # FILTRO CRUCIAL: Asegurarnos de tomar únicamente las unidades Activas / Operativas
+            # (Validamos contra columnas comunes de estatus como 'estatus', 'estado' o 'operativo')
+            df_activos = df_dash.copy()
+            col_estatus_candidatas = [c for c in df_activos.columns if c.lower() in ["estatus", "estado", "operativo", "situacion"]]
+            
+            if col_estatus_candidatas:
+                col_est = col_estatus_candidatas[0]
+                # Filtramos texto que contenga "activo", "operativa", etc., según tu base
+                df_activos = df_activos[
+                    df_activos[col_est].astype(str).str.upper().str.contains("ACTIVO|OPERATIV", na=False)
+                ]
+
+            df_tipo_filtrado = df_activos[
+                ~df_activos["tipo"]
                 .astype(str)
                 .str.upper()
                 .isin(["SONORA", "SINALOA", "BAJA CALIFORNIA", "CHIHUAHUA", "N/A", "NAN"])
@@ -769,7 +781,7 @@ if mod_actual == "Dashboard General":
                 ax_v.text(
                     0.5,
                     0.5,
-                    "Sin Tipos Válidos",
+                    "Sin Unidades Activas",
                     ha="center",
                     va="center",
                     fontsize=10,
@@ -787,7 +799,7 @@ if mod_actual == "Dashboard General":
         st.pyplot(fig_v)
 
     with col_tabla:
-        st.markdown("##### **Resumen Cantidades Detalladas**")
+        st.markdown("##### **Resumen Cantidades Detalladas (Activas)**")
         if 'resumen_tipo' in locals() and not resumen_tipo.empty:
             df_totales = pd.DataFrame(
                 [{"tipo": "TOTAL UNIDADES", "Cantidad": resumen_tipo["Cantidad"].sum()}]
