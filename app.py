@@ -605,7 +605,7 @@ except Exception as e:
 # -----------------------------------------------------------------------------
 # 1. DASHBOARD GENERAL
 # -----------------------------------------------------------------------------
-elif mod_actual == "Dashboard General":
+if mod_actual == "Dashboard General":
     st.markdown(
         f'<p class="subtitulo-seccion">Dashboard General - Flotilla:'
         f" {cat_actual}</p>",
@@ -638,7 +638,7 @@ elif mod_actual == "Dashboard General":
 
     tot_unidades = len(df_dash)
     
-    # Detección unificada de unidades en Taller / Inoperativos basada en la columna 'estatus' actualizada
+    # Detección unificada de unidades en Taller / Inoperativos basada en la columna estatus
     col_estatus_val = 'estatus' if 'estatus' in df_dash.columns else 'Estatus'
     col_eco_val = 'eco' if 'eco' in df_dash.columns else 'ECO'
 
@@ -647,7 +647,6 @@ elif mod_actual == "Dashboard General":
     n_siniestro = len(df_dash[df_dash[col_estatus_val] == "SINIESTRO"])
     n_patio = len(df_dash[df_dash[col_estatus_val] == "PATIO MALAS"])
     
-    # Total real de detenidos en taller/inoperativos/bajas
     total_detenidos_taller = n_taller + n_baja + n_siniestro + n_patio
 
     n_sust = len(df_dash[df_dash[col_estatus_val] == "Sustituto Entregado"])
@@ -832,7 +831,6 @@ elif mod_actual == "Dashboard General":
         use_container_width=True,
         hide_index=True,
     )
-
 # -----------------------------------------------------------------------------
 # REPORTE DE TALLER / COSTOS ACUMULADOS (MULTIFLOTILLA)
 # -----------------------------------------------------------------------------
