@@ -2371,9 +2371,6 @@ elif mod_actual == "Reportes y Exportación":
     except Exception as e:
       st.error(f"Error al generar el archivo de descarga: {e}")
 
-¡Exacto! Aquí tienes únicamente el bloque del **Módulo 9 (Conciliación Financiera y Pagos)** adaptado y listo para reemplazar esa sección en tu archivo `app.py`:
-
-```python
 # -----------------------------------------------------------------------------
 # 9. CONCILIACIÓN FINANCIERA Y PAGOS (Conectado a reportes_mensuales)
 # -----------------------------------------------------------------------------
@@ -2497,7 +2494,6 @@ elif mod_actual == "Conciliación Financiera y Pagos":
             mime="text/csv",
             use_container_width=True
         )
-
 # --- NUEVO MÓDULO: REPORTE SEMANAL Y ANÁLISIS FINANCIERO ---
 st.markdown("### 📋 Detalle Operativo y Control Financiero")
 st.markdown("Seguimiento detallado de unidades críticas, evolución temporal y costos.")
