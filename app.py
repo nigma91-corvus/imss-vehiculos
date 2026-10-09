@@ -892,11 +892,19 @@ elif mod_actual == "Reportes y Exportación":
         csv_data = df_base.to_csv(index=False).encode('utf-8')
         st.download_button(label="📥 Descargar CSV", data=csv_data, file_name=f"reporte_{cat_actual.lower()}.csv", mime="text/csv")
 
+# -----------------------------------------------------------------------------
 # 9. CONCILIACIÓN FINANCIERA Y PAGOS (Conectado a reportes_mensuales)
+# -----------------------------------------------------------------------------
 elif mod_actual == "Conciliación Financiera y Pagos":
-    st.markdown(f'<p class="subtitulo-seccion">Conciliación Financiera y Control de Pagos Mensuales - Flotilla {cat_actual}</p>', unsafe_allow_html=True)
-    st.info("💡 **Auditoría Financiera:** Módulo vinculado directamente a la tabla `reportes_mensuales` de Supabase.")
+    st.markdown(
+        f'<p class="subtitulo-seccion">Conciliación Financiera y Control de Pagos Mensuales - Flotilla {cat_actual}</p>',
+        unsafe_allow_html=True,
+    )
+    st.info(
+        "💡 **Auditoría Financiera:** Módulo vinculado directamente a la tabla `reportes_mensuales` de Supabase para el control de cuotas, días de servicio y deducciones."
+    )
 
+    # Carga optimizada con paginación robusta para soportar miles de registros
     @st.cache_data(ttl=60)
     def cargar_reportes_mensuales_supabase(flotilla_filtro):
         if not supabase: return pd.DataFrame()
@@ -905,7 +913,6 @@ elif mod_actual == "Conciliación Financiera y Pagos":
             batch_size = 1000
             offset = 0
             
-            # Paginación robusta para traer los más de 15,000 registros sin cortes
             while True:
                 response = supabase.table("reportes_mensuales").select("*").eq("flotilla", flotilla_filtro).range(offset, offset + batch_size - 1).execute()
                 data = response.data or []
@@ -921,85 +928,139 @@ elif mod_actual == "Conciliación Financiera y Pagos":
             st.error(f"Error al consultar reportes_mensuales: {e}")
             return pd.DataFrame()
 
-    df_p = cargar_reportes_mensuales_supabase(cat_actual)
+    df_reportes = cargar_reportes_mensuales_supabase(cat_actual)
+
+    archivo_p = st.file_uploader(
+        "Cargar Archivo Mensual de Conciliación Alternativo (.xlsx / .xls / .csv):", type=["xlsx", "xls", "csv"]
+    )
+
+    if archivo_p is not None:
+        try:
+            if archivo_p.name.endswith('.csv'):
+                df_p = pd.read_csv(archivo_p, dtype=str)
+            else:
+                df_p = pd.read_excel(archivo_p, dtype=str)
+            st.success(f"✅ Archivo '{archivo_p.name}' cargado de forma temporal.")
+        except Exception as e:
+            st.error(f"Error al leer el archivo: {e}")
+            df_p = df_reportes
+    else:
+        df_p = df_reportes
 
     if df_p.empty:
         st.warning(f"⚠️ No se encontraron registros financieros en la tabla `reportes_mensuales` para la flotilla **{cat_actual}**.")
     else:
-        f_col1, f_col2 = st.columns(2)
-        meses_disponibles = ["Todos los Meses"] + sorted(list(df_p["mes_corte"].dropna().unique())) if "mes_corte" in df_p.columns else ["Todos los Meses"]
-        mes_sel = f_col1.selectbox("Seleccionar Mes de Corte:", meses_disponibles)
-        if mes_sel != "Todos los Meses": df_p = df_p[df_p["mes_corte"] == mes_sel]
+        st.markdown("##### **Filtros de Auditoría y Corte**")
+        f_col1, f_col2, f_col3 = st.columns(3)
 
+        # 1. Extracción y ordenamiento de Años (de mayor a menor)
+        if "mes_corte" in df_p.columns:
+            anios_disponibles = sorted(
+                list(df_p["mes_corte"].apply(lambda x: str(x).strip().split()[-1] if len(str(x).split()) >= 2 else "").dropna().unique()),
+                reverse=True
+            )
+            anios_disponibles = [a for a in anios_disponibles if a.isdigit()]
+        else:
+            anios_disponibles = []
+
+        if not anios_disponibles:
+            anios_disponibles = ["2026", "2025"]
+
+        anio_sel = f_col1.selectbox("Seleccionar Año:", ["Todos los Años"] + anios_disponibles)
+
+        df_filtrado_anio = df_p.copy()
+        if anio_sel != "Todos los Años":
+            df_filtrado_anio = df_filtrado_anio[df_filtrado_anio["mes_corte"].astype(str).str.contains(anio_sel, na=False)]
+
+        # 2. Extracción y ordenamiento cronológico de Meses
+        meses_unicos = df_filtrado_anio["mes_corte"].dropna().unique().tolist() if "mes_corte" in df_filtrado_anio.columns else []
+        
+        meses_orden = {
+            "ENERO": 1, "FEBRERO": 2, "MARZO": 3, "ABRIL": 4, 
+            "MAYO": 5, "JUNIO": 6, "JULIO": 7, "AGOSTO": 8, 
+            "SEPTIEMBRE": 9, "OCTUBRE": 10, "NOVIEMBRE": 11, "DICIEMBRE": 12
+        }
+        
+        def clave_orden_mes(m):
+            partes = str(m).upper().strip().split()
+            if len(partes) >= 2:
+                nombre_mes = partes[0]
+                anio_num = partes[1]
+                return (int(anio_num) if anio_num.isdigit() else 0, meses_orden.get(nombre_mes, 0))
+            return (0, 0)
+
+        meses_disponibles = ["Todos los Meses del Año"] + sorted(meses_unicos, key=clave_orden_mes, reverse=True)
+        mes_sel = f_col2.selectbox("Seleccionar Mes de Corte:", meses_disponibles)
+
+        if mes_sel != "Todos los Meses del Año":
+            df_p = df_p[df_p["mes_corte"] == mes_sel]
+        elif anio_sel != "Todos los Años":
+            df_p = df_filtrado_anio
+
+        # 3. Filtro por arrendadora
         arr_opciones = ["Todas"] + sorted(list(df_p["arrendadora"].dropna().unique())) if "arrendadora" in df_p.columns else ["Todas"]
-        arr_sel_p = f_col2.selectbox("Filtrar por Arrendadora:", arr_opciones)
-        if arr_sel_p != "Todas": df_p = df_p[df_p["arrendadora"] == arr_sel_p]
+        arr_sel_p = f_col3.selectbox("Filtrar por Arrendadora:", arr_opciones)
 
-        monto_sub = pd.to_numeric(df_p["costo_mensual_sin_iva"], errors="coerce").sum() if "costo_mensual_sin_iva" in df_p.columns else 0.0
-        monto_ded = pd.to_numeric(df_p["total_deduccion"], errors="coerce").sum() if "total_deduccion" in df_p.columns else 0.0
-        monto_neto = pd.to_numeric(df_p["total_a_pagar"], errors="coerce").sum() if "total_a_pagar" in df_p.columns else 0.0
+        if arr_sel_p != "Todas":
+            df_p = df_p[df_p["arrendadora"] == arr_sel_p]
+
+        # Cálculo de montos financieros utilizando las columnas numéricas exactas
+        monto_sub = (
+            pd.to_numeric(df_p["costo_mensual_sin_iva"], errors="coerce").sum()
+            if "costo_mensual_sin_iva" in df_p.columns
+            else 0.0
+        )
+        monto_ded = (
+            pd.to_numeric(df_p["total_deduccion"], errors="coerce").sum()
+            if "total_deduccion" in df_p.columns
+            else 0.0
+        )
+        monto_neto = (
+            pd.to_numeric(df_p["total_a_pagar"], errors="coerce").sum()
+            if "total_a_pagar" in df_p.columns
+            else 0.0
+        )
 
         c_m1, c_m2, c_m3 = st.columns(3)
         c_m1.metric("Subtotal Sin IVA", f"\${monto_sub:,.2f}")
-        c_m2.metric("Deducciones Totales Aplicadas", f"\${monto_ded:,.2f}", delta_color="inverse")
+        c_m2.metric(
+            "Deducciones Totales Aplicadas",
+            f"\${monto_ded:,.2f}",
+            delta_color="inverse",
+        )
         c_m3.metric("Total Neto a Pagar", f"\${monto_neto:,.2f}")
 
         st.markdown("---")
         st.markdown("##### **Detalle Financiero por Unidad**")
-        cols_fin = ["mes_corte", "eco", "ubicacion", "arrendadora", "cuota_diaria", "total_dias_servicio", "costo_mensual_sin_iva", "total_deduccion", "total_a_pagar", "observaciones"]
-        st.dataframe(df_p[[c for c in cols_fin if c in df_p.columns]], use_container_width=True, hide_index=True)
-
-        st.download_button(
-            label="📥 Descargar Conciliación Financiera (CSV)",
-            data=df_p.to_csv(index=False).encode("utf-8"),
-            file_name=f"conciliacion_{cat_actual.lower()}_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv", use_container_width=True
+        
+        cols_fin = [
+            "mes_corte",
+            "eco",
+            "ubicacion",
+            "arrendadora",
+            "cuota_diaria",
+            "total_dias_servicio",
+            "costo_mensual_sin_iva",
+            "total_deduccion",
+            "total_a_pagar",
+            "observaciones"
+        ]
+        cols_fin_existentes = [c for c in cols_fin if c in df_p.columns]
+        
+        st.dataframe(
+            df_p[cols_fin_existentes] if not df_p.empty else pd.DataFrame(columns=cols_fin),
+            use_container_width=True,
+            hide_index=True,
         )
 
-# 10. DETALLE Y ANÁLISIS FINANCIERO (Conectado a reporte_semanal)
-elif mod_actual == "Detalle y Análisis Financiero":
-    st.markdown('<p class="subtitulo-seccion">Detalle Operativo y Control Financiero (Reporte Semanal)</p>', unsafe_allow_html=True)
-    st.markdown("Seguimiento detallado de unidades críticas, evolución temporal y costos en taller.")
-
-    response_sem = supabase.table("reporte_semanal").select("*").execute()
-    df_semanal = pd.DataFrame(response_sem.data or [])
-
-    if not df_semanal.empty:
-        df_modulo = df_semanal.copy()
-        c1, c2 = st.columns(2)
-        estatus_elegido = c1.selectbox("Filtrar por Estatus:", ["Todos", "patio malas", "siniestro", "taller"])
-        texto_busqueda = c2.text_input("Buscar (Placa, Económico, Adscripción):", "")
-
-        if estatus_elegido != "Todos" and "estatus" in df_modulo.columns:
-            df_modulo = df_modulo[df_modulo["estatus"].astype(str).str.lower() == estatus_elegido]
-        if texto_busqueda:
-            mask = df_modulo.astype(str).apply(lambda x: x.str.contains(texto_busqueda, case=False, na=False)).any(axis=1)
-            df_modulo = df_modulo[mask]
-
-        if "fecha_ingreso" in df_modulo.columns and not df_modulo.empty:
-            df_modulo["fecha_ingreso_dt"] = pd.to_datetime(df_modulo["fecha_ingreso"], errors="coerce", dayfirst=True)
-            hoy = pd.Timestamp("2026-09-18")
-            df_modulo["dias_en_taller"] = df_modulo["fecha_ingreso_dt"].apply(lambda x: (hoy - x).days if pd.notnull(x) else 0)
-            df_modulo["dias_en_taller"] = df_modulo["dias_en_taller"].apply(lambda x: x if x >= 0 else 0)
-            df_modulo["costo_acumulado"] = df_modulo["dias_en_taller"] * 3249
-
-        col_izq, col_der = st.columns([2, 1])
-        with col_izq:
-            st.markdown(f"**Registros encontrados:** {len(df_modulo)}")
-            if "dias_en_taller" in df_modulo.columns:
-                st.markdown(f"💡 **Total días acumulados:** {int(df_modulo['dias_en_taller'].sum()):,} días")
-        with col_der:
-            impacto_financiero_total = df_modulo["costo_acumulado"].sum() if "costo_acumulado" in df_modulo.columns else 0.0
-            st.metric(label="Impacto Financiero Total (\$)", value=f"\${impacto_financiero_total:,.2f}")
-
-        st.markdown("---")
-        df_mostrar = df_modulo.drop(columns=["no_orden", "observaciones_modulo", "fecha de registro", "fecha_registro", "dias_taller", "fecha_ingreso_dt"], errors="ignore")
-        if "costo_acumulado" in df_mostrar.columns:
-            df_mostrar["costo_acumulado"] = df_mostrar["costo_acumulado"].apply(lambda x: f"\${x:,.2f}" if pd.notnull(x) else "\$0.00")
-
-        st.dataframe(df_mostrar, hide_index=True, use_container_width=True)
-    else:
-        st.warning("La tabla 'reporte_semanal' en Supabase está vacía.")
+        csv_conciliacion = df_p.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="📥 Descargar Conciliación Financiera (CSV)",
+            data=csv_conciliacion,
+            file_name=f"conciliacion_{cat_actual.lower()}_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
 
 # -----------------------------------------------------------------------------
 # FIRMA INSTITUCIONAL FINAL
