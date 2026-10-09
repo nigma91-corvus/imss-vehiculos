@@ -1362,7 +1362,9 @@ def obtener_imagen_catalogo_supabase(tipo_v, linea_v):
     return ""
 
 
-Aquí tienes el bloque completo del **Módulo 5 (Expediente por ECO y Documental)** con la función `obtener_val` corregida de manera robusta. Esta versión busca la columna de manera flexible ignorando mayúsculas, minúsculas y acentos (para que encuentre perfectamente `ubicacion`, `Ubicación` o `UBICACIÓN`), asegurando que la ubicación y el resto de los datos carguen siempre sin errores:
+¡Ah, caray! Lo que pasó es que por error se copió el texto de explicación ("Aquí tienes el bloque completo...") directamente dentro del archivo de Python (`app.py`), lo cual provoca el error de sintaxis (`SyntaxError`) porque Python no entiende oraciones en lenguaje natural.
+
+Aquí tienes el bloque de código limpio y libre de texto conversacional para que lo reemplaces sin problemas:
 
 ```python
 # -----------------------------------------------------------------------------
@@ -1749,7 +1751,6 @@ if mod_actual == "Expediente por ECO y Documental":
             with t3:
                 st.markdown("##### **Historial de Mantenimientos**")
                 st.info("Consulta los servicios y reparaciones registradas para este vehículo.")
-
 
           
 # 6. REGISTRO DE TALLER E INCIDENCIAS (PERSISTIDO EN SUPABASE)
