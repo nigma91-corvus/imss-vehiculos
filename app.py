@@ -2371,6 +2371,11 @@ elif mod_actual == "Reportes y Exportación":
     except Exception as e:
       st.error(f"Error al generar el archivo de descarga: {e}")
 
+¡Disculpa! Se volvió a colar parte del texto de explicación al inicio del bloque.
+
+Aquí tienes **únicamente el código en Python puro**, sin texto conversacional ni caracteres extraños, listo para reemplazar el Módulo 9:
+
+```python
 # -----------------------------------------------------------------------------
 # 9. CONCILIACIÓN FINANCIERA Y PAGOS (Conectado a reportes_mensuales)
 # -----------------------------------------------------------------------------
@@ -2493,6 +2498,9 @@ elif mod_actual == "Conciliación Financiera y Pagos":
             file_name=f"conciliacion_{cat_actual.lower()}_{datetime.now().strftime('%Y%m%d')}.csv",
             mime="text/csv",
             use_container_width=True
+        )
+
+
         )
 # --- NUEVO MÓDULO: REPORTE SEMANAL Y ANÁLISIS FINANCIERO ---
 st.markdown("### 📋 Detalle Operativo y Control Financiero")
