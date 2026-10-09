@@ -1362,11 +1362,6 @@ def obtener_imagen_catalogo_supabase(tipo_v, linea_v):
     return ""
 
 
-¡Ah, caray! Lo que pasó es que por error se copió el texto de explicación ("Aquí tienes el bloque completo...") directamente dentro del archivo de Python (`app.py`), lo cual provoca el error de sintaxis (`SyntaxError`) porque Python no entiende oraciones en lenguaje natural.
-
-Aquí tienes el bloque de código limpio y libre de texto conversacional para que lo reemplaces sin problemas:
-
-```python
 # -----------------------------------------------------------------------------
 # 5. EXPEDIENTE POR ECO Y DOCUMENTAL (MÓDULO COMPLETO)
 # -----------------------------------------------------------------------------
@@ -1751,7 +1746,6 @@ if mod_actual == "Expediente por ECO y Documental":
             with t3:
                 st.markdown("##### **Historial de Mantenimientos**")
                 st.info("Consulta los servicios y reparaciones registradas para este vehículo.")
-
           
 # 6. REGISTRO DE TALLER E INCIDENCIAS (PERSISTIDO EN SUPABASE)
 # -----------------------------------------------------------------------------
