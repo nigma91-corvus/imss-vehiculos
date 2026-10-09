@@ -2496,8 +2496,6 @@ elif mod_actual == "Conciliación Financiera y Pagos":
             use_container_width=True
         )
 
-
-        )
 # --- NUEVO MÓDULO: REPORTE SEMANAL Y ANÁLISIS FINANCIERO ---
 st.markdown("### 📋 Detalle Operativo y Control Financiero")
 st.markdown("Seguimiento detallado de unidades críticas, evolución temporal y costos.")
