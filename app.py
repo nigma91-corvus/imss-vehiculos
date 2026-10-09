@@ -901,8 +901,22 @@ elif mod_actual == "Conciliación Financiera y Pagos":
     def cargar_reportes_mensuales_supabase(flotilla_filtro):
         if not supabase: return pd.DataFrame()
         try:
-            response = supabase.table("reportes_mensuales").select("*").eq("flotilla", flotilla_filtro).execute()
-            return pd.DataFrame(response.data or [])
+            all_rows = []
+            batch_size = 1000
+            offset = 0
+            
+            # Paginación robusta para traer los más de 15,000 registros sin cortes
+            while True:
+                response = supabase.table("reportes_mensuales").select("*").eq("flotilla", flotilla_filtro).range(offset, offset + batch_size - 1).execute()
+                data = response.data or []
+                if not data:
+                    break
+                all_rows.extend(data)
+                if len(data) < batch_size:
+                    break
+                offset += batch_size
+
+            return pd.DataFrame(all_rows)
         except Exception as e:
             st.error(f"Error al consultar reportes_mensuales: {e}")
             return pd.DataFrame()
