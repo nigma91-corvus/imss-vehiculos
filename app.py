@@ -1362,6 +1362,9 @@ def obtener_imagen_catalogo_supabase(tipo_v, linea_v):
     return ""
 
 
+Aquí tienes el bloque completo del **Módulo 5 (Expediente por ECO y Documental)** con la función `obtener_val` corregida de manera robusta. Esta versión busca la columna de manera flexible ignorando mayúsculas, minúsculas y acentos (para que encuentre perfectamente `ubicacion`, `Ubicación` o `UBICACIÓN`), asegurando que la ubicación y el resto de los datos carguen siempre sin errores:
+
+```python
 # -----------------------------------------------------------------------------
 # 5. EXPEDIENTE POR ECO Y DOCUMENTAL (MÓDULO COMPLETO)
 # -----------------------------------------------------------------------------
@@ -1414,7 +1417,7 @@ if mod_actual == "Expediente por ECO y Documental":
 
             col_img_cat, col_info_cat = st.columns([1, 2.2], gap="small")
 
-                       # AQUI ESTÁ LA CARGA DE LA IMAGEN DE CLOUDINARY (Limpia y sin textos de prueba)
+            # AQUI ESTÁ LA CARGA DE LA IMAGEN DE CLOUDINARY (Limpia y sin textos de prueba)
             with col_img_cat:
                 tipo_v = v_data.get("tipo", "")
                 linea_v = v_data.get("linea", "")
@@ -1429,6 +1432,7 @@ if mod_actual == "Expediente por ECO y Documental":
                     st.caption(f"Catálogo: {tipo_v} - {linea_v}")
                 else:
                     st.info(f"📷 [Sin foto en catálogo para: {tipo_v} - {linea_v}]")
+
             with col_info_cat:
                 en_taller = any(
                     r["ECO"] == v_data["eco"]
@@ -1450,9 +1454,16 @@ if mod_actual == "Expediente por ECO y Documental":
                     )
                 )
 
-                # Función auxiliar segura para evitar errores con valores NULL o None
+                # Función auxiliar robusta y flexible para buscar campos sin importar mayúsculas o acentos
                 def obtener_val(row, campo, default="N/A"):
-                    val = row.get(campo)
+                    val = None
+                    for col in row.index:
+                        col_limpia = str(col).strip().lower().replace('ó', 'o').replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ú', 'u')
+                        campo_limpio = str(campo).strip().lower().replace('ó', 'o').replace('á', 'a').replace('é', 'e').replace('í', 'i').replace('ú', 'u')
+                        if col_limpia == campo_limpio:
+                            val = row[col]
+                            break
+                    
                     if val is None or (isinstance(val, float) and pd.isna(val)) or str(val).strip() == "" or str(val).lower() == "nan":
                         return default
                     return val
@@ -1481,7 +1492,7 @@ if mod_actual == "Expediente por ECO y Documental":
                                 <p><b>Tipo / Línea:</b> {obtener_val(v_data, 'tipo')} - {obtener_val(v_data, 'linea')}</p>
                                 <p><b>Ubicación / OOAD:</b> {obtener_val(v_data, 'ubicacion')}</p>
                                 <p><b>Último Servicio:</b> {obtener_val(v_data, 'ultimo_servicio')}</p>
-                                <p><b>Cuota Diaria:</b> ${cuota_val:,.2f}</p>
+                                <p><b>Cuota Diaria:</b> \${cuota_val:,.2f}</p>
                             </div>
                         </div>
                     </div>
@@ -1738,6 +1749,8 @@ if mod_actual == "Expediente por ECO y Documental":
             with t3:
                 st.markdown("##### **Historial de Mantenimientos**")
                 st.info("Consulta los servicios y reparaciones registradas para este vehículo.")
+
+
           
 # 6. REGISTRO DE TALLER E INCIDENCIAS (PERSISTIDO EN SUPABASE)
 # -----------------------------------------------------------------------------
