@@ -2371,11 +2371,7 @@ elif mod_actual == "Reportes y Exportación":
     except Exception as e:
       st.error(f"Error al generar el archivo de descarga: {e}")
 
-¡Disculpa! Se volvió a colar parte del texto de explicación al inicio del bloque.
 
-Aquí tienes **únicamente el código en Python puro**, sin texto conversacional ni caracteres extraños, listo para reemplazar el Módulo 9:
-
-```python
 # -----------------------------------------------------------------------------
 # 9. CONCILIACIÓN FINANCIERA Y PAGOS (Conectado a reportes_mensuales)
 # -----------------------------------------------------------------------------
