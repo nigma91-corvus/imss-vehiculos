@@ -1093,10 +1093,10 @@ elif mod_actual == "Reporte Semanal Centracom":
         ]
 
         valores_defecto = {
-            "HEMODIALISIS": 2171, "CITA": 535, "ALTA": 357, "TRAUMA/ORTO": 318,
-            "FISICA": 144, "ZONIFICACION": 123, "INTERCONSULTA": 103, "ONCOLOGIA": 82,
-            "COMISION": 39, "ORGANOS": 20, "INFECTO": 18, "TRASLAPE": 13,
-            "AEROPUERTO": 12, "PSIQUIATRIA": 11, "PERSONAL MEDICO": 8
+            "HEMODIALISIS": 0, "CITA": 0, "ALTA": 0, "TRAUMA/ORTO": 0,
+            "FISICA": 0, "ZONIFICACION": 0, "INTERCONSULTA": 0, "ONCOLOGIA": 0,
+            "COMISION": 0, "ORGANOS": 0, "INFECTO": 0, "TRASLAPE": 0,
+            "AEROPUERTO": 0, "PSIQUIATRIA": 0, "PERSONAL MEDICO": 0
         }
 
         cantidades_capturadas = {}
