@@ -1062,20 +1062,6 @@ elif mod_actual == "Conciliación Financiera y Pagos":
             mime="text/csv",
             use_container_width=True
         )
-Aquí tienes el código **100% completo, unificado y corregido** para todo el **Módulo 11 (Reporte Semanal CENTRACOM)**.
-
-Hemos optimizado la sección de consultas para que el usuario no tenga que lidiar con textos larguísimos repetidos:
-
-1. **Filtros Limpios:** Eliges el **Año** `(ej. 2026)`, luego el **Mes** `(ej. SEPTIEMBRE)` y finalmente la **Semana** `(ej. 5ta Semana)`.
-2. **Badge Informativo:** Un recuadro verde claro confirma la semana seleccionada y sus fechas exactas de cobertura.
-3. **Consolidación Sin Duplicados:** La tabla agrupa los datos de manera limpia y recalcula los porcentajes exactos.
-4. **Captura Completa con Cancelaciones:** Incluye los campos para servicios solicitados, cancelados asignados y no asignados.
-5. **Dona Legible:** Las etiquetas y porcentajes de la gráfica de cumplimiento quedan perfectamente visibles.
-6. **Sección Analítica de Acumulados Globales:** Al final del módulo puedes ver el acumulado de todos los reportes por Año, Mes o Histórico Total.
-
-Sustituye completamente el bloque de tu `elif mod_actual == "Reporte Semanal Centracom":` por el siguiente código:
-
-```python
 # -----------------------------------------------------------------------------
 # 11. REPORTE SEMANAL CENTRACOM
 # -----------------------------------------------------------------------------
@@ -1083,7 +1069,6 @@ elif mod_actual == "Reporte Semanal Centracom":
     st.markdown('<p class="subtitulo-seccion">Reporte Semanal CENTRACOM - Control y Operación</p>', unsafe_allow_html=True)
     st.info("📊 Módulo para la captura estructurada, cálculo porcentual automático, análisis gráfico y seguimiento histórico de CENTRACOM.")
 
-    # --- 1. CAPTURA O REGISTRO DE DATOS ---
     with st.expander("📝 Capturar o Registrar Datos de la Semana", expanded=False):
         st.markdown("##### **Definir Periodo del Reporte**")
         c_per1, c_per2, c_per3, c_per4 = st.columns(4)
@@ -1128,7 +1113,7 @@ elif mod_actual == "Reporte Semanal Centracom":
         total_solicitados_cap = c_tot1.number_input("Total Servicios Solicitados:", min_value=0, value=4229)
         total_cancelados_cap = c_tot2.number_input("Total Servicios Cancelados:", min_value=0, value=275)
         cancelados_asignados_cap = c_tot3.number_input("Cancelados Asignados:", min_value=0, value=173)
-        cancelados_no_asignados_cap = max(0, total_cancelados_cap - cancelados_asignados_cap)
+        cancelados_no_asignados_cap = total_cancelados_cap - cancelados_asignados_cap
         st.caption(f"ℹ️ Cancelados No Asignados calculados automáticamente: **{cancelados_no_asignados_cap}**")
 
         if st.button("💾 Guardar y Calcular Reporte Semanal Centracom", type="primary"):
@@ -1161,7 +1146,6 @@ elif mod_actual == "Reporte Semanal Centracom":
             except Exception as e:
                 st.error(f"❌ Error al guardar en Supabase: {e}")
 
-    # --- 2. CONSULTA Y VISUALIZACIÓN EJECUTIVA MEJORADA ---
     st.markdown("---")
     st.markdown("##### **📊 Visualización Ejecutiva y Gráficas del Reporte**")
 
@@ -1172,41 +1156,31 @@ elif mod_actual == "Reporte Semanal Centracom":
             if res_centracom and res_centracom.data:
                 df_centracom = pd.DataFrame(res_centracom.data)
     except Exception as e:
-        st.warning(f"⚠️ Nota de conexión: {e}")
+        st.warning(f"⚠️ Nota: {e}")
 
     if not df_centracom.empty and "anio" in df_centracom.columns:
-        # Filtros Estructurados Limpios (Año -> Mes -> Semana)
         f_col1, f_col2, f_col3 = st.columns(3)
         
         anios_disp = sorted(df_centracom["anio"].dropna().unique().tolist(), reverse=True)
-        anio_sel = f_col1.selectbox("1. Seleccionar Año:", anios_disp if anios_disp else ["2026"], key="f_limpio_anio")
+        anio_sel = f_col1.selectbox("Seleccionar Año:", anios_disp if anios_disp else ["2026"])
         df_f_anio = df_centracom[df_centracom["anio"] == anio_sel]
 
-        meses_disp = sorted(df_f_anio["mes"].dropna().unique().tolist()) if not df_f_anio.empty else []
-        mes_sel = f_col2.selectbox("2. Seleccionar Mes:", meses_disp if meses_disp else ["SEPTIEMBRE"], key="f_limpio_mes")
+        meses_disp = df_f_anio["mes"].dropna().unique().tolist() if not df_f_anio.empty else []
+        mes_sel = f_col2.selectbox("Seleccionar Mes:", meses_disp if meses_disp else ["SEPTIEMBRE"])
         df_f_mes = df_f_anio[df_f_anio["mes"] == mes_sel] if not df_f_anio.empty else pd.DataFrame()
 
-        # Extraemos etiquetas limpias de la semana para evitar cadenas de texto largas en el selector
-        if not df_f_mes.empty:
-            periodos_raw = df_f_mes["semana_periodo"].dropna().unique().tolist()
-            semanas_opciones = [p.split(" de ")[0] if " de " in str(p) else str(p) for p in periodos_raw]
-            semanas_opciones = list(dict.fromkeys(semanas_opciones)) # Eliminar duplicados manteniendo orden
-        else:
-            semanas_opciones = ["1era Semana", "2da Semana", "3era Semana", "4ta Semana", "5ta Semana"]
+        periodos_disp = df_f_mes["semana_periodo"].dropna().unique().tolist() if not df_f_mes.empty else []
+        periodo_elegido = f_col3.selectbox("Seleccionar Semana / Periodo:", periodos_disp if periodos_disp else ["Ninguna"])
 
-        semana_sel = f_col3.selectbox("3. Seleccionar Semana:", semanas_opciones, key="f_limpio_sem")
-
-        # Filtrar exactamente el conjunto de datos activo
-        df_filtrado_c = df_f_mes[df_f_mes["semana_periodo"].str.contains(semana_sel, case=False, na=False)].copy() if not df_f_mes.empty else pd.DataFrame()
+        df_filtrado_c = df_f_mes[df_f_mes["semana_periodo"] == periodo_elegido].copy() if not df_f_mes.empty else pd.DataFrame()
 
         if not df_filtrado_c.empty:
-            rango_fecha_actual = df_filtrado_c["rango_fechas"].iloc[0] if "rango_fechas" in df_filtrado_c.columns and not pd.isna(df_filtrado_c["rango_fechas"].iloc[0]) else "Periodo Activo"
-            st.success(f"📌 **Consulta Activa:** {semana_sel} de {mes_sel.title()} {anio_sel} &nbsp;|&nbsp; 🗓️ **Rango de Fechas:** {rango_fecha_actual}")
+            st.markdown(f"###### **Periodo Seleccionado:** `{periodo_elegido}`")
             
             # Recuperamos totales guardados de la BD
-            t_sol = int(df_filtrado_c["total_solicitados"].iloc[0]) if "total_solicitados" in df_filtrado_c.columns and not pd.isna(df_filtrado_c["total_solicitados"].iloc[0]) else 0
-            t_can = int(df_filtrado_c["total_cancelados"].iloc[0]) if "total_cancelados" in df_filtrado_c.columns and not pd.isna(df_filtrado_c["total_cancelados"].iloc[0]) else 0
-            t_asig = int(df_filtrado_c["cancelados_asignados"].iloc[0]) if "cancelados_asignados" in df_filtrado_c.columns and not pd.isna(df_filtrado_c["cancelados_asignados"].iloc[0]) else 0
+            t_sol = int(df_filtrado_c["total_solicitados"].iloc[0]) if "total_solicitados" in df_filtrado_c.columns and not pd.isna(df_filtrado_c["total_solicitados"].iloc[0]) else 4229
+            t_can = int(df_filtrado_c["total_cancelados"].iloc[0]) if "total_cancelados" in df_filtrado_c.columns and not pd.isna(df_filtrado_c["total_cancelados"].iloc[0]) else 275
+            t_asig = int(df_filtrado_c["cancelados_asignados"].iloc[0]) if "cancelados_asignados" in df_filtrado_c.columns and not pd.isna(df_filtrado_c["cancelados_asignados"].iloc[0]) else 173
             t_no_asig = int(df_filtrado_c["cancelados_no_asignados"].iloc[0]) if "cancelados_no_asignados" in df_filtrado_c.columns and not pd.isna(df_filtrado_c["cancelados_no_asignados"].iloc[0]) else (t_can - t_asig)
 
             g_col1, g_col2 = st.columns([1.8, 1.2], gap="medium")
@@ -1236,7 +1210,7 @@ elif mod_actual == "Reporte Semanal Centracom":
                 st.markdown("##### **Cumplimiento General**")
                 total_cant = df_g_serv["cantidad"].sum()
                 
-                # Gráfica de Dona corregida con etiquetas claras y legibles
+                # Gráfica de Dona corregida con etiquetas externas y colores claros para legibilidad
                 fig_pie, ax_pie = plt.subplots(figsize=(3.5, 2.8))
                 valores_pie = [total_cant, t_can]
                 etiquetas_pie = [f'Realizados\n({total_cant:,})', f'Cancelados\n({t_can:,})']
@@ -1259,7 +1233,7 @@ elif mod_actual == "Reporte Semanal Centracom":
             st.markdown("---")
             st.markdown("##### **Tablas de Datos Consolidados (Formato Oficial)**")
             
-            # Tabla 1: Servicios Realizados unificados (Sin filas duplicadas)
+            # Tabla 1: Servicios Realizados sin duplicados
             df_tabla_serv = df_filtrado_c.groupby("tipo_servicio", as_index=False).agg({"cantidad": "sum"})
             total_cant = df_tabla_serv["cantidad"].sum()
             df_tabla_serv["%"] = (df_tabla_serv["cantidad"] / total_cant * 100) if total_cant > 0 else 0.0
@@ -1268,7 +1242,8 @@ elif mod_actual == "Reporte Semanal Centracom":
             df_tabla_serv.columns = ["SERVICIO REALIZADOS", "CANTIDAD", "%"]
             df_tabla_serv["%"] = df_tabla_serv["%"].apply(lambda x: f"{x:.2f}%")
             
-            df_totales_row = pd.DataFrame([["TOTAL", total_cant, "100.00%"]], columns=df_tabla_serv.columns)
+            total_pct = 100.00
+            df_totales_row = pd.DataFrame([["TOTAL", total_cant, f"{total_pct:.2f}%"]], columns=df_tabla_serv.columns)
             df_tabla_serv = pd.concat([df_tabla_serv, df_totales_row], ignore_index=True)
 
             try:
@@ -1278,7 +1253,7 @@ elif mod_actual == "Reporte Semanal Centracom":
 
             st.markdown("---")
             
-            # Tablas inferiores de Solicitudes y Cancelaciones
+            # Tablas inferiores de Solicitudes y Cancelaciones restauradas
             col_b1, col_b2 = st.columns(2)
             with col_b1:
                 st.markdown("##### **Resumen de Solicitudes**")
@@ -1312,73 +1287,15 @@ elif mod_actual == "Reporte Semanal Centracom":
             st.download_button(
                 label="📥 Descargar Reporte CENTRACOM (CSV)",
                 data=csv_centracom,
-                file_name=f"reporte_centracom_{anio_sel}_{mes_sel}_{semana_sel.replace(' ', '_')}.csv",
+                file_name=f"reporte_centracom_{periodo_elegido.lower().replace(' ', '_')}.csv",
                 mime="text/csv",
                 use_container_width=True
             )
         else:
-            st.info("ℹ️ No hay datos guardados para la semana seleccionada.")
+            st.info("ℹ️ Selecciona un periodo válido en los filtros superiores para visualizar las gráficas y tablas.")
     else:
-        st.warning("⚠️ No hay registros en la tabla `reporte_centracom_semanal`. Realiza tu primer registro en la sección superior.")
+        st.warning("⚠️ No hay registros en la tabla `reporte_centracom_semanal`. Usa el formulario superior para realizar tu primer registro.")
 
-    # --- 3. ANÁLISIS DE ACUMULADOS GLOBALES HISTÓRICOS ---
-    st.markdown("---")
-    st.markdown("##### **📈 Análisis de Acumulados e Histórico Global de Servicios**")
-
-    if not df_centracom.empty and "anio" in df_centracom.columns:
-        h_col1, h_col2 = st.columns(2)
-        nivel_acumulado = h_col1.selectbox("Agrupar Acumulado por:", ["Año Completo", "Mes Específico", "Histórico Total (Todas las Semanas)"], key="f_acum_nivel")
-        
-        df_analisis = df_centracom.copy()
-
-        if nivel_acumulado == "Año Completo":
-            anios_h = sorted(df_analisis["anio"].dropna().unique().tolist())
-            anio_h_sel = h_col2.selectbox("Seleccionar Año para Acumulado:", anios_h if anios_h else ["2026"], key="f_acum_anio")
-            df_analisis = df_analisis[df_analisis["anio"] == anio_h_sel]
-            titulo_grafico = f"Acumulado Anual de Servicios ({anio_h_sel})"
-            
-        elif nivel_acumulado == "Mes Específico":
-            meses_h = sorted(df_analisis["mes"].dropna().unique().tolist())
-            mes_h_sel = h_col2.selectbox("Seleccionar Mes para Acumulado:", meses_h if meses_h else ["SEPTIEMBRE"], key="f_acum_mes")
-            df_analisis = df_analisis[df_analisis["mes"] == mes_h_sel]
-            titulo_grafico = f"Acumulado Mensual de Servicios ({mes_h_sel})"
-        else:
-            titulo_grafico = "Acumulado Histórico Global de Servicios"
-
-        if not df_analisis.empty:
-            df_acumulado_grp = df_analisis.groupby("tipo_servicio", as_index=False)["cantidad"].sum()
-            df_acumulado_grp = df_acumulado_grp.sort_values(by="cantidad", ascending=True)
-
-            fig_ac, ax_ac = plt.subplots(figsize=(8, 4.5))
-            bars_ac = ax_ac.barh(df_acumulado_grp["tipo_servicio"], df_acumulado_grp["cantidad"], color=COLORES_PANTONE["561"])
-            
-            ax_ac.set_title(titulo_grafico, fontsize=10, fontweight='bold', color='#1e3d2f')
-            ax_ac.tick_params(axis='both', labelsize=8)
-            ax_ac.grid(axis='x', linestyle=':', alpha=0.5)
-
-            for bar in bars_ac:
-                w = bar.get_width()
-                if w > 0:
-                    ax_ac.text(w + (max(df_acumulado_grp["cantidad"])*0.01 if max(df_acumulado_grp["cantidad"])>0 else 1), 
-                               bar.get_y() + bar.get_height()/2, f'{int(w):,}', 
-                               ha='left', va='center', fontsize=7, fontweight='bold', color='#333333')
-
-            fig_ac.tight_layout()
-            st.pyplot(fig_ac)
-
-            st.markdown("##### **Resumen Numérico del Acumulado**")
-            df_tabla_acum = df_acumulado_grp.sort_values(by="cantidad", ascending=False).copy()
-            df_tabla_acum.columns = ["TIPO DE SERVICIO", "CANTIDAD ACUMULADA"]
-            
-            total_acumulado_general = df_tabla_acum["CANTIDAD ACUMULADA"].sum()
-            df_tot_ac = pd.DataFrame([["TOTAL GENERAL ACUMULADO", total_acumulado_general]], columns=df_tabla_acum.columns)
-            df_tabla_acum = pd.concat([df_tabla_acum, df_tot_ac], ignore_index=True)
-
-            try:
-                st.dataframe(aplicar_estilo_tabla(df_tabla_acum), use_container_width=True, hide_index=True)
-            except Exception:
-                st.dataframe(df_tabla_acum, use_container_width=True, hide_index=True)
-                
     # -----------------------------------------------------------------------------
     # ACUMULADO E HISTÓRICO GLOBAL DE SERVICIOS CENTRACOM
     # -----------------------------------------------------------------------------
