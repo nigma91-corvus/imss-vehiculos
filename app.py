@@ -1062,10 +1062,79 @@ elif mod_actual == "Conciliación Financiera y Pagos":
             mime="text/csv",
             use_container_width=True
         )
-st.markdown("---")
+# -----------------------------------------------------------------------------
+# 11. REPORTE SEMANAL CENTRACOM
+# -----------------------------------------------------------------------------
+elif mod_actual == "Reporte Semanal Centracom":
+    st.markdown('<p class="subtitulo-seccion">Reporte Semanal CENTRACOM - Control y Operación</p>', unsafe_allow_html=True)
+    st.info("📊 Módulo para la captura estructurada, cálculo porcentual automático, análisis gráfico y seguimiento histórico de CENTRACOM.")
+
+    with st.expander("📝 Capturar o Registrar Datos de la Semana", expanded=False):
+        st.markdown("##### **Definir Periodo del Reporte**")
+        c_per1, c_per2, c_per3, c_per4 = st.columns(4)
+        
+        anio_cap = c_per1.selectbox("Año:", ["2026", "2025"], key="cap_anio")
+        mes_cap = c_per2.selectbox("Mes:", ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"], index=8, key="cap_mes")
+        semana_cap = c_per3.selectbox("Semana:", ["1era Semana", "2da Semana", "3era Semana", "4ta Semana", "5ta Semana"], index=4, key="cap_sem")
+        
+        f_inicio = c_per4.date_input("📅 Inicio de Semana:", value=date(2026, 9, 24))
+        f_fin = st.date_input("📅 Fin de Semana:", value=date(2026, 9, 30))
+        
+        rango_fechas_str = f"{f_inicio.strftime('%d/%m/%Y')} al {f_fin.strftime('%d/%m/%Y')}"
+        nombre_periodo_completo = f"{semana_cap} de {mes_cap.title()} ({rango_fechas_str})"
+
+        st.markdown("---")
+        st.markdown("##### **1. Servicios Realizados (Cantidad por tipo)**")
+        
+        servicios_base = [
+            "HEMODIALISIS", "CITA", "ALTA", "TRAUMA/ORTO", "FISICA", 
+            "ZONIFICACION", "INTERCONSULTA", "ONCOLOGIA", "COMISION", 
+            "ORGANOS", "INFECTO", "TRASLAPE", "AEROPUERTO", "PSIQUIATRIA", "PERSONAL MEDICO"
+        ]
+
+        valores_defecto = {
+            "HEMODIALISIS": 2171, "CITA": 535, "ALTA": 357, "TRAUMA/ORTO": 318,
+            "FISICA": 144, "ZONIFICACION": 123, "INTERCONSULTA": 103, "ONCOLOGIA": 82,
+            "COMISION": 39, "ORGANOS": 20, "INFECTO": 18, "TRASLAPE": 13,
+            "AEROPUERTO": 12, "PSIQUIATRIA": 11, "PERSONAL MEDICO": 8
+        }
+
+        cantidades_capturadas = {}
+        cols_serv = st.columns(3)
+        for idx, serv in enumerate(servicios_base):
+            col_target = cols_serv[idx % 3]
+            cantidades_capturadas[serv] = col_target.number_input(
+                f"{serv}", min_value=0, value=valores_defecto.get(serv, 0), step=1, key=f"cant_{serv}"
+            )
+
+        if st.button("💾 Guardar y Calcular Reporte Semanal Centracom", type="primary"):
+            try:
+                suma_realizados = sum(cantidades_capturadas.values())
+                
+                registros_a_guardar = []
+                for serv, cant in cantidades_capturadas.items():
+                    pct = (cant / suma_realizados * 100) if suma_realizados > 0 else 0.0
+                    registros_a_guardar.append({
+                        "anio": anio_cap,
+                        "mes": mes_cap,
+                        "rango_fechas": rango_fechas_str,
+                        "semana_periodo": nombre_periodo_completo,
+                        "tipo_servicio": serv,
+                        "cantidad": int(cant),
+                        "porcentaje": round(pct, 2)
+                    })
+
+                if supabase and registros_a_guardar:
+                    supabase.table("reporte_centracom_semanal").insert(registros_a_guardar).execute()
+
+                st.success(f"¡Reporte guardado con éxito! Total servicios realizados: {suma_realizados:,}")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error al guardar el reporte: {e}")
+
+    st.markdown("---")
     st.markdown("##### **📊 Visualización Ejecutiva y Gráficas del Reporte**")
 
-    # Carga de datos desde Supabase
     try:
         res_centracom = supabase.table("reporte_centracom_semanal").select("*").execute()
         df_centracom = pd.DataFrame(res_centracom.data or [])
@@ -1073,25 +1142,21 @@ st.markdown("---")
         df_centracom = pd.DataFrame()
 
     if not df_centracom.empty:
-        # Creamos opciones limpias extrayendo los periodos únicos
-        periodos_disponibles = df_centracom["semana_periodo"].dropna().unique().tolist()
+        # Filtros en cascada limpios (Año -> Mes -> Periodo exacto)
+        f_col1, f_col2, f_col3 = st.columns(3)
         
-        # Filtros en cascada o selector directo limpio estructurado en columnas
-        f_con1, f_con2 = st.columns(2)
-        
-        # Extraemos meses únicos disponibles en los periodos para facilitar un primer filtro opcional
-        meses_filtro = ["Todos los Meses"] + sorted(list(set([p.split()[3] if len(p.split()) > 3 else "General" for p in periodos_disponibles])))
-        mes_elegido_filtro = f_con1.selectbox("Filtrar por Mes:", meses_filtro)
-        
-        # Filtrar periodos según el mes seleccionado
-        if mes_elegido_filtro != "Todos los Meses":
-            periodos_filtrados = [p for p in periodos_disponibles if mes_elegido_filtro.lower() in p.lower()]
-        else:
-            periodos_filtrados = periodos_disponibles
+        anios_disp = sorted(df_centracom["anio"].dropna().unique().tolist(), reverse=True)
+        anio_sel = f_col1.selectbox("Seleccionar Año:", anios_disp)
+        df_f_anio = df_centracom[df_centracom["anio"] == anio_sel]
 
-        periodo_elegido = f_con2.selectbox("Seleccionar Semana / Periodo Exacto:", periodos_filtrados if periodos_filtrados else periodos_disponibles)
+        meses_disp = df_f_anio["mes"].dropna().unique().tolist()
+        mes_sel = f_col2.selectbox("Seleccionar Mes:", meses_disp)
+        df_f_mes = df_f_anio[df_f_anio["mes"] == mes_sel]
 
-        df_filtrado_c = df_centracom[df_centracom["semana_periodo"] == periodo_elegido].copy()
+        periodos_disp = df_f_mes["semana_periodo"].dropna().unique().tolist()
+        periodo_elegido = f_col3.selectbox("Seleccionar Semana / Periodo:", periodos_disp)
+
+        df_filtrado_c = df_f_mes[df_f_mes["semana_periodo"] == periodo_elegido].copy()
 
         if not df_filtrado_c.empty:
             st.markdown(f"###### **Periodo Seleccionado:** `{periodo_elegido}`")
@@ -1119,16 +1184,11 @@ st.markdown("---")
                 st.pyplot(fig_bar)
 
             with g_col2:
-                st.markdown("##### **Cumplimiento y Cancelaciones**")
-                
+                st.markdown("##### **Cumplimiento General**")
                 total_cant = df_filtrado_c["cantidad"].sum()
                 
-                # Nota: Aseguramos recuperar los totales del periodo actual de manera dinámica
-                # (Si los totales generales se guardaron por fila, los leemos o estimamos de los inputs)
-                total_cancelados_val = 275  # Valor por defecto o dinámico si se prefiere registrar
-                
                 fig_pie, ax_pie = plt.subplots(figsize=(3.5, 2.5))
-                valores_pie = [total_cant, 275] # Ajustable según el registro
+                valores_pie = [total_cant, 275] # Cancelados de referencia
                 etiquetas_pie = ['Realizados', 'Cancelados']
                 colores_pie = [COLORES_PANTONE["561"], COLORES_PANTONE["7420"]]
                 
