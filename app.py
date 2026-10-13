@@ -1378,8 +1378,7 @@ elif mod_actual == "Reporte Semanal Centracom":
                 st.dataframe(aplicar_estilo_tabla(df_tabla_acum), use_container_width=True, hide_index=True)
             except Exception:
                 st.dataframe(df_tabla_acum, use_container_width=True, hide_index=True)
-
-
+                
     # -----------------------------------------------------------------------------
     # ACUMULADO E HISTÓRICO GLOBAL DE SERVICIOS CENTRACOM
     # -----------------------------------------------------------------------------
