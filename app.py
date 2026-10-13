@@ -1063,46 +1063,213 @@ elif mod_actual == "Conciliación Financiera y Pagos":
             use_container_width=True
         )
 # -----------------------------------------------------------------------------
+# 11. REPORTE SEMANAL CENTRACOM
+# -----------------------------------------------------------------------------
+elif mod_actual == "Reporte Semanal Centracom":
+    st.markdown('<p class="subtitulo-seccion">Reporte Semanal CENTRACOM - Control y Operación</p>', unsafe_allow_html=True)
+    st.info("📊 Módulo para la captura estructurada, cálculo porcentual automático, análisis gráfico y seguimiento histórico de CENTRACOM.")
+
+    with st.expander("📝 Capturar o Registrar Datos de la Semana", expanded=False):
+        st.markdown("##### **Definir Periodo del Reporte**")
+        c_per1, c_per2, c_per3, c_per4 = st.columns(4)
+        
+        anio_cap = c_per1.selectbox("Año:", ["2026", "2025"], key="cap_anio")
+        mes_cap = c_per2.selectbox("Mes:", ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"], index=8, key="cap_mes")
+        semana_cap = c_per3.selectbox("Semana:", ["1era Semana", "2da Semana", "3era Semana", "4ta Semana", "5ta Semana"], index=4, key="cap_sem")
+        
+        f_inicio = c_per4.date_input("📅 Inicio de Semana:", value=date(2026, 9, 24))
+        f_fin = st.date_input("📅 Fin de Semana:", value=date(2026, 9, 30))
+        
+        rango_fechas_str = f"{f_inicio.strftime('%d/%m/%Y')} al {f_fin.strftime('%d/%m/%Y')}"
+        nombre_periodo_completo = f"{semana_cap} de {mes_cap.title()} ({rango_fechas_str})"
+
+        st.markdown("---")
+        st.markdown("##### **1. Servicios Realizados (Cantidad por tipo)**")
+        
+        servicios_base = [
+            "HEMODIALISIS", "CITA", "ALTA", "TRAUMA/ORTO", "FISICA", 
+            "ZONIFICACION", "INTERCONSULTA", "ONCOLOGIA", "COMISION", 
+            "ORGANOS", "INFECTO", "TRASLAPE", "AEROPUERTO", "PSIQUIATRIA", "PERSONAL MEDICO"
+        ]
+
+        valores_defecto = {
+            "HEMODIALISIS": 2171, "CITA": 535, "ALTA": 357, "TRAUMA/ORTO": 318,
+            "FISICA": 144, "ZONIFICACION": 123, "INTERCONSULTA": 103, "ONCOLOGIA": 82,
+            "COMISION": 39, "ORGANOS": 20, "INFECTO": 18, "TRASLAPE": 13,
+            "AEROPUERTO": 12, "PSIQUIATRIA": 11, "PERSONAL MEDICO": 8
+        }
+
+        cantidades_capturadas = {}
+        cols_serv = st.columns(3)
+        for idx, serv in enumerate(servicios_base):
+            col_target = cols_serv[idx % 3]
+            cantidades_capturadas[serv] = col_target.number_input(
+                f"{serv}", min_value=0, value=valores_defecto.get(serv, 0), step=1, key=f"cant_{serv}"
+            )
+
+        if st.button("💾 Guardar y Calcular Reporte Semanal Centracom", type="primary"):
+            try:
+                suma_realizados = sum(cantidades_capturadas.values())
+                
+                registros_a_guardar = []
+                for serv, cant in cantidades_capturadas.items():
+                    pct = (cant / suma_realizados * 100) if suma_realizados > 0 else 0.0
+                    registros_a_guardar.append({
+                        "anio": anio_cap,
+                        "mes": mes_cap,
+                        "rango_fechas": rango_fechas_str,
+                        "semana_periodo": nombre_periodo_completo,
+                        "tipo_servicio": serv,
+                        "cantidad": int(cant),
+                        "porcentaje": round(pct, 2)
+                    })
+
+                if supabase is None:
+                    st.error("⚠️ Error: Cliente de Supabase no inicializado.")
+                else:
+                    supabase.table("reporte_centracom_semanal").insert(registros_a_guardar).execute()
+                    st.success(f"¡Reporte guardado con éxito! Total servicios: {suma_realizados:,}")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"❌ Error al guardar en Supabase (Verifica que la tabla 'reporte_centracom_semanal' esté creada): {e}")
+
+    st.markdown("---")
+    st.markdown("##### **📊 Visualización Ejecutiva y Gráficas del Reporte**")
+
+    # Carga segura con manejo de excepciones si la tabla no existe
+    df_centracom = pd.DataFrame()
+    try:
+        if supabase:
+            res_centracom = supabase.table("reporte_centracom_semanal").select("*").execute()
+            if res_centracom and res_centracom.data:
+                df_centracom = pd.DataFrame(res_centracom.data)
+    except Exception as e:
+        st.warning(f"⚠️ Nota: La tabla `reporte_centracom_semanal` aún no está lista o está vacía. ({e})")
+
+    if not df_centracom.empty and "anio" in df_centracom.columns:
+        f_col1, f_col2, f_col3 = st.columns(3)
+        
+        anios_disp = sorted(df_centracom["anio"].dropna().unique().tolist(), reverse=True)
+        anio_sel = f_col1.selectbox("Seleccionar Año:", anios_disp if anios_disp else ["2026"])
+        df_f_anio = df_centracom[df_centracom["anio"] == anio_sel]
+
+        meses_disp = df_f_anio["mes"].dropna().unique().tolist() if not df_f_anio.empty else []
+        mes_sel = f_col2.selectbox("Seleccionar Mes:", meses_disp if meses_disp else ["SEPTIEMBRE"])
+        df_f_mes = df_f_anio[df_f_anio["mes"] == mes_sel] if not df_f_anio.empty else pd.DataFrame()
+
+        periodos_disp = df_f_mes["semana_periodo"].dropna().unique().tolist() if not df_f_mes.empty else []
+        periodo_elegido = f_col3.selectbox("Seleccionar Semana / Periodo:", periodos_disp if periodos_disp else ["Ninguna"])
+
+        df_filtrado_c = df_f_mes[df_f_mes["semana_periodo"] == periodo_elegido].copy() if not df_f_mes.empty else pd.DataFrame()
+
+        if not df_filtrado_c.empty:
+            st.markdown(f"###### **Periodo Seleccionado:** `{periodo_elegido}`")
+            
+            g_col1, g_col2 = st.columns([1.8, 1.2], gap="medium")
+
+            with g_col1:
+                st.markdown("##### **Top Servicios Realizados (Distribución)**")
+                df_g_serv = df_filtrado_c.sort_values(by="cantidad", ascending=True)
+                
+                fig_bar, ax_bar = plt.subplots(figsize=(6, 4))
+                bars = ax_bar.barh(df_g_serv["tipo_servicio"], df_g_serv["cantidad"], color=COLORES_PANTONE["626"])
+                
+                ax_bar.tick_params(axis='both', labelsize=8)
+                ax_bar.grid(axis='x', linestyle=':', alpha=0.5)
+                
+                for bar in bars:
+                    w = bar.get_width()
+                    if w > 0:
+                        ax_bar.text(w + (max(df_g_serv["cantidad"])*0.01 if max(df_g_serv["cantidad"])>0 else 1), 
+                                    bar.get_y() + bar.get_height()/2, f'{int(w):,}', 
+                                    ha='left', va='center', fontsize=7, fontweight='bold', color='#333333')
+                
+                fig_bar.tight_layout()
+                st.pyplot(fig_bar)
+
+            with g_col2:
+                st.markdown("##### **Cumplimiento General**")
+                total_cant = df_filtrado_c["cantidad"].sum()
+                
+                fig_pie, ax_pie = plt.subplots(figsize=(3.5, 2.5))
+                valores_pie = [total_cant, 275]
+                etiquetas_pie = ['Realizados', 'Cancelados']
+                colores_pie = [COLORES_PANTONE["561"], COLORES_PANTONE["7420"]]
+                
+                wedges, texts, autotexts = ax_pie.pie(
+                    valores_pie, labels=etiquetas_pie, autopct='%1.1f%%',
+                    startangle=140, colors=colores_pie,
+                    wedgeprops=dict(width=0.4, edgecolor='white', linewidth=2),
+                    textprops=dict(fontsize=8)
+                )
+                for autotext in autotexts:
+                    autotext.set_color('white')
+                    autotext.set_weight('bold')
+                
+                ax_pie.axis('equal')
+                fig_pie.tight_layout()
+                st.pyplot(fig_pie)
+
+            st.markdown("---")
+            st.markdown("##### **Tablas de Datos Consolidados**")
+            
+            df_tabla_serv = df_filtrado_c[["tipo_servicio", "cantidad", "porcentaje"]].copy()
+            df_tabla_serv = df_tabla_serv.sort_values(by="cantidad", ascending=False)
+            df_tabla_serv.columns = ["SERVICIO REALIZADOS", "CANTIDAD", "%"]
+            df_tabla_serv["%"] = df_tabla_serv["%"].apply(lambda x: f"{x:.2f}%")
+            
+            total_pct = df_filtrado_c["porcentaje"].sum()
+            df_totales_row = pd.DataFrame([["TOTAL", total_cant, f"{total_pct:.0f}%"]], columns=df_tabla_serv.columns)
+            df_tabla_serv = pd.concat([df_tabla_serv, df_totales_row], ignore_index=True)
+
+            try:
+                st.dataframe(aplicar_estilo_tabla(df_tabla_serv), use_container_width=True, hide_index=True)
+            except Exception:
+                st.dataframe(df_tabla_serv, use_container_width=True, hide_index=True)
+
+            csv_centracom = df_tabla_serv.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="📥 Descargar Reporte CENTRACOM (CSV)",
+                data=csv_centracom,
+                file_name=f"reporte_centracom_{periodo_elegido.lower().replace(' ', '_')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        else:
+            st.info("ℹ️ Selecciona un periodo válido en los filtros superiores para visualizar las gráficas.")
+    else:
+        st.warning("⚠️ No hay registros en la tabla `reporte_centracom_semanal`. Usa el formulario superior para realizar tu primer registro.")
+
+    # -----------------------------------------------------------------------------
     # ACUMULADO E HISTÓRICO GLOBAL DE SERVICIOS CENTRACOM
     # -----------------------------------------------------------------------------
     st.markdown("---")
     st.markdown("##### **📈 Análisis de Acumulados e Histórico Global de Servicios**")
-    st.info("💡 Este apartado consolida la información de **todos** los reportes guardados para evaluar la tendencia histórica y el volumen acumulado por tipo de servicio.")
 
-    try:
-        # Consultamos todos los registros históricos de la tabla
-        res_historico = supabase.table("reporte_centracom_semanal").select("*").execute()
-        df_hist = pd.DataFrame(res_historico.data or [])
-    except Exception:
-        df_hist = pd.DataFrame()
-
-    if not df_hist.empty:
-        # Selector de nivel de agregación para el acumulado
+    if not df_centracom.empty and "anio" in df_centracom.columns:
         h_col1, h_col2 = st.columns(2)
         nivel_acumulado = h_col1.selectbox("Agrupar Acumulado por:", ["Año Completo", "Mes Específico", "Histórico Total (Todas las Semanas)"])
         
-        df_analisis = df_hist.copy()
+        df_analisis = df_centracom.copy()
 
         if nivel_acumulado == "Año Completo":
             anios_h = sorted(df_analisis["anio"].dropna().unique().tolist())
-            anio_h_sel = h_col2.selectbox("Seleccionar Año para Acumulado:", anios_h)
+            anio_h_sel = h_col2.selectbox("Seleccionar Año para Acumulado:", anios_h if anios_h else ["2026"])
             df_analisis = df_analisis[df_analisis["anio"] == anio_h_sel]
             titulo_grafico = f"Acumulado Anual de Servicios ({anio_h_sel})"
             
         elif nivel_acumulado == "Mes Específico":
             meses_h = sorted(df_analisis["mes"].dropna().unique().tolist())
-            mes_h_sel = h_col2.selectbox("Seleccionar Mes para Acumulado:", meses_h)
-            df_analisis = df_analisis[df_analisis["mes"] == mes_h_sel]
-            titulo_grafico = f"Acumulado Mensual de Servicios ({mes_h_sel})"
+            mes_h_sel = h_col2.selectbox("Seleccionar Mes para Acumulado:", mes_h_sel if 'meses_h' in locals() and meses_h else ["SEPTIEMBRE"])
+            df_analisis = df_analisis[df_analisis["mes"] == mes_h_sel] if 'mes_h_sel' in locals() else df_analisis
+            titulo_grafico = f"Acumulado Mensual de Servicios"
         else:
             titulo_grafico = "Acumulado Histórico Global de Servicios"
 
         if not df_analisis.empty:
-            # Agrupamos por tipo de servicio sumando las cantidades acumuladas
             df_acumulado_grp = df_analisis.groupby("tipo_servicio")["cantidad"].sum().reset_index()
             df_acumulado_grp = df_acumulado_grp.sort_values(by="cantidad", ascending=True)
 
-            # Gráfica de barras verticales u horizontales para el acumulado
             fig_ac, ax_ac = plt.subplots(figsize=(8, 4.5))
             bars_ac = ax_ac.barh(df_acumulado_grp["tipo_servicio"], df_acumulado_grp["cantidad"], color=COLORES_PANTONE["561"])
             
@@ -1110,7 +1277,6 @@ elif mod_actual == "Conciliación Financiera y Pagos":
             ax_ac.tick_params(axis='both', labelsize=8)
             ax_ac.grid(axis='x', linestyle=':', alpha=0.5)
 
-            # Etiquetas numéricas sobre las barras
             for bar in bars_ac:
                 w = bar.get_width()
                 if w > 0:
@@ -1121,7 +1287,6 @@ elif mod_actual == "Conciliación Financiera y Pagos":
             fig_ac.tight_layout()
             st.pyplot(fig_ac)
 
-            # Tabla resumen del acumulado
             st.markdown("##### **Resumen Numérico del Acumulado**")
             df_tabla_acum = df_acumulado_grp.sort_values(by="cantidad", ascending=False).copy()
             df_tabla_acum.columns = ["TIPO DE SERVICIO", "CANTIDAD ACUMULADA"]
@@ -1130,11 +1295,10 @@ elif mod_actual == "Conciliación Financiera y Pagos":
             df_tot_ac = pd.DataFrame([["TOTAL GENERAL ACUMULADO", total_acumulado_general]], columns=df_tabla_acum.columns)
             df_tabla_acum = pd.concat([df_tabla_acum, df_tot_ac], ignore_index=True)
 
-            st.dataframe(aplicar_estilo_tabla(df_tabla_acum), use_container_width=True, hide_index=True)
-        else:
-            st.info("No hay datos suficientes para el filtro de acumulado seleccionado.")
-    else:
-        st.info("Aún no hay suficientes registros históricos en Supabase para mostrar los acumulados globales.")
+            try:
+                st.dataframe(aplicar_estilo_tabla(df_tabla_acum), use_container_width=True, hide_index=True)
+            except Exception:
+                st.dataframe(df_tabla_acum, use_container_width=True, hide_index=True)
 # -----------------------------------------------------------------------------
 # FIRMA INSTITUCIONAL FINAL
 # -----------------------------------------------------------------------------
