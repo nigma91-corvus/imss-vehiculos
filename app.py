@@ -1107,6 +1107,15 @@ elif mod_actual == "Reporte Semanal Centracom":
                 f"{serv}", min_value=0, value=valores_defecto.get(serv, 0), step=1, key=f"cant_{serv}"
             )
 
+        st.markdown("---")
+        st.markdown("##### **2. Totales de Solicitudes y Cancelaciones**")
+        c_tot1, c_tot2, c_tot3 = st.columns(3)
+        total_solicitados_cap = c_tot1.number_input("Total Servicios Solicitados:", min_value=0, value=4229)
+        total_cancelados_cap = c_tot2.number_input("Total Servicios Cancelados:", min_value=0, value=275)
+        cancelados_asignados_cap = c_tot3.number_input("Cancelados Asignados:", min_value=0, value=173)
+        cancelados_no_asignados_cap = total_cancelados_cap - cancelados_asignados_cap
+        st.caption(f"ℹ️ Cancelados No Asignados calculados automáticamente: **{cancelados_no_asignados_cap}**")
+
         if st.button("💾 Guardar y Calcular Reporte Semanal Centracom", type="primary"):
             try:
                 suma_realizados = sum(cantidades_capturadas.values())
@@ -1121,7 +1130,11 @@ elif mod_actual == "Reporte Semanal Centracom":
                         "semana_periodo": nombre_periodo_completo,
                         "tipo_servicio": serv,
                         "cantidad": int(cant),
-                        "porcentaje": round(pct, 2)
+                        "porcentaje": round(pct, 2),
+                        "total_solicitados": int(total_solicitados_cap),
+                        "total_cancelados": int(total_cancelados_cap),
+                        "cancelados_asignados": int(cancelados_asignados_cap),
+                        "cancelados_no_asignados": int(cancelados_no_asignados_cap)
                     })
 
                 if supabase is None:
@@ -1131,12 +1144,11 @@ elif mod_actual == "Reporte Semanal Centracom":
                     st.success(f"¡Reporte guardado con éxito! Total servicios: {suma_realizados:,}")
                     st.rerun()
             except Exception as e:
-                st.error(f"❌ Error al guardar en Supabase (Verifica que la tabla 'reporte_centracom_semanal' esté creada): {e}")
+                st.error(f"❌ Error al guardar en Supabase: {e}")
 
     st.markdown("---")
     st.markdown("##### **📊 Visualización Ejecutiva y Gráficas del Reporte**")
 
-    # Carga segura con manejo de excepciones si la tabla no existe
     df_centracom = pd.DataFrame()
     try:
         if supabase:
@@ -1144,7 +1156,7 @@ elif mod_actual == "Reporte Semanal Centracom":
             if res_centracom and res_centracom.data:
                 df_centracom = pd.DataFrame(res_centracom.data)
     except Exception as e:
-        st.warning(f"⚠️ Nota: La tabla `reporte_centracom_semanal` aún no está lista o está vacía. ({e})")
+        st.warning(f"⚠️ Nota: {e}")
 
     if not df_centracom.empty and "anio" in df_centracom.columns:
         f_col1, f_col2, f_col3 = st.columns(3)
@@ -1165,11 +1177,18 @@ elif mod_actual == "Reporte Semanal Centracom":
         if not df_filtrado_c.empty:
             st.markdown(f"###### **Periodo Seleccionado:** `{periodo_elegido}`")
             
+            # Recuperamos totales guardados de la BD
+            t_sol = int(df_filtrado_c["total_solicitados"].iloc[0]) if "total_solicitados" in df_filtrado_c.columns and not pd.isna(df_filtrado_c["total_solicitados"].iloc[0]) else 4229
+            t_can = int(df_filtrado_c["total_cancelados"].iloc[0]) if "total_cancelados" in df_filtrado_c.columns and not pd.isna(df_filtrado_c["total_cancelados"].iloc[0]) else 275
+            t_asig = int(df_filtrado_c["cancelados_asignados"].iloc[0]) if "cancelados_asignados" in df_filtrado_c.columns and not pd.isna(df_filtrado_c["cancelados_asignados"].iloc[0]) else 173
+            t_no_asig = int(df_filtrado_c["cancelados_no_asignados"].iloc[0]) if "cancelados_no_asignados" in df_filtrado_c.columns and not pd.isna(df_filtrado_c["cancelados_no_asignados"].iloc[0]) else (t_can - t_asig)
+
             g_col1, g_col2 = st.columns([1.8, 1.2], gap="medium")
 
             with g_col1:
                 st.markdown("##### **Top Servicios Realizados (Distribución)**")
-                df_g_serv = df_filtrado_c.sort_values(by="cantidad", ascending=True)
+                df_g_serv = df_filtrado_c.groupby("tipo_servicio", as_index=False)["cantidad"].sum()
+                df_g_serv = df_g_serv.sort_values(by="cantidad", ascending=True)
                 
                 fig_bar, ax_bar = plt.subplots(figsize=(6, 4))
                 bars = ax_bar.barh(df_g_serv["tipo_servicio"], df_g_serv["cantidad"], color=COLORES_PANTONE["626"])
@@ -1189,18 +1208,19 @@ elif mod_actual == "Reporte Semanal Centracom":
 
             with g_col2:
                 st.markdown("##### **Cumplimiento General**")
-                total_cant = df_filtrado_c["cantidad"].sum()
+                total_cant = df_g_serv["cantidad"].sum()
                 
-                fig_pie, ax_pie = plt.subplots(figsize=(3.5, 2.5))
-                valores_pie = [total_cant, 275]
-                etiquetas_pie = ['Realizados', 'Cancelados']
+                # Gráfica de Dona corregida con etiquetas externas y colores claros para legibilidad
+                fig_pie, ax_pie = plt.subplots(figsize=(3.5, 2.8))
+                valores_pie = [total_cant, t_can]
+                etiquetas_pie = [f'Realizados\n({total_cant:,})', f'Cancelados\n({t_can:,})']
                 colores_pie = [COLORES_PANTONE["561"], COLORES_PANTONE["7420"]]
                 
                 wedges, texts, autotexts = ax_pie.pie(
                     valores_pie, labels=etiquetas_pie, autopct='%1.1f%%',
-                    startangle=140, colors=colores_pie,
-                    wedgeprops=dict(width=0.4, edgecolor='white', linewidth=2),
-                    textprops=dict(fontsize=8)
+                    pctdistance=0.75, startangle=140, colors=colores_pie,
+                    wedgeprops=dict(width=0.45, edgecolor='white', linewidth=2),
+                    textprops=dict(fontsize=8, fontweight='bold', color='#1e3d2f')
                 )
                 for autotext in autotexts:
                     autotext.set_color('white')
@@ -1211,21 +1231,57 @@ elif mod_actual == "Reporte Semanal Centracom":
                 st.pyplot(fig_pie)
 
             st.markdown("---")
-            st.markdown("##### **Tablas de Datos Consolidados**")
+            st.markdown("##### **Tablas de Datos Consolidados (Formato Oficial)**")
             
-            df_tabla_serv = df_filtrado_c[["tipo_servicio", "cantidad", "porcentaje"]].copy()
+            # Tabla 1: Servicios Realizados sin duplicados
+            df_tabla_serv = df_filtrado_c.groupby("tipo_servicio", as_index=False).agg({"cantidad": "sum"})
+            total_cant = df_tabla_serv["cantidad"].sum()
+            df_tabla_serv["%"] = (df_tabla_serv["cantidad"] / total_cant * 100) if total_cant > 0 else 0.0
             df_tabla_serv = df_tabla_serv.sort_values(by="cantidad", ascending=False)
+            
             df_tabla_serv.columns = ["SERVICIO REALIZADOS", "CANTIDAD", "%"]
             df_tabla_serv["%"] = df_tabla_serv["%"].apply(lambda x: f"{x:.2f}%")
             
-            total_pct = df_filtrado_c["porcentaje"].sum()
-            df_totales_row = pd.DataFrame([["TOTAL", total_cant, f"{total_pct:.0f}%"]], columns=df_tabla_serv.columns)
+            total_pct = 100.00
+            df_totales_row = pd.DataFrame([["TOTAL", total_cant, f"{total_pct:.2f}%"]], columns=df_tabla_serv.columns)
             df_tabla_serv = pd.concat([df_tabla_serv, df_totales_row], ignore_index=True)
 
             try:
                 st.dataframe(aplicar_estilo_tabla(df_tabla_serv), use_container_width=True, hide_index=True)
             except Exception:
                 st.dataframe(df_tabla_serv, use_container_width=True, hide_index=True)
+
+            st.markdown("---")
+            
+            # Tablas inferiores de Solicitudes y Cancelaciones restauradas
+            col_b1, col_b2 = st.columns(2)
+            with col_b1:
+                st.markdown("##### **Resumen de Solicitudes**")
+                pct_can_gen = (t_can / t_sol * 100) if t_sol > 0 else 0
+                pct_real_gen = (total_cant / t_sol * 100) if t_sol > 0 else 0
+                df_resumen_sol = pd.DataFrame([
+                    {"Concepto": "TOTAL SERVICIOS SOLICITADOS", "Cantidad": t_sol, "%": "100.00%"},
+                    {"Concepto": "CANCELADO", "Cantidad": t_can, "%": f"{pct_can_gen:.2f}%"},
+                    {"Concepto": "REALIZADO", "Cantidad": total_cant, "%": f"{pct_real_gen:.2f}%"}
+                ])
+                try:
+                    st.dataframe(aplicar_estilo_tabla(df_resumen_sol), use_container_width=True, hide_index=True)
+                except Exception:
+                    st.dataframe(df_resumen_sol, use_container_width=True, hide_index=True)
+
+            with col_b2:
+                st.markdown("##### **Detalle de Cancelaciones**")
+                pct_asig = (t_asig / t_can * 100) if t_can > 0 else 0
+                pct_no_asig = (t_no_asig / t_can * 100) if t_can > 0 else 0
+                df_resumen_can = pd.DataFrame([
+                    {"Concepto": "TOTAL SERVICIOS CANCELADOS", "Cantidad": t_can, "%": "100.00%"},
+                    {"Concepto": "CANCELADOS ASIGNADOS", "Cantidad": t_asig, "%": f"{pct_asig:.2f}%"},
+                    {"Concepto": "CANCELADOS NO ASIGNADOS", "Cantidad": t_no_asig, "%": f"{pct_no_asig:.2f}%"}
+                ])
+                try:
+                    st.dataframe(aplicar_estilo_tabla(df_resumen_can), use_container_width=True, hide_index=True)
+                except Exception:
+                    st.dataframe(df_resumen_can, use_container_width=True, hide_index=True)
 
             csv_centracom = df_tabla_serv.to_csv(index=False).encode("utf-8")
             st.download_button(
@@ -1236,7 +1292,7 @@ elif mod_actual == "Reporte Semanal Centracom":
                 use_container_width=True
             )
         else:
-            st.info("ℹ️ Selecciona un periodo válido en los filtros superiores para visualizar las gráficas.")
+            st.info("ℹ️ Selecciona un periodo válido en los filtros superiores para visualizar las gráficas y tablas.")
     else:
         st.warning("⚠️ No hay registros en la tabla `reporte_centracom_semanal`. Usa el formulario superior para realizar tu primer registro.")
 
