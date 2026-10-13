@@ -1067,30 +1067,47 @@ elif mod_actual == "Conciliación Financiera y Pagos":
 # -----------------------------------------------------------------------------
 elif mod_actual == "Reporte Semanal Centracom":
     st.markdown('<p class="subtitulo-seccion">Reporte Semanal CENTRACOM - Control y Operación</p>', unsafe_allow_html=True)
-    st.info("📊 Módulo para la captura, cálculo porcentual automático y seguimiento histórico de los servicios coordinados por Centracom.")
+    st.info("📊 Módulo para la captura, cálculo porcentual automático, análisis gráfico y seguimiento histórico de los servicios coordinados por CENTRACOM.")
 
-    with st.expander("📝 Capturar o Registrar Datos de la Semana", expanded=True):
-        st.markdown("##### **Definir Periodo del Reporte**")
-        c_per1, c_per2 = st.columns(2)
-        semana_input = c_per1.text_input("Descripción del Periodo (Ej. Quinta semana de septiembre 2026):", value="Del 24 al 30 de Septiembre de 2026")
-        rango_fechas = c_per2.text_input("Fechas Específicas:", value="24/09/2026 al 30/09/2026")
+    with st.expander("📝 Capturar o Registrar Datos de la Semana", expanded=False):
+        st.markdown("##### **Definir Periodo del Reporte en Calendario**")
+        c_per1, c_per2, c_per3 = st.columns(3)
+        
+        # Selectores de fecha interactivos con calendario
+        f_inicio = c_per1.date_input("📅 Fecha de Inicio:", value=date(2026, 9, 24))
+        f_fin = c_per2.date_input("📅 Fecha de Fin:", value=date(2026, 9, 30))
+        
+        semana_input = c_per3.text_input(
+            "Descripción del Periodo:", 
+            value=f"Quinta semana de septiembre ({f_inicio.strftime('%d/%m/%Y')} al {f_fin.strftime('%d/%m/%Y')})"
+        )
+        
+        rango_fechas_str = f"{f_inicio.strftime('%d/%m/%Y')} al {f_fin.strftime('%d/%m/%Y')}"
 
         st.markdown("---")
         st.markdown("##### **1. Servicios Realizados (Cantidad por tipo)**")
         
-        # Lista base de servicios del formato Centracom
         servicios_base = [
             "HEMODIALISIS", "CITA", "ALTA", "TRAUMA/ORTO", "FISICA", 
             "ZONIFICACION", "INTERCONSULTA", "ONCOLOGIA", "COMISION", 
             "ORGANOS", "INFECTO", "TRASLAPE", "AEROPUERTO", "PSIQUIATRIA", "PERSONAL MEDICO"
         ]
 
-        # Creamos un formulario dinámico para capturar las cantidades
+        # Valores por defecto tomados de tu reporte para facilitar pruebas
+        valores_defecto = {
+            "HEMODIALISIS": 2171, "CITA": 535, "ALTA": 357, "TRAUMA/ORTO": 318,
+            "FISICA": 144, "ZONIFICACION": 123, "INTERCONSULTA": 103, "ONCOLOGIA": 82,
+            "COMISION": 39, "ORGANOS": 20, "INFECTO": 18, "TRASLAPE": 13,
+            "AEROPUERTO": 12, "PSIQUIATRIA": 11, "PERSONAL MEDICO": 8
+        }
+
         cantidades_capturadas = {}
         cols_serv = st.columns(3)
         for idx, serv in enumerate(servicios_base):
             col_target = cols_serv[idx % 3]
-            cantidades_capturadas[serv] = col_target.number_input(f"{serv}", min_value=0, value=0, step=1, key=f"cant_{serv}")
+            cantidades_capturadas[serv] = col_target.number_input(
+                f"{serv}", min_value=0, value=valores_defecto.get(serv, 0), step=1, key=f"cant_{serv}"
+            )
 
         st.markdown("---")
         st.markdown("##### **2. Totales de Solicitudes y Cancelaciones**")
@@ -1104,12 +1121,11 @@ elif mod_actual == "Reporte Semanal Centracom":
             try:
                 suma_realizados = sum(cantidades_capturadas.values())
                 
-                # Preparamos registros para insertar en Supabase si está disponible
                 registros_a_guardar = []
                 for serv, cant in cantidades_capturadas.items():
                     pct = (cant / suma_realizados * 100) if suma_realizados > 0 else 0.0
                     registros_a_guardar.append({
-                        "semana_periodo": f"{semana_input} ({rango_fechas})",
+                        "semana_periodo": f"{semana_input} ({rango_fechas_str})",
                         "tipo_servicio": serv,
                         "cantidad": int(cant),
                         "porcentaje": round(pct, 2),
@@ -1117,18 +1133,17 @@ elif mod_actual == "Reporte Semanal Centracom":
                     })
 
                 if supabase and registros_a_guardar:
-                    # Limpiamos periodo previo si se desea actualizar o insertamos directamente
                     supabase.table("reporte_centracom_semanal").insert(registros_a_guardar).execute()
 
-                st.success(f"¡Reporte guardado con éxito! Total de servicios realizados calculados: {suma_realizados:,}")
+                st.success(f"¡Reporte guardado con éxito! Total servicios realizados: {suma_realizados:,}")
                 st.rerun()
             except Exception as e:
                 st.error(f"Error al guardar el reporte: {e}")
 
     st.markdown("---")
-    st.markdown("##### **📊 Visualización del Reporte Consolidado (Formato Oficial)**")
+    st.markdown("##### **📊 Visualización Ejecutiva y Gráficas del Reporte**")
 
-    # Intentamos cargar los datos desde Supabase
+    # Carga de datos desde Supabase
     try:
         res_centracom = supabase.table("reporte_centracom_semanal").select("*").execute()
         df_centracom = pd.DataFrame(res_centracom.data or [])
@@ -1136,31 +1151,100 @@ elif mod_actual == "Reporte Semanal Centracom":
         df_centracom = pd.DataFrame()
 
     if not df_centracom.empty:
-        # Selector de periodo histórico guardado
         periodos_disponibles = df_centracom["semana_periodo"].unique().tolist()
-        periodo_elegido = st.selectbox("Seleccionar Periodo de Reporte a Consultar:", periodos_disponibles)
+        periodo_elegido = st.selectbox("Seleccionar Periodo a Consultar:", periodos_disponibles)
 
-        df_filtrado_c = df_centracom[df_centracom["semana_periodo"] == periodo_elegido]
+        df_filtrado_c = df_centracom[df_centracom["semana_periodo"] == periodo_elegido].copy()
 
         if not df_filtrado_c.empty:
-            st.markdown(f"###### **Periodo:** `{periodo_elegido}`")
+            st.markdown(f"###### **Periodo Seleccionado:** `{periodo_elegido}`")
             
-            # Tabla 1: Servicios Realizados
+            # --- SECCIÓN DE GRÁFICAS EJECUTIVAS ---
+            g_col1, g_col2 = st.columns([1.8, 1.2], gap="medium")
+
+            with g_col1:
+                st.markdown("##### **Top Servicios Realizados (Distribución)**")
+                df_g_serv = df_filtrado_c.sort_values(by="cantidad", ascending=True)
+                
+                fig_bar, ax_bar = plt.subplots(figsize=(6, 4))
+                bars = ax_bar.barh(df_g_serv["tipo_servicio"], df_g_serv["cantidad"], color=COLORES_PANTONE["626"])
+                
+                ax_bar.tick_params(axis='both', labelsize=8)
+                ax_bar.grid(axis='x', linestyle=':', alpha=0.5)
+                
+                # Agregar valores al final de cada barra
+                for bar in bars:
+                    w = bar.get_width()
+                    if w > 0:
+                        ax_bar.text(w + (max(df_g_serv["cantidad"])*0.01), bar.get_y() + bar.get_height()/2, f'{int(w):,}', 
+                                    ha='left', va='center', fontsize=7, fontweight='bold', color='#333333')
+                
+                fig_bar.tight_layout()
+                st.pyplot(fig_bar)
+
+            with g_col2:
+                st.markdown("##### **Cumplimiento y Cancelaciones**")
+                
+                total_cant = df_filtrado_c["cantidad"].sum()
+                
+                # Grafica 1: Realizados vs Cancelados
+                fig_pie, ax_pie = plt.subplots(figsize=(3.5, 2.5))
+                valores_pie = [total_cant, total_cancelados]
+                etiquetas_pie = ['Realizados', 'Cancelados']
+                colores_pie = [COLORES_PANTONE["561"], COLORES_PANTONE["7420"]]
+                
+                wedges, texts, autotexts = ax_pie.pie(
+                    valores_pie, labels=etiquetas_pie, autopct='%1.1f%%',
+                    startangle=140, colors=colores_pie,
+                    wedgeprops=dict(width=0.4, edgecolor='white', linewidth=2),
+                    textprops=dict(fontsize=8)
+                )
+                for autotext in autotexts:
+                    autotext.set_color('white')
+                    autotext.set_weight('bold')
+                
+                ax_pie.axis('equal')
+                fig_pie.tight_layout()
+                st.pyplot(fig_pie)
+
+                # Grafica 2: Desglose de Cancelados (Asignados vs No Asignados)
+                st.markdown("##### **Desglose de Cancelaciones**")
+                fig_can, ax_can = plt.subplots(figsize=(3.5, 2.2))
+                valores_can = [cancelados_asignados, cancelados_no_asignados]
+                etiquetas_can = ['Asignados', 'No Asignados']
+                colores_can = [COLORES_PANTONE["465"], COLORES_PANTONE["7421"]]
+                
+                wedges2, texts2, autotexts2 = ax_can.pie(
+                    valores_can, labels=etiquetas_can, autopct='%1.1f%%',
+                    startangle=90, colors=colores_can,
+                    wedgeprops=dict(width=0.4, edgecolor='white', linewidth=2),
+                    textprops=dict(fontsize=8)
+                )
+                for autotext in autotexts2:
+                    autotext.set_color('white')
+                    autotext.set_weight('bold')
+                
+                ax_can.axis('equal')
+                fig_can.tight_layout()
+                st.pyplot(fig_can)
+
+            st.markdown("---")
+
+            # --- TABLAS DETALLADAS (FORMATO OFICIAL) ---
+            st.markdown("##### **Tablas de Datos Consolidados**")
+            
             df_tabla_serv = df_filtrado_c[["tipo_servicio", "cantidad", "porcentaje"]].copy()
+            df_tabla_serv = df_tabla_serv.sort_values(by="cantidad", ascending=False)
             df_tabla_serv.columns = ["SERVICIO REALIZADOS", "CANTIDAD", "%"]
             df_tabla_serv["%"] = df_tabla_serv["%"].apply(lambda x: f"{x:.2f}%")
             
-            # Añadir fila de Total
-            total_cant = df_filtrado_c["cantidad"].sum()
             total_pct = df_filtrado_c["porcentaje"].sum()
-            df_totales_row = pd.DataFrame([["TOTAL", total_cant, f"{total_pct:.2f}%"]], columns=df_tabla_serv.columns)
+            df_totales_row = pd.DataFrame([["TOTAL", total_cant, f"{total_pct:.0f}%"]], columns=df_tabla_serv.columns)
             df_tabla_serv = pd.concat([df_tabla_serv, df_totales_row], ignore_index=True)
 
-            st.dataframe(df_tabla_serv, use_container_width=True, hide_index=True)
+            st.dataframe(aplicar_estilo_tabla(df_tabla_serv), use_container_width=True, hide_index=True)
 
             st.markdown("---")
-            
-            # Bloques inferiores de Solicitados y Cancelados
             col_b1, col_b2 = st.columns(2)
             with col_b1:
                 st.markdown("##### **Resumen de Solicitudes**")
@@ -1169,28 +1253,27 @@ elif mod_actual == "Reporte Semanal Centracom":
                     {"Concepto": "CANCELADO", "Cantidad": total_cancelados, "%": f"{(total_cancelados/total_solicitados*100):.2f}%" if total_solicitados>0 else "0%"},
                     {"Concepto": "REALIZADO", "Cantidad": total_cant, "%": f"{(total_cant/total_solicitados*100):.2f}%" if total_solicitados>0 else "0%"}
                 ])
-                st.dataframe(df_resumen_sol, use_container_width=True, hide_index=True)
+                st.dataframe(aplicar_estilo_tabla(df_resumen_sol), use_container_width=True, hide_index=True)
 
             with col_b2:
-                st.markdown("##### **Detalle de Cancelados**")
+                st.markdown("##### **Detalle de Cancelaciones**")
                 df_resumen_can = pd.DataFrame([
                     {"Concepto": "TOTAL SERVICIOS CANCELADOS", "Cantidad": total_cancelados, "%": "100.00%"},
                     {"Concepto": "CANCELADOS ASIGNADOS", "Cantidad": cancelados_asignados, "%": f"{(cancelados_asignados/total_cancelados*100):.2f}%" if total_cancelados>0 else "0%"},
                     {"Concepto": "CANCELADOS NO ASIGNADOS", "Cantidad": cancelados_no_asignados, "%": f"{(cancelados_no_asignados/total_cancelados*100):.2f}%" if total_cancelados>0 else "0%"}
                 ])
-                st.dataframe(df_resumen_can, use_container_width=True, hide_index=True)
+                st.dataframe(aplicar_estilo_tabla(df_resumen_can), use_container_width=True, hide_index=True)
 
-            # Botón de descarga CSV
             csv_centracom = df_tabla_serv.to_csv(index=False).encode("utf-8")
             st.download_button(
-                label="📥 Descargar Reporte Centracom (CSV)",
+                label="📥 Descargar Reporte CENTRACOM (CSV)",
                 data=csv_centracom,
                 file_name=f"reporte_centracom_{periodo_elegido.lower().replace(' ', '_')}.csv",
                 mime="text/csv",
                 use_container_width=True
             )
     else:
-        st.warning("⚠️ No hay registros en la tabla `reporte_centracom_semanal`. Usa el formulario superior para realizar la primera captura.")
+        st.warning("⚠️ No hay registros guardados en `reporte_centracom_semanal`. Realiza la captura inicial en la sección desplegable.")
 # -----------------------------------------------------------------------------
 # FIRMA INSTITUCIONAL FINAL
 # -----------------------------------------------------------------------------
