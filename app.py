@@ -447,6 +447,7 @@ with st.sidebar:
         "Reportes y Exportación",
         "Conciliación Financiera y Pagos",
         "Detalle y Análisis Financiero",
+        "Reporte Semanal Centracom",
     ]
 
     if st.session_state.modulo_activo not in modulos:
@@ -1061,7 +1062,135 @@ elif mod_actual == "Conciliación Financiera y Pagos":
             mime="text/csv",
             use_container_width=True
         )
+# -----------------------------------------------------------------------------
+# 11. REPORTE SEMANAL CENTRACOM
+# -----------------------------------------------------------------------------
+elif mod_actual == "Reporte Semanal Centracom":
+    st.markdown('<p class="subtitulo-seccion">Reporte Semanal CENTRACOM - Control y Operación</p>', unsafe_allow_html=True)
+    st.info("📊 Módulo para la captura, cálculo porcentual automático y seguimiento histórico de los servicios coordinados por Centracom.")
 
+    with st.expander("📝 Capturar o Registrar Datos de la Semana", expanded=True):
+        st.markdown("##### **Definir Periodo del Reporte**")
+        c_per1, c_per2 = st.columns(2)
+        semana_input = c_per1.text_input("Descripción del Periodo (Ej. Quinta semana de septiembre 2026):", value="Del 24 al 30 de Septiembre de 2026")
+        rango_fechas = c_per2.text_input("Fechas Específicas:", value="24/09/2026 al 30/09/2026")
+
+        st.markdown("---")
+        st.markdown("##### **1. Servicios Realizados (Cantidad por tipo)**")
+        
+        # Lista base de servicios del formato Centracom
+        servicios_base = [
+            "HEMODIALISIS", "CITA", "ALTA", "TRAUMA/ORTO", "FISICA", 
+            "ZONIFICACION", "INTERCONSULTA", "ONCOLOGIA", "COMISION", 
+            "ORGANOS", "INFECTO", "TRASLAPE", "AEROPUERTO", "PSIQUIATRIA", "PERSONAL MEDICO"
+        ]
+
+        # Creamos un formulario dinámico para capturar las cantidades
+        cantidades_capturadas = {}
+        cols_serv = st.columns(3)
+        for idx, serv in enumerate(servicios_base):
+            col_target = cols_serv[idx % 3]
+            cantidades_capturadas[serv] = col_target.number_input(f"{serv}", min_value=0, value=0, step=1, key=f"cant_{serv}")
+
+        st.markdown("---")
+        st.markdown("##### **2. Totales de Solicitudes y Cancelaciones**")
+        c_tot1, c_tot2, c_tot3 = st.columns(3)
+        total_solicitados = c_tot1.number_input("Total Servicios Solicitados:", min_value=0, value=4229)
+        total_cancelados = c_tot2.number_input("Total Servicios Cancelados:", min_value=0, value=275)
+        cancelados_asignados = c_tot3.number_input("Cancelados Asignados:", min_value=0, value=173)
+        cancelados_no_asignados = total_cancelados - cancelados_asignados
+
+        if st.button("💾 Guardar y Calcular Reporte Semanal Centracom", type="primary"):
+            try:
+                suma_realizados = sum(cantidades_capturadas.values())
+                
+                # Preparamos registros para insertar en Supabase si está disponible
+                registros_a_guardar = []
+                for serv, cant in cantidades_capturadas.items():
+                    pct = (cant / suma_realizados * 100) if suma_realizados > 0 else 0.0
+                    registros_a_guardar.append({
+                        "semana_periodo": f"{semana_input} ({rango_fechas})",
+                        "tipo_servicio": serv,
+                        "cantidad": int(cant),
+                        "porcentaje": round(pct, 2),
+                        "categoria_bloque": "SERVICIOS REALIZADOS"
+                    })
+
+                if supabase and registros_a_guardar:
+                    # Limpiamos periodo previo si se desea actualizar o insertamos directamente
+                    supabase.table("reporte_centracom_semanal").insert(registros_a_guardar).execute()
+
+                st.success(f"¡Reporte guardado con éxito! Total de servicios realizados calculados: {suma_realizados:,}")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error al guardar el reporte: {e}")
+
+    st.markdown("---")
+    st.markdown("##### **📊 Visualización del Reporte Consolidado (Formato Oficial)**")
+
+    # Intentamos cargar los datos desde Supabase
+    try:
+        res_centracom = supabase.table("reporte_centracom_semanal").select("*").execute()
+        df_centracom = pd.DataFrame(res_centracom.data or [])
+    except Exception:
+        df_centracom = pd.DataFrame()
+
+    if not df_centracom.empty:
+        # Selector de periodo histórico guardado
+        periodos_disponibles = df_centracom["semana_periodo"].unique().tolist()
+        periodo_elegido = st.selectbox("Seleccionar Periodo de Reporte a Consultar:", periodos_disponibles)
+
+        df_filtrado_c = df_centracom[df_centracom["semana_periodo"] == periodo_elegido]
+
+        if not df_filtrado_c.empty:
+            st.markdown(f"###### **Periodo:** `{periodo_elegido}`")
+            
+            # Tabla 1: Servicios Realizados
+            df_tabla_serv = df_filtrado_c[["tipo_servicio", "cantidad", "porcentaje"]].copy()
+            df_tabla_serv.columns = ["SERVICIO REALIZADOS", "CANTIDAD", "%"]
+            df_tabla_serv["%"] = df_tabla_serv["%"].apply(lambda x: f"{x:.2f}%")
+            
+            # Añadir fila de Total
+            total_cant = df_filtrado_c["cantidad"].sum()
+            total_pct = df_filtrado_c["porcentaje"].sum()
+            df_totales_row = pd.DataFrame([["TOTAL", total_cant, f"{total_pct:.2f}%"]], columns=df_tabla_serv.columns)
+            df_tabla_serv = pd.concat([df_tabla_serv, df_totales_row], ignore_index=True)
+
+            st.dataframe(df_tabla_serv, use_container_width=True, hide_index=True)
+
+            st.markdown("---")
+            
+            # Bloques inferiores de Solicitados y Cancelados
+            col_b1, col_b2 = st.columns(2)
+            with col_b1:
+                st.markdown("##### **Resumen de Solicitudes**")
+                df_resumen_sol = pd.DataFrame([
+                    {"Concepto": "TOTAL SERVICIOS SOLICITADOS", "Cantidad": total_solicitados, "%": "100.00%"},
+                    {"Concepto": "CANCELADO", "Cantidad": total_cancelados, "%": f"{(total_cancelados/total_solicitados*100):.2f}%" if total_solicitados>0 else "0%"},
+                    {"Concepto": "REALIZADO", "Cantidad": total_cant, "%": f"{(total_cant/total_solicitados*100):.2f}%" if total_solicitados>0 else "0%"}
+                ])
+                st.dataframe(df_resumen_sol, use_container_width=True, hide_index=True)
+
+            with col_b2:
+                st.markdown("##### **Detalle de Cancelados**")
+                df_resumen_can = pd.DataFrame([
+                    {"Concepto": "TOTAL SERVICIOS CANCELADOS", "Cantidad": total_cancelados, "%": "100.00%"},
+                    {"Concepto": "CANCELADOS ASIGNADOS", "Cantidad": cancelados_asignados, "%": f"{(cancelados_asignados/total_cancelados*100):.2f}%" if total_cancelados>0 else "0%"},
+                    {"Concepto": "CANCELADOS NO ASIGNADOS", "Cantidad": cancelados_no_asignados, "%": f"{(cancelados_no_asignados/total_cancelados*100):.2f}%" if total_cancelados>0 else "0%"}
+                ])
+                st.dataframe(df_resumen_can, use_container_width=True, hide_index=True)
+
+            # Botón de descarga CSV
+            csv_centracom = df_tabla_serv.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="📥 Descargar Reporte Centracom (CSV)",
+                data=csv_centracom,
+                file_name=f"reporte_centracom_{periodo_elegido.lower().replace(' ', '_')}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+    else:
+        st.warning("⚠️ No hay registros en la tabla `reporte_centracom_semanal`. Usa el formulario superior para realizar la primera captura.")
 # -----------------------------------------------------------------------------
 # FIRMA INSTITUCIONAL FINAL
 # -----------------------------------------------------------------------------
