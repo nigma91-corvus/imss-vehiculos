@@ -208,12 +208,13 @@ def cargar_datos_supabase(categoria):
     except Exception:
         return pd.DataFrame(columns=COLUMNAS_OFICIALES)
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=10)
 def cargar_taller_supabase():
     if not supabase:
         return []
     try:
-        res = supabase.table("taller_incidencias").select("*").execute()
+        # Apuntamos correctamente a reporte_semanal para cargar los registros de taller
+        res = supabase.table("reporte_semanal").select("*").execute()
         rows = res.data or []
         mapped = []
         for r in rows:
@@ -229,7 +230,7 @@ def cargar_taller_supabase():
                 "Observaciones": r.get("observaciones") or r.get("Observaciones", "")
             })
         return mapped
-    except Exception:
+    except Exception as e:
         return []
 
 @st.cache_data(ttl=60)
@@ -282,9 +283,6 @@ if "categoria_seleccionada" not in st.session_state:
 
 if "modulo_activo" not in st.session_state:
     st.session_state.modulo_activo = "Dashboard General"
-
-if "taller_registros" not in st.session_state:
-    st.session_state.taller_registros = cargar_taller_supabase()
 
 if "bitacora_cargas" not in st.session_state:
     st.session_state.bitacora_cargas = cargar_bitacora_cargas_supabase()
@@ -565,8 +563,9 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
     col_filtro_semaforo, col_descarga = st.columns([3, 1])
     ciudad_sel = col_filtro_semaforo.selectbox("Seleccionar Vista / Filtro de Ciudad:", ["Todas las Ciudades (General)"] + lista_ciudades)
 
+    taller_registros_actuales = cargar_taller_supabase()
     if not df_base.empty and "UBICACIÓN" in df_base.columns:
-        ecos_en_taller = {r.get("eco", r.get("ECO")) for r in st.session_state.get("taller_registros", []) if r.get("estatus", r.get("Estatus")) == "Activo (En Taller)"}
+        ecos_en_taller = {r.get("ECO") for r in taller_registros_actuales if r.get("Estatus") == "Activo (En Taller)"}
         df_temp = df_base.copy()
         df_temp["en_taller"] = df_temp["eco"].isin(ecos_en_taller)
         df_temp["es_titular_activo"] = (df_temp["estatus"] == "Titular Activo") & (~df_temp["en_taller"])
@@ -637,13 +636,13 @@ elif mod_actual == "Control del Pool de Sustitutos (20%)":
 
         st.markdown("---")
         st.markdown("##### **Solicitudes y Entregas de Sustitutos en Seguimiento (SLA 48 horas)**")
-        taller_regs = st.session_state.get("taller_registros", [])
+        taller_regs = cargar_taller_supabase()
         data_tabla = [{
-            "ECO Titular": r.get("eco", r.get("ECO", "")),
-            "Ciudad / OOAD": r.get("ubicacion", r.get("UBICACIÓN", r.get("Ciudad", ""))),
-            "Fecha/Hora Ingreso Taller": r.get("fecha_ingreso", r.get("Fecha Ingreso", "")),
-            "ECO Sustituto Asignado": r.get("eco_sustituto", r.get("ECO Sustituto", "Pendiente")),
-            "Estatus Cumplimiento SLA": r.get("estatus_sla", r.get("SLA", "En Tiempo")),
+            "ECO Titular": r.get("ECO", ""),
+            "Ciudad / OOAD": r.get("Taller", ""),
+            "Fecha/Hora Ingreso Taller": r.get("Fecha_Ingreso", ""),
+            "ECO Sustituto Asignado": r.get("Sustituto", "Pendiente"),
+            "Estatus Cumplimiento SLA": r.get("Estatus", "En Tiempo"),
         } for r in taller_regs] if taller_regs else []
 
         st.dataframe(pd.DataFrame(data_tabla, columns=["ECO Titular", "Ciudad / OOAD", "Fecha/Hora Ingreso Taller", "ECO Sustituto Asignado", "Estatus Cumplimiento SLA"]), use_container_width=True, hide_index=True)
@@ -677,7 +676,8 @@ elif mod_actual == "Expediente por ECO y Documental":
                         st.info(f"📷 [Sin foto en catálogo para: {tipo_v} - {linea_v}]")
 
                 with col_info_cat:
-                    en_taller = any(r["ECO"] == v_data["eco"] and r["Estatus"] == "Activo (En Taller)" for r in st.session_state.get("taller_registros", []))
+                    taller_regs_check = cargar_taller_supabase()
+                    en_taller = any(r["ECO"] == v_data["eco"] and r["Estatus"] == "Activo (En Taller)" for r in taller_regs_check)
                     estatus_veh = "En Taller" if en_taller else str(v_data.get("estatus", "Titular Activo"))
                     badge_class = "badge-verde" if "Activo" in estatus_veh else ("badge-amarillo" if "Taller" in estatus_veh else "badge-rojo")
 
@@ -752,17 +752,14 @@ elif mod_actual == "Registro de Taller e Incidencias":
     st.markdown(f'<p class="subtitulo-seccion">Registro de Taller, Incidencias y Siniestros - Flotilla {cat_actual}</p>', unsafe_allow_html=True)
     st.info("🔧 Módulo operativo para el control de entradas, salidas, asignación de sustitutos y bitácora de taller conectada a Supabase.")
 
-    # --- FORMULARIO DE REGISTRO / ENTRADA A TALLER ---
     with st.expander("📝 Registrar Nueva Entrada a Taller o Incidencia", expanded=False):
         st.markdown("##### **Datos de la Incidencia / Mantenimiento**")
         
-        # Obtenemos lista de ecos disponibles en la flotilla actual
         lista_ecos_taller = sorted(df_base["eco"].dropna().astype(str).unique().tolist()) if not df_base.empty and "eco" in df_base.columns else ["ECO-001", "ECO-002"]
 
         c_t1, c_t2, c_t3 = st.columns(3)
         eco_taller_sel = c_t1.selectbox("Vehículo (ECO):", lista_ecos_taller, key="taller_eco_sel")
         
-        # Buscamos el tipo de vehículo automáticamente si existe en df_base
         tipo_auto_default = "Vehículo"
         if not df_base.empty and "eco" in df_base.columns and "tipo" in df_base.columns:
             match_v = df_base[df_base["eco"].astype(str) == eco_taller_sel]
@@ -800,10 +797,8 @@ elif mod_actual == "Registro de Taller e Incidencias":
                 if supabase is None:
                     st.error("⚠️ Error: Cliente de Supabase no inicializado.")
                 else:
-                    # Guardamos directamente en la tabla reporte_semanal
                     supabase.table("reporte_semanal").insert(nuevo_registro_taller).execute()
                     st.success(f"¡Incidencia del ECO `{eco_taller_sel}` registrada con éxito en el taller!")
-                    # Limpiamos caché para forzar la recarga inmediata de la tabla
                     st.cache_data.clear()
                     st.rerun()
             except Exception as e:
@@ -812,7 +807,6 @@ elif mod_actual == "Registro de Taller e Incidencias":
     st.markdown("---")
     st.markdown("##### **📋 Bitácora Activa de Unidades en Taller e Incidencias**")
 
-    # Cargamos los datos actualizados de la tabla reporte_semanal
     taller_registros_actualizados = cargar_taller_supabase()
 
     if len(taller_registros_actualizados) > 0:
@@ -1247,57 +1241,4 @@ elif mod_actual == "Carga Inicial Masiva":
 
     with st.expander("🔑 Autenticación de Administrador", expanded=not st.session_state.get("admin_autenticado", False)):
         usr = st.text_input("Usuario Administrador:", key="admin_user_input")
-        pwd = st.text_input("Contraseña:", type="password", key="admin_pwd_input")
-        if st.button("Iniciar Sesión"):
-            if usr == "e.casas" and pwd == "99094056":
-                st.session_state.admin_autenticado = True
-                st.success("Acceso concedido como Administrador Central.")
-                st.rerun()
-            else:
-                st.error("Credenciales incorrectas.")
-
-    if st.session_state.get("admin_autenticado", False):
-        st.markdown("##### **1. Descargar Plantilla Oficial**")
-        columnas_plantilla = ["eco", "tipo", "linea", "ubicacion", "arrendadora", "estatus", "placas", "vin", "no_tc", "ultimo_servicio", "cuota_diaria", "total_dias_servicio", "costo_mensual_sin_iva", "total_deduccion", "total_a_pagar", "foto_frontal", "foto_trasera", "foto_lateral_der", "foto_lateral_izq", "documentos"]
-        df_plantilla = pd.DataFrame(columns=columnas_plantilla)
-        st.download_button(label="📥 Descargar Plantilla CSV Oficial", data=df_plantilla.to_csv(index=False).encode("utf-8-sig"), file_name=f"plantilla_carga_{cat_actual.lower()}.csv", mime="text/csv")
-
-        st.markdown("---")
-        st.markdown(f"##### **2. Subir Archivo de Plantilla para: {cat_actual} (.xlsx o .csv)**")
-        up_file = st.file_uploader("Cargar libro de Excel o CSV con estructura oficial:", type=["xlsx", "csv"])
-        
-        if up_file is not None:
-            if st.button("Procesar y Guardar en Supabase"):
-                try:
-                    df_subido = pd.read_csv(up_file, dtype=str) if up_file.name.endswith(".csv") else pd.read_excel(up_file, dtype=str)
-                    df_subido.columns = df_subido.columns.str.strip().str.lower()
-                    if "eco" not in df_subido.columns:
-                        st.error("⚠️ El archivo cargado no contiene la columna 'eco'.")
-                    else:
-                        df_subido["eco"] = df_subido["eco"].astype(str).str.strip()
-                        tabla_map = {"Administrativos": "vehiculos_administrativos", "Ambulancias": "vehiculos_ambulancias", "Institucionales": "vehiculos_institucionales"}
-                        nombre_tabla = tabla_map.get(cat_actual, "vehiculos_administrativos")
-                        
-                        df_subido = df_subido.where(pd.notnull(df_subido), None)
-                        registros = df_subido.to_dict(orient="records")
-                        for i in range(0, len(registros), 500):
-                            supabase.table(nombre_tabla).insert(registros[i:i+500]).execute()
-
-                        st.cache_data.clear()
-                        st.success(f"¡Base de datos actualizada con éxito en Supabase! Se agregaron {len(df_subido)} unidades.")
-                        st.rerun()
-                except Exception as e:
-                    st.error(f"Error al procesar el archivo: {e}")
-
-        st.markdown("---")
-        st.markdown("##### **Histórico y Bitácora de Cargas Realizadas**")
-        st.dataframe(pd.DataFrame(st.session_state.get("bitacora_cargas", [])), use_container_width=True, hide_index=True)
-
-# -----------------------------------------------------------------------------
-# FIRMA INSTITUCIONAL FINAL
-# -----------------------------------------------------------------------------
-st.markdown("""
-    <div class="footer-firma">
-        Sistema de Control Vehicular IMSS &nbsp;|&nbsp; Creado y desarrollado por: <b>eduardo.casas@imss.gob.mx</b>
-    </div>
-""", unsafe_allow_html=True)
+        pwd = st.text_input("
