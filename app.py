@@ -839,23 +839,32 @@ elif mod_actual == "Registro de Taller e Incidencias":
                 df_taller_view["Taller"].astype(str).str.contains(filtro_eco_texto, case=False, na=False)
             ]
 
-        # --- CÁLCULO AUTOMÁTICO DE DÍAS PARADOS ---
+        # --- CÁLCULO ROBUSTO DE DÍAS PARADOS ---
         def calcular_dias_parada(row_fecha):
-            try:
-                f_ing = datetime.strptime(str(row_fecha).strip(), "%Y-%m-%d").date()
-                # Si sigue en taller o siniestro activo, calculamos contra el día de hoy
-                # Si ya fue liberado, se podría fijar, pero tomamos fecha actual como estándar operativo
+            if not row_fecha or str(row_fecha).strip().lower() in ['nan', 'none', '', 'null', 'n/a']:
+                return 0
+            
+            f_str = str(row_fecha).strip()
+            f_ing = None
+            
+            # Intentar varios formatos de fecha comunes (DD/MM/YYYY y YYYY-MM-DD)
+            formatos_fecha = ["%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%Y/%m/%d"]
+            for fmt in formatos_fecha:
+                try:
+                    f_ing = datetime.strptime(f_str, fmt).date()
+                    break
+                except ValueError:
+                    continue
+            
+            if f_ing:
                 delta = (date.today() - f_ing).days
                 return max(0, delta)
-            except Exception:
-                return 0
+            return 0
 
         if "Fecha_Ingreso" in df_taller_view.columns:
             df_taller_view["Días Parado (Inmovilizado)"] = df_taller_view["Fecha_Ingreso"].apply(calcular_dias_parada)
 
         st.dataframe(aplicar_estilo_tabla(df_taller_view), use_container_width=True, hide_index=True)
-    else:
-        st.info("ℹ️ No hay registros activos en la bitácora de taller (`reporte_semanal`). Utiliza el formulario superior para dar de alta el primer registro.")
 
 # 6. REASIGNACIÓN POR NECESIDAD DE SERVICIO
 elif mod_actual == "Reasignación por Necesidad de Servicio":
