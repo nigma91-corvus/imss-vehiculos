@@ -911,12 +911,107 @@ elif mod_actual == "Registro de Taller e Incidencias":
 
 # 6. REASIGNACIÓN POR NECESIDAD DE SERVICIO
 elif mod_actual == "Reasignación por Necesidad de Servicio":
-    st.markdown('<p class="subtitulo-seccion">Reasignación Geográfica de Vehículos por Necesidad de Servicio</p>', unsafe_allow_html=True)
-    st.info("Permite la transferencia oficial de unidades entre sedes u OOAD.")
-    if len(st.session_state.get("reasignaciones_historial", [])) > 0:
-        st.dataframe(pd.DataFrame(st.session_state.reasignaciones_historial), use_container_width=True, hide_index=True)
+    st.markdown(f'<p class="subtitulo-seccion">Reasignación Geográfica de Vehículos por Necesidad de Servicio</p>', unsafe_allow_html=True)
+    st.info("🔄 Módulo para el control oficial, registro y seguimiento de transferencias de unidades entre sedes u OOAD.")
+
+    # --- FORMULARIO DE REGISTRO DE REASIGNACIÓN ---
+    with st.expander("📝 Registrar Nueva Reasignación de Vehículo", expanded=False):
+        st.markdown("##### **Datos de la Transferencia Operativa**")
+        
+        lista_ecos_reasig = sorted(df_base["eco"].dropna().astype(str).unique().tolist()) if not df_base.empty and "eco" in df_base.columns else ["ECO-001", "ECO-002"]
+
+        c_r1, c_r2, c_r3 = st.columns(3)
+        eco_reasig_sel = c_r1.selectbox("Vehículo (ECO):", lista_ecos_reasig, key="reasig_eco_sel")
+        
+        # Detectar la sede u ubicación actual si viene en df_base
+        sede_origen_default = "Oficina Central"
+        if not df_base.empty and "eco" in df_base.columns and "ubicacion" in df_base.columns:
+            match_v = df_base[df_base["eco"].astype(str) == eco_reasig_sel]
+            if not match_v.empty:
+                sede_origen_default = str(match_v.iloc[0].get("ubicacion", "Oficina Central"))
+
+        sede_origen_r = c_r2.text_input("Sede de Origen:", value=sede_origen_default, key="reasig_origen")
+        sede_destino_r = c_r3.text_input("Sede de Destino (Nueva OOAD/Sede):", value="", key="reasig_destino")
+
+        c_r4, c_r5 = st.columns(2)
+        fecha_reasig = c_r4.date_input("📅 Fecha de Reasignación:", value=date.today(), key="reasig_fecha")
+        oficio_aut_r = c_r5.text_input("Número de Oficio de Autorización:", value="", key="reasig_oficio")
+
+        motivo_r = st.text_area("Motivo de la Reasignación por Necesidad de Servicio:", value="", key="reasig_motivo")
+
+        if st.button("💾 Guardar y Registrar Reasignación", type="primary"):
+            try:
+                nuevo_registro_reasig = {
+                    "eco": str(eco_reasig_sel),
+                    "sede_origen": str(sede_origen_r),
+                    "sede_destino": str(sede_destino_r),
+                    "fecha": str(fecha_reasig),
+                    "motivo": str(motivo_r),
+                    "oficio_autorizacion": str(oficio_aut_r)
+                }
+
+                if supabase is None:
+                    st.error("⚠️ Error: Cliente de Supabase no inicializado.")
+                else:
+                    supabase.table("reasignaciones").insert(nuevo_registro_reasig).execute()
+                    st.success(f"¡Reasignación del ECO `{eco_reasig_sel}` registrada con éxito en Supabase!")
+                    st.cache_data.clear()
+                    st.rerun()
+            except Exception as e:
+                st.error(f"❌ Error al guardar en la tabla `reasignaciones`: {e}")
+
+    st.markdown("---")
+    st.markdown("##### **📋 Histórico Oficial de Reasignaciones**")
+
+    # Función local para recargar el historial fresco de Supabase
+    @st.cache_data(ttl=10)
+    def cargar_reasignaciones_vivo():
+        if not supabase: return []
+        try:
+            res = supabase.table("reasignaciones").select("*").execute()
+            rows = res.data or []
+            mapped = []
+            for r in rows:
+                mapped.append({
+                    "ECO": r.get("eco") or r.get("ECO", ""),
+                    "Sede_Origen": r.get("sede_origen") or r.get("Sede_Origen", ""),
+                    "Sede_Destino": r.get("sede_destino") or r.get("Sede_Destino", ""),
+                    "Fecha": r.get("fecha") or r.get("Fecha", ""),
+                    "Motivo": r.get("motivo") or r.get("Motivo", ""),
+                    "Oficio_Autorizacion": r.get("oficio_autorizacion") or r.get("Oficio_Autorizacion", "")
+                })
+            return mapped
+        except Exception:
+            return []
+
+    historial_reasig = cargar_reasignaciones_vivo()
+
+    if len(historial_reasig) > 0:
+        df_reasig_view = pd.DataFrame(historial_reasig)
+
+        # Filtro de búsqueda rápida
+        filtro_busqueda_r = st.text_input("🔍 Buscar en el Histórico por ECO, Sede u Oficio:", value="", key="filtro_reasig")
+        if filtro_busqueda_r:
+            df_reasig_view = df_reasig_view[
+                df_reasig_view["ECO"].astype(str).str.contains(filtro_busqueda_r, case=False, na=False) |
+                df_reasig_view["Sede_Origen"].astype(str).str.contains(filtro_busqueda_r, case=False, na=False) |
+                df_reasig_view["Sede_Destino"].astype(str).str.contains(filtro_busqueda_r, case=False, na=False) |
+                df_reasig_view["Oficio_Autorizacion"].astype(str).str.contains(filtro_busqueda_r, case=False, na=False)
+            ]
+
+        st.dataframe(aplicar_estilo_tabla(df_reasig_view), use_container_width=True, hide_index=True)
+
+        # Botón de descarga CSV
+        csv_reasig = df_reasig_view.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label="📥 Descargar Histórico de Reasignaciones (CSV)",
+            data=csv_reasig,
+            file_name=f"historial_reasignaciones_{datetime.now().strftime('%Y%m%d')}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
     else:
-        st.info("No hay registros históricos de reasignación.")
+        st.info("ℹ️ No hay registros históricos de reasignación en la base de datos. Utiliza el formulario superior para registrar la primera transferencia.")
 
 # 7. CONCILIACIÓN FINANCIERA Y PAGOS
 elif mod_actual == "Conciliación Financiera y Pagos":
