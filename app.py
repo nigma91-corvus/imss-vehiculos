@@ -1241,4 +1241,57 @@ elif mod_actual == "Carga Inicial Masiva":
 
     with st.expander("🔑 Autenticación de Administrador", expanded=not st.session_state.get("admin_autenticado", False)):
         usr = st.text_input("Usuario Administrador:", key="admin_user_input")
-        pwd = st.text_input("
+        pwd = st.text_input("Contraseña:", type="password", key="admin_pwd_input")
+        if st.button("Iniciar Sesión"):
+            if usr == "e.casas" and pwd == "99094056":
+                st.session_state.admin_autenticado = True
+                st.success("Acceso concedido como Administrador Central.")
+                st.rerun()
+            else:
+                st.error("Credenciales incorrectas.")
+
+    if st.session_state.get("admin_autenticado", False):
+        st.markdown("##### **1. Descargar Plantilla Oficial**")
+        columnas_plantilla = ["eco", "tipo", "linea", "ubicacion", "arrendadora", "estatus", "placas", "vin", "no_tc", "ultimo_servicio", "cuota_diaria", "total_dias_servicio", "costo_mensual_sin_iva", "total_deduccion", "total_a_pagar", "foto_frontal", "foto_trasera", "foto_lateral_der", "foto_lateral_izq", "documentos"]
+        df_plantilla = pd.DataFrame(columns=columnas_plantilla)
+        st.download_button(label="📥 Descargar Plantilla CSV Oficial", data=df_plantilla.to_csv(index=False).encode("utf-8-sig"), file_name=f"plantilla_carga_{cat_actual.lower()}.csv", mime="text/csv")
+
+        st.markdown("---")
+        st.markdown(f"##### **2. Subir Archivo de Plantilla para: {cat_actual} (.xlsx o .csv)**")
+        up_file = st.file_uploader("Cargar libro de Excel o CSV con estructura oficial:", type=["xlsx", "csv"])
+        
+        if up_file is not None:
+            if st.button("Procesar y Guardar en Supabase"):
+                try:
+                    df_subido = pd.read_csv(up_file, dtype=str) if up_file.name.endswith(".csv") else pd.read_excel(up_file, dtype=str)
+                    df_subido.columns = df_subido.columns.str.strip().str.lower()
+                    if "eco" not in df_subido.columns:
+                        st.error("⚠️ El archivo cargado no contiene la columna 'eco'.")
+                    else:
+                        df_subido["eco"] = df_subido["eco"].astype(str).str.strip()
+                        tabla_map = {"Administrativos": "vehiculos_administrativos", "Ambulancias": "vehiculos_ambulancias", "Institucionales": "vehiculos_institucionales"}
+                        nombre_tabla = tabla_map.get(cat_actual, "vehiculos_administrativos")
+                        
+                        df_subido = df_subido.where(pd.notnull(df_subido), None)
+                        registros = df_subido.to_dict(orient="records")
+                        for i in range(0, len(registros), 500):
+                            supabase.table(nombre_tabla).insert(registros[i:i+500]).execute()
+
+                        st.cache_data.clear()
+                        st.success(f"¡Base de datos actualizada con éxito en Supabase! Se agregaron {len(df_subido)} unidades.")
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Error al procesar el archivo: {e}")
+
+        st.markdown("---")
+        st.markdown("##### **Histórico y Bitácora de Cargas Realizadas**")
+        st.dataframe(pd.DataFrame(st.session_state.get("bitacora_cargas", [])), use_container_width=True, hide_index=True)
+
+# -----------------------------------------------------------------------------
+# FIRMA INSTITUCIONAL FINAL
+# -----------------------------------------------------------------------------
+st.markdown("""
+    <div class="footer-firma">
+        Sistema de Control Vehicular IMSS &nbsp;|&nbsp; Creado y desarrollado por: <b>eduardo.casas@imss.gob.mx</b>
+    </div>
+""", unsafe_allow_html=True)
