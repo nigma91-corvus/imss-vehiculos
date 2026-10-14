@@ -1,5 +1,5 @@
 # =============================================================================
-# SISTEMA DE CONTROL VEHICULAR IMSS - VERSIÓN 2.0 (ESTRUCTURA LIMPIA Y MODULAR)
+# SISTEMA DE CONTROL VEHICULAR IMSS - VERSIÓN 2.0 (DEPURADO Y ESTABILIZADO)
 # Desarrollado por: eduardo.casas@imss.gob.mx
 # =============================================================================
 import streamlit as st
@@ -295,15 +295,6 @@ if "reasignaciones_historial" not in st.session_state:
 if "admin_autenticado" not in st.session_state:
     st.session_state.admin_autenticado = False
 
-if "expedientes_fotos" not in st.session_state:
-    st.session_state.expedientes_fotos = {}
-
-if "expedientes_docs" not in st.session_state:
-    st.session_state.expedientes_docs = {}
-
-if "pagos_cargados" not in st.session_state:
-    st.session_state.pagos_cargados = pd.DataFrame()
-
 def cambiar_categoria(cat):
     st.session_state.categoria_seleccionada = cat
     st.session_state.modulo_activo = "Dashboard General"
@@ -367,33 +358,11 @@ st.markdown(
 # BARRA LATERAL (SIDEBAR)
 # -----------------------------------------------------------------------------
 with st.sidebar:
-    st.markdown(
-        """
-        <style>
-            [data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
-                gap: 4px !important;
-            }
-            [data-testid="stSidebar"] .stButton button {
-                min-height: 32px !important;
-                padding: 2px 8px !important;
-            }
-            [data-testid="stSidebar"] .stButton {
-                margin-top: -110px !important;
-                margin-bottom: -110px !important;
-            }
-            [data-testid="stSidebar"] div.stRadio {
-                margin-top: -110px !important;
-            }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    
     if url_logo_supa:
         st.markdown(
             f"""
-            <div style="display: flex; justify-content: center; align-items: center; margin-top: -185px; margin-bottom: 0px;">
-                <img src="{url_logo_supa}" style="max-height: 180px; width: auto; object-fit: contain;">
+            <div style="display: flex; justify-content: center; align-items: center; margin-top: -10px; margin-bottom: 10px;">
+                <img src="{url_logo_supa}" style="max-height: 120px; width: auto; object-fit: contain;">
             </div>
             """,
             unsafe_allow_html=True,
@@ -402,78 +371,57 @@ with st.sidebar:
     color_468 = COLORES_PANTONE["468"]
 
     st.markdown(
-        f"<div style='text-align: center; font-size: 11px; margin-top: -100px; margin-bottom: 0px; line-height: 1.0;'>"
+        f"<div style='text-align: center; font-size: 11px; margin-bottom: 15px; line-height: 1.2;'>"
         "<b>Coordinación Técnica de Servicios Generales</b><br>"
         f"<span style='font-size:9px; color:{color_468};'>"
         "División de Transportes y Operación</span></div>",
         unsafe_allow_html=True,
     )
     
-    st.markdown(
-        "<p style='font-size: 11px; margin-top: -45px; margin-bottom: 2px;'><b>SELECCIONAR FLOTILLA:</b></p>",
-        unsafe_allow_html=True,
-    )
+    st.markdown("<b>FLOTILLA ACTIVA:</b>", unsafe_allow_html=True)
+    st.button("ADMINISTRATIVOS", use_container_width=True, type="primary" if cat_actual == "Administrativos" else "secondary", on_click=cambiar_categoria, args=("Administrativos",))
+    st.button("AMBULANCIAS", use_container_width=True, type="primary" if cat_actual == "Ambulancias" else "secondary", on_click=cambiar_categoria, args=("Ambulancias",))
+    st.button("INSTITUCIONALES", use_container_width=True, type="primary" if cat_actual == "Institucionales" else "secondary", on_click=cambiar_categoria, args=("Institucionales",))
 
-    st.button(
-        "ADMINISTRATIVOS",
-        use_container_width=True,
-        type="primary" if st.session_state.categoria_seleccionada == "Administrativos" else "secondary",
-        on_click=cambiar_categoria,
-        args=("Administrativos",),
-    )
-    st.button(
-        "AMBULANCIAS",
-        use_container_width=True,
-        type="primary" if st.session_state.categoria_seleccionada == "Ambulancias" else "secondary",
-        on_click=cambiar_categoria,
-        args=("Ambulancias",),
-    )
-    st.button(
-        "INSTITUCIONALES",
-        use_container_width=True,
-        type="primary" if st.session_state.categoria_seleccionada == "Institucionales" else "secondary",
-        on_click=cambiar_categoria,
-        args=("Institucionales",),
-    )
+    st.markdown("---")
 
     modulos = [
         "Dashboard General",
         "Semáforo de Movilidad por Ciudad",
         "Control del Pool de Sustitutos (20%)",
-        "Carga Inicial",
         "Expediente por ECO y Documental",
         "Registro de Taller e Incidencias",
         "Reasignación por Necesidad de Servicio",
-        "Reportes y Exportación",
         "Conciliación Financiera y Pagos",
-        "Detalle y Análisis Financiero",
         "Reporte Semanal Centracom",
+        "Carga Inicial Masiva"
     ]
 
     if st.session_state.modulo_activo not in modulos:
         st.session_state.modulo_activo = "Dashboard General"
 
     st.session_state.modulo_activo = st.radio(
-        "Módulos del Sistema:",
+        "Módulos Operativos:",
         modulos,
         index=modulos.index(st.session_state.modulo_activo),
     )
 
+    st.markdown("---")
     st.markdown(
-        "<div style='text-align: center; font-size: 9px; color: #CCCCCC; line-height: 1.0; margin-top: 2px;'>Desarrollado por:<br><b>eduardo.casas@imss.gob.mx</b></div>",
+        "<div style='text-align: center; font-size: 9px; color: #CCCCCC; line-height: 1.1;'>Desarrollado por:<br><b>eduardo.casas@imss.gob.mx</b></div>",
         unsafe_allow_html=True,
     )
 
 # -----------------------------------------------------------------------------
 # ENCABEZADO INSTITUCIONAL
 # -----------------------------------------------------------------------------
-logo_html = f'<img src="{url_logo_supa}" style="height: 200px; width: auto; object-fit: contain; display: inline-block; vertical-align: middle;">' if url_logo_supa else f'<h2 style="color:{COLORES_PANTONE["468"]}; margin:0;">IMSS</h2>'
+logo_html = f'<img src="{url_logo_supa}" style="height: 60px; width: auto; object-fit: contain;">' if url_logo_supa else f'<h2 style="color:{COLORES_PANTONE["468"]}; margin:0;">IMSS</h2>'
 
 st.markdown(
     f"""
-    <div style="display: flex; align-items: flex-end; gap: 15px; width: 100%; margin: 0 0 15px 0;">
+    <div style="display: flex; align-items: center; gap: 15px; width: 100%; margin: 0 0 15px 0;">
         <div style="max-width: 65px; flex-shrink: 0;">
-            {logo_html.replace('<img ', '<img style="width: 100%; height: auto; display: block;" ')}
+            {logo_html}
         </div>
         <div style="line-height: 1.2;">
             <p style="color: {COLORES_PANTONE["627"]}; font-weight: 800; font-size: 20px; margin: 0;">Sistema de Gestión y Control Vehicular</p>
@@ -490,9 +438,6 @@ st.markdown(
 )
 mod_actual = st.session_state.modulo_activo
 
-# -----------------------------------------------------------------------------
-# FUNCIÓN AUXILIAR DE ESTILIZACIÓN DE TABLAS
-# -----------------------------------------------------------------------------
 def aplicar_estilo_tabla(df):
     def estilo_filas(row):
         if df.empty:
@@ -506,7 +451,7 @@ def aplicar_estilo_tabla(df):
     return df.style.apply(estilo_filas, axis=1)
 
 # =============================================================================
-# ENRUTAMIENTO DE MÓDULOS (ESTRUCTURA LIMPIA IF / ELIF)
+# ENRUTAMIENTO DE MÓDULOS DENTRO DEL SISTEMA
 # =============================================================================
 
 # 1. DASHBOARD GENERAL
@@ -656,15 +601,6 @@ elif mod_actual == "Semáforo de Movilidad por Ciudad":
 
     st.markdown("---")
     if not df_ciudades.empty:
-        if ciudad_sel != "Todas las Ciudades (General)":
-            info_c = df_ciudades.iloc[0]
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Flotilla Asignada en Sede", info_c["Flotilla Asignada"])
-            m2.metric("Porcentaje Movilidad Real", f"{info_c['Movilidad (%)']}%")
-            m3.metric("Estatus del Semáforo", info_c["Estado"])
-        else:
-            st.info("ℹ️ Reporte métrico consolidado y tabla ejecutiva de cumplimiento por OOAD.")
-
         def colorear_estado(val):
             if val == "VERDE": return "background-color: #27ae60; color: white; font-weight: bold;"
             elif val == "AMARILLO": return "background-color: #f39c12; color: white; font-weight: bold;"
@@ -712,60 +648,7 @@ elif mod_actual == "Control del Pool de Sustitutos (20%)":
 
         st.dataframe(pd.DataFrame(data_tabla, columns=["ECO Titular", "Ciudad / OOAD", "Fecha/Hora Ingreso Taller", "ECO Sustituto Asignado", "Estatus Cumplimiento SLA"]), use_container_width=True, hide_index=True)
 
-# 4. CARGA INICIAL
-elif mod_actual == "Carga Inicial":
-    st.markdown('<p class="subtitulo-seccion">Carga Inicial y Actualización Masiva de Base de Datos</p>', unsafe_allow_html=True)
-    st.info(f"🔒 Módulo configurado para la carga directa en la tabla de Supabase para la flotilla: **{cat_actual}**.")
-
-    with st.expander("🔑 Autenticación de Administrador", expanded=not st.session_state.get("admin_autenticado", False)):
-        usr = st.text_input("Usuario Administrador:", key="admin_user_input")
-        pwd = st.text_input("Contraseña:", type="password", key="admin_pwd_input")
-        if st.button("Iniciar Sesión"):
-            if usr == "e.casas" and pwd == "99094056":
-                st.session_state.admin_autenticado = True
-                st.success("Acceso concedido como Administrador Central.")
-                st.rerun()
-            else:
-                st.error("Credenciales incorrectas.")
-
-    if st.session_state.get("admin_autenticado", False):
-        st.markdown("##### **1. Descargar Plantilla Oficial**")
-        columnas_plantilla = ["eco", "tipo", "linea", "ubicacion", "arrendadora", "estatus", "placas", "vin", "no_tc", "ultimo_servicio", "cuota_diaria", "total_dias_servicio", "costo_mensual_sin_iva", "total_deduccion", "total_a_pagar", "foto_frontal", "foto_trasera", "foto_lateral_der", "foto_lateral_izq", "documentos"]
-        df_plantilla = pd.DataFrame(columns=columnas_plantilla)
-        st.download_button(label="📥 Descargar Plantilla CSV Oficial", data=df_plantilla.to_csv(index=False).encode("utf-8-sig"), file_name=f"plantilla_carga_{cat_actual.lower()}.csv", mime="text/csv")
-
-        st.markdown("---")
-        st.markdown(f"##### **2. Subir Archivo de Plantilla para: {cat_actual} (.xlsx o .csv)**")
-        up_file = st.file_uploader("Cargar libro de Excel o CSV con estructura oficial:", type=["xlsx", "csv"])
-        
-        if up_file is not None:
-            if st.button("Procesar y Guardar en Supabase"):
-                try:
-                    df_subido = pd.read_csv(up_file, dtype=str) if up_file.name.endswith(".csv") else pd.read_excel(up_file, dtype=str)
-                    df_subido.columns = df_subido.columns.str.strip().str.lower()
-                    if "eco" not in df_subido.columns:
-                        st.error("⚠️ El archivo cargado no contiene la columna 'eco'.")
-                    else:
-                        df_subido["eco"] = df_subido["eco"].astype(str).str.strip()
-                        tabla_map = {"Administrativos": "vehiculos_administrativos", "Ambulancias": "vehiculos_ambulancias", "Institucionales": "vehiculos_institucionales"}
-                        nombre_tabla = tabla_map.get(cat_actual, "vehiculos_administrativos")
-                        
-                        df_subido = df_subido.where(pd.notnull(df_subido), None)
-                        registros = df_subido.to_dict(orient="records")
-                        for i in range(0, len(registros), 500):
-                            supabase.table(nombre_tabla).insert(registros[i:i+500]).execute()
-
-                        st.cache_data.clear()
-                        st.success(f"¡Base de datos actualizada con éxito en Supabase! Se agregaron {len(df_subido)} unidades.")
-                        st.rerun()
-                except Exception as e:
-                    st.error(f"Error al procesar el archivo: {e}")
-
-        st.markdown("---")
-        st.markdown("##### **Histórico y Bitácora de Cargas Realizadas**")
-        st.dataframe(pd.DataFrame(st.session_state.get("bitacora_cargas", [])), use_container_width=True, hide_index=True)
-
-# 5. EXPEDIENTE POR ECO Y DOCUMENTAL
+# 4. EXPEDIENTE POR ECO Y DOCUMENTAL
 elif mod_actual == "Expediente por ECO y Documental":
     st.markdown(f'<p class="subtitulo-seccion">Expediente Técnico y Documental por ECO - {cat_actual}</p>', unsafe_allow_html=True)
 
@@ -777,7 +660,6 @@ elif mod_actual == "Expediente por ECO y Documental":
             eco_seleccionado = st.selectbox(f"Seleccione el ECO de la flotilla **{cat_actual}**:", options=lista_ecos)
             vehiculo_sel = df_base[df_base["eco"].astype(str) == eco_seleccionado]
             v_data = vehiculo_sel.iloc[0] if not vehiculo_sel.empty else None
-            eco_search = v_data["eco"] if v_data is not None else None
 
             if v_data is not None:
                 st.markdown("---")
@@ -842,9 +724,9 @@ elif mod_actual == "Expediente por ECO y Documental":
                     )
 
                 st.markdown("---")
-                t1, t2, t3 = st.tabs(["Galería de Inspección Física", "Expediente Documental", "Historial de Mantenimientos"])
+                t1, t2 = st.tabs(["Galería de Inspección Física", "Expediente Documental"])
                 with t1:
-                    st.markdown("##### **Galería de Inspección Física (4 Vistas)**")
+                    st.markdown("##### **Galería de Inspección Física**")
                     vistas_inspeccion = {"Foto Frontal": "foto_frontal", "Foto Trasera": "foto_trasera", "Foto Lateral Derecho": "foto_lateral_der", "Foto Lateral Izquierdo": "foto_lateral_izq"}
                     grid_cols = st.columns(2)
                     for idx, (nombre_vista, campo_key) in enumerate(vistas_inspeccion.items()):
@@ -858,17 +740,14 @@ elif mod_actual == "Expediente por ECO y Documental":
                                 st.warning("⚠ Sin foto registrada")
                             st.markdown("---")
                 with t2:
-                    st.markdown("### Expediente y Documentación")
+                    st.markdown("##### **Expediente y Documentación**")
                     poliza_url = v_data.get("poliza_seguro")
                     if poliza_url and str(poliza_url).startswith("http"):
-                        st.markdown(f'<a href="{poliza_url}" target="_blank">🔍 Ver Póliza de Seguro</a>', unsafe_allow_html=True)
+                        st.markdown(f'<a href="{poliza_url}" target="_blank">🔍 Ver Póliza de Seguro Digital</a>', unsafe_allow_html=True)
                     else:
                         st.warning("Sin póliza de seguro registrada.")
-                with t3:
-                    st.markdown("##### **Historial de Mantenimientos**")
-                    st.info("Consulta los servicios y reparaciones registradas.")
 
-# 6. REGISTRO DE TALLER E INCIDENCIAS
+# 5. REGISTRO DE TALLER E INCIDENCIAS
 elif mod_actual == "Registro de Taller e Incidencias":
     st.markdown(f'<p class="subtitulo-seccion">Registro de Taller, Incidencias y Siniestros - Flotilla {cat_actual}</p>', unsafe_allow_html=True)
     st.info("Módulo operativo de entradas, salidas y bitácora de taller conectada a Supabase.")
@@ -877,7 +756,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
     else:
         st.info("No hay registros en la bitácora de taller actualmente.")
 
-# 7. REASIGNACIÓN POR NECESIDAD DE SERVICIO
+# 6. REASIGNACIÓN POR NECESIDAD DE SERVICIO
 elif mod_actual == "Reasignación por Necesidad de Servicio":
     st.markdown('<p class="subtitulo-seccion">Reasignación Geográfica de Vehículos por Necesidad de Servicio</p>', unsafe_allow_html=True)
     st.info("Permite la transferencia oficial de unidades entre sedes u OOAD.")
@@ -886,16 +765,7 @@ elif mod_actual == "Reasignación por Necesidad de Servicio":
     else:
         st.info("No hay registros históricos de reasignación.")
 
-# 8. REPORTES Y EXPORTACIÓN
-elif mod_actual == "Reportes y Exportación":
-    st.markdown(f'<p class="subtitulo-seccion">Módulo Consolidado de Reportes y Exportación - {cat_actual}</p>', unsafe_allow_html=True)
-    if st.button("🚀 Generar y Descargar Reporte Consolidado"):
-        csv_data = df_base.to_csv(index=False).encode('utf-8')
-        st.download_button(label="📥 Descargar CSV", data=csv_data, file_name=f"reporte_{cat_actual.lower()}.csv", mime="text/csv")
-
-# -----------------------------------------------------------------------------
-# 9. CONCILIACIÓN FINANCIERA Y PAGOS (Conectado a reportes_mensuales)
-# -----------------------------------------------------------------------------
+# 7. CONCILIACIÓN FINANCIERA Y PAGOS
 elif mod_actual == "Conciliación Financiera y Pagos":
     st.markdown(
         f'<p class="subtitulo-seccion">Conciliación Financiera y Control de Pagos Mensuales - Flotilla {cat_actual}</p>',
@@ -905,7 +775,6 @@ elif mod_actual == "Conciliación Financiera y Pagos":
         "💡 **Auditoría Financiera:** Módulo vinculado directamente a la tabla `reportes_mensuales` de Supabase para el control de cuotas, días de servicio y deducciones."
     )
 
-    # Carga optimizada con paginación robusta para soportar miles de registros
     @st.cache_data(ttl=60)
     def cargar_reportes_mensuales_supabase(flotilla_filtro):
         if not supabase: return pd.DataFrame()
@@ -931,30 +800,14 @@ elif mod_actual == "Conciliación Financiera y Pagos":
 
     df_reportes = cargar_reportes_mensuales_supabase(cat_actual)
 
-    archivo_p = st.file_uploader(
-        "Cargar Archivo Mensual de Conciliación Alternativo (.xlsx / .xls / .csv):", type=["xlsx", "xls", "csv"]
-    )
-
-    if archivo_p is not None:
-        try:
-            if archivo_p.name.endswith('.csv'):
-                df_p = pd.read_csv(archivo_p, dtype=str)
-            else:
-                df_p = pd.read_excel(archivo_p, dtype=str)
-            st.success(f"✅ Archivo '{archivo_p.name}' cargado de forma temporal.")
-        except Exception as e:
-            st.error(f"Error al leer el archivo: {e}")
-            df_p = df_reportes
-    else:
-        df_p = df_reportes
-
-    if df_p.empty:
+    if df_reportes.empty:
         st.warning(f"⚠️ No se encontraron registros financieros en la tabla `reportes_mensuales` para la flotilla **{cat_actual}**.")
     else:
         st.markdown("##### **Filtros de Auditoría y Corte**")
         f_col1, f_col2, f_col3 = st.columns(3)
 
-        # 1. Extracción y ordenamiento de Años (de mayor a menor)
+        df_p = df_reportes.copy()
+
         if "mes_corte" in df_p.columns:
             anios_disponibles = sorted(
                 list(df_p["mes_corte"].apply(lambda x: str(x).strip().split()[-1] if len(str(x).split()) >= 2 else "").dropna().unique()),
@@ -973,7 +826,6 @@ elif mod_actual == "Conciliación Financiera y Pagos":
         if anio_sel != "Todos los Años":
             df_filtrado_anio = df_filtrado_anio[df_filtrado_anio["mes_corte"].astype(str).str.contains(anio_sel, na=False)]
 
-        # 2. Extracción y ordenamiento cronológico de Meses
         meses_unicos = df_filtrado_anio["mes_corte"].dropna().unique().tolist() if "mes_corte" in df_filtrado_anio.columns else []
         
         meses_orden = {
@@ -998,53 +850,28 @@ elif mod_actual == "Conciliación Financiera y Pagos":
         elif anio_sel != "Todos los Años":
             df_p = df_filtrado_anio
 
-        # 3. Filtro por arrendadora
         arr_opciones = ["Todas"] + sorted(list(df_p["arrendadora"].dropna().unique())) if "arrendadora" in df_p.columns else ["Todas"]
         arr_sel_p = f_col3.selectbox("Filtrar por Arrendadora:", arr_opciones)
 
         if arr_sel_p != "Todas":
             df_p = df_p[df_p["arrendadora"] == arr_sel_p]
 
-        # Cálculo de montos financieros utilizando las columnas numéricas exactas
-        monto_sub = (
-            pd.to_numeric(df_p["costo_mensual_sin_iva"], errors="coerce").sum()
-            if "costo_mensual_sin_iva" in df_p.columns
-            else 0.0
-        )
-        monto_ded = (
-            pd.to_numeric(df_p["total_deduccion"], errors="coerce").sum()
-            if "total_deduccion" in df_p.columns
-            else 0.0
-        )
-        monto_neto = (
-            pd.to_numeric(df_p["total_a_pagar"], errors="coerce").sum()
-            if "total_a_pagar" in df_p.columns
-            else 0.0
-        )
+        monto_sub = pd.to_numeric(df_p["costo_mensual_sin_iva"], errors="coerce").sum() if "costo_mensual_sin_iva" in df_p.columns else 0.0
+        monto_ded = pd.to_numeric(df_p["total_deduccion"], errors="coerce").sum() if "total_deduccion" in df_p.columns else 0.0
+        monto_neto = pd.to_numeric(df_p["total_a_pagar"], errors="coerce").sum() if "total_a_pagar" in df_p.columns else 0.0
 
         c_m1, c_m2, c_m3 = st.columns(3)
         c_m1.metric("Subtotal Sin IVA", f"\${monto_sub:,.2f}")
-        c_m2.metric(
-            "Deducciones Totales Aplicadas",
-            f"\${monto_ded:,.2f}",
-            delta_color="inverse",
-        )
+        c_m2.metric("Deducciones Totales Aplicadas", f"\${monto_ded:,.2f}", delta_color="inverse")
         c_m3.metric("Total Neto a Pagar", f"\${monto_neto:,.2f}")
 
         st.markdown("---")
         st.markdown("##### **Detalle Financiero por Unidad**")
         
         cols_fin = [
-            "mes_corte",
-            "eco",
-            "ubicacion",
-            "arrendadora",
-            "cuota_diaria",
-            "total_dias_servicio",
-            "costo_mensual_sin_iva",
-            "total_deduccion",
-            "total_a_pagar",
-            "observaciones"
+            "mes_corte", "eco", "ubicacion", "arrendadora", "cuota_diaria",
+            "total_dias_servicio", "costo_mensual_sin_iva", "total_deduccion",
+            "total_a_pagar", "observaciones"
         ]
         cols_fin_existentes = [c for c in cols_fin if c in df_p.columns]
         
@@ -1062,9 +889,8 @@ elif mod_actual == "Conciliación Financiera y Pagos":
             mime="text/csv",
             use_container_width=True
         )
-# -----------------------------------------------------------------------------
-# 11. REPORTE SEMANAL CENTRACOM
-# -----------------------------------------------------------------------------
+
+# 8. REPORTE SEMANAL CENTRACOM
 elif mod_actual == "Reporte Semanal Centracom":
     st.markdown('<p class="subtitulo-seccion">Reporte Semanal CENTRACOM - Control y Operación</p>', unsafe_allow_html=True)
     st.info("📊 Módulo para la captura estructurada, cálculo porcentual automático, análisis gráfico y seguimiento histórico de CENTRACOM.")
@@ -1092,28 +918,21 @@ elif mod_actual == "Reporte Semanal Centracom":
             "ORGANOS", "INFECTO", "TRASLAPE", "AEROPUERTO", "PSIQUIATRIA", "PERSONAL MEDICO"
         ]
 
-        valores_defecto = {
-            "HEMODIALISIS": 0, "CITA": 0, "ALTA": 0, "TRAUMA/ORTO": 0,
-            "FISICA": 0, "ZONIFICACION": 0, "INTERCONSULTA": 0, "ONCOLOGIA": 0,
-            "COMISION": 0, "ORGANOS": 0, "INFECTO": 0, "TRASLAPE": 0,
-            "AEROPUERTO": 0, "PSIQUIATRIA": 0, "PERSONAL MEDICO": 0
-        }
-
         cantidades_capturadas = {}
         cols_serv = st.columns(3)
         for idx, serv in enumerate(servicios_base):
             col_target = cols_serv[idx % 3]
             cantidades_capturadas[serv] = col_target.number_input(
-                f"{serv}", min_value=0, value=valores_defecto.get(serv, 0), step=1, key=f"cant_{serv}"
+                f"{serv}", min_value=0, value=0, step=1, key=f"cant_{serv}"
             )
 
         st.markdown("---")
         st.markdown("##### **2. Totales de Solicitudes y Cancelaciones**")
         c_tot1, c_tot2, c_tot3 = st.columns(3)
-        total_solicitados_cap = c_tot1.number_input("Total Servicios Solicitados:", min_value=0, value=4229)
-        total_cancelados_cap = c_tot2.number_input("Total Servicios Cancelados:", min_value=0, value=275)
-        cancelados_asignados_cap = c_tot3.number_input("Cancelados Asignados:", min_value=0, value=173)
-        cancelados_no_asignados_cap = total_cancelados_cap - cancelados_asignados_cap
+        total_solicitados_cap = c_tot1.number_input("Total Servicios Solicitados:", min_value=0, value=0)
+        total_cancelados_cap = c_tot2.number_input("Total Servicios Cancelados:", min_value=0, value=0)
+        cancelados_asignados_cap = c_tot3.number_input("Cancelados Asignados:", min_value=0, value=0)
+        cancelados_no_asignados_cap = max(0, total_cancelados_cap - cancelados_asignados_cap)
         st.caption(f"ℹ️ Cancelados No Asignados calculados automáticamente: **{cancelados_no_asignados_cap}**")
 
         if st.button("💾 Guardar y Calcular Reporte Semanal Centracom", type="primary"):
@@ -1162,25 +981,31 @@ elif mod_actual == "Reporte Semanal Centracom":
         f_col1, f_col2, f_col3 = st.columns(3)
         
         anios_disp = sorted(df_centracom["anio"].dropna().unique().tolist(), reverse=True)
-        anio_sel = f_col1.selectbox("Seleccionar Año:", anios_disp if anios_disp else ["2026"])
+        anio_sel = f_col1.selectbox("1. Seleccionar Año:", anios_disp if anios_disp else ["2026"], key="f_limpio_anio")
         df_f_anio = df_centracom[df_centracom["anio"] == anio_sel]
 
-        meses_disp = df_f_anio["mes"].dropna().unique().tolist() if not df_f_anio.empty else []
-        mes_sel = f_col2.selectbox("Seleccionar Mes:", meses_disp if meses_disp else ["SEPTIEMBRE"])
+        meses_disp = sorted(df_f_anio["mes"].dropna().unique().tolist()) if not df_f_anio.empty else []
+        mes_sel = f_col2.selectbox("2. Seleccionar Mes:", meses_disp if meses_disp else ["SEPTIEMBRE"], key="f_limpio_mes")
         df_f_mes = df_f_anio[df_f_anio["mes"] == mes_sel] if not df_f_anio.empty else pd.DataFrame()
 
-        periodos_disp = df_f_mes["semana_periodo"].dropna().unique().tolist() if not df_f_mes.empty else []
-        periodo_elegido = f_col3.selectbox("Seleccionar Semana / Periodo:", periodos_disp if periodos_disp else ["Ninguna"])
+        if not df_f_mes.empty:
+            periodos_raw = df_f_mes["semana_periodo"].dropna().unique().tolist()
+            semanas_opciones = [p.split(" de ")[0] if " de " in str(p) else str(p) for p in periodos_raw]
+            semanas_opciones = list(dict.fromkeys(semanas_opciones))
+        else:
+            semanas_opciones = ["1era Semana", "2da Semana", "3era Semana", "4ta Semana", "5ta Semana"]
 
-        df_filtrado_c = df_f_mes[df_f_mes["semana_periodo"] == periodo_elegido].copy() if not df_f_mes.empty else pd.DataFrame()
+        semana_sel = f_col3.selectbox("3. Seleccionar Semana:", semanas_opciones, key="f_limpio_sem")
+
+        df_filtrado_c = df_f_mes[df_f_mes["semana_periodo"].str.contains(semana_sel, case=False, na=False)].copy() if not df_f_mes.empty else pd.DataFrame()
 
         if not df_filtrado_c.empty:
-            st.markdown(f"###### **Periodo Seleccionado:** `{periodo_elegido}`")
-            
-            # Recuperamos totales guardados de la BD
-            t_sol = int(df_filtrado_c["total_solicitados"].iloc[0]) if "total_solicitados" in df_filtrado_c.columns and not pd.isna(df_filtrado_c["total_solicitados"].iloc[0]) else 4229
-            t_can = int(df_filtrado_c["total_cancelados"].iloc[0]) if "total_cancelados" in df_filtrado_c.columns and not pd.isna(df_filtrado_c["total_cancelados"].iloc[0]) else 275
-            t_asig = int(df_filtrado_c["cancelados_asignados"].iloc[0]) if "cancelados_asignados" in df_filtrado_c.columns and not pd.isna(df_filtrado_c["cancelados_asignados"].iloc[0]) else 173
+            rango_fecha_actual = df_filtrado_c["rango_fechas"].iloc[0] if "rango_fechas" in df_filtrado_c.columns and not pd.isna(df_filtrado_c["rango_fechas"].iloc[0]) else "Periodo Activo"
+            st.success(f"📌 **Consulta Activa:** {semana_sel} de {mes_sel.title()} {anio_sel} &nbsp;|&nbsp; 🗓️ **Rango de Fechas:** {rango_fecha_actual}")
+
+            t_sol = int(df_filtrado_c["total_solicitados"].iloc[0]) if "total_solicitados" in df_filtrado_c.columns and not pd.isna(df_filtrado_c["total_solicitados"].iloc[0]) else 0
+            t_can = int(df_filtrado_c["total_cancelados"].iloc[0]) if "total_cancelados" in df_filtrado_c.columns and not pd.isna(df_filtrado_c["total_cancelados"].iloc[0]) else 0
+            t_asig = int(df_filtrado_c["cancelados_asignados"].iloc[0]) if "cancelados_asignados" in df_filtrado_c.columns and not pd.isna(df_filtrado_c["cancelados_asignados"].iloc[0]) else 0
             t_no_asig = int(df_filtrado_c["cancelados_no_asignados"].iloc[0]) if "cancelados_no_asignados" in df_filtrado_c.columns and not pd.isna(df_filtrado_c["cancelados_no_asignados"].iloc[0]) else (t_can - t_asig)
 
             g_col1, g_col2 = st.columns([1.8, 1.2], gap="medium")
@@ -1210,7 +1035,6 @@ elif mod_actual == "Reporte Semanal Centracom":
                 st.markdown("##### **Cumplimiento General**")
                 total_cant = df_g_serv["cantidad"].sum()
                 
-                # Gráfica de Dona corregida con etiquetas externas y colores claros para legibilidad
                 fig_pie, ax_pie = plt.subplots(figsize=(3.5, 2.8))
                 valores_pie = [total_cant, t_can]
                 etiquetas_pie = [f'Realizados\n({total_cant:,})', f'Cancelados\n({t_can:,})']
@@ -1233,7 +1057,6 @@ elif mod_actual == "Reporte Semanal Centracom":
             st.markdown("---")
             st.markdown("##### **Tablas de Datos Consolidados (Formato Oficial)**")
             
-            # Tabla 1: Servicios Realizados sin duplicados
             df_tabla_serv = df_filtrado_c.groupby("tipo_servicio", as_index=False).agg({"cantidad": "sum"})
             total_cant = df_tabla_serv["cantidad"].sum()
             df_tabla_serv["%"] = (df_tabla_serv["cantidad"] / total_cant * 100) if total_cant > 0 else 0.0
@@ -1242,8 +1065,7 @@ elif mod_actual == "Reporte Semanal Centracom":
             df_tabla_serv.columns = ["SERVICIO REALIZADOS", "CANTIDAD", "%"]
             df_tabla_serv["%"] = df_tabla_serv["%"].apply(lambda x: f"{x:.2f}%")
             
-            total_pct = 100.00
-            df_totales_row = pd.DataFrame([["TOTAL", total_cant, f"{total_pct:.2f}%"]], columns=df_tabla_serv.columns)
+            df_totales_row = pd.DataFrame([["TOTAL", total_cant, "100.00%"]], columns=df_tabla_serv.columns)
             df_tabla_serv = pd.concat([df_tabla_serv, df_totales_row], ignore_index=True)
 
             try:
@@ -1253,7 +1075,6 @@ elif mod_actual == "Reporte Semanal Centracom":
 
             st.markdown("---")
             
-            # Tablas inferiores de Solicitudes y Cancelaciones restauradas
             col_b1, col_b2 = st.columns(2)
             with col_b1:
                 st.markdown("##### **Resumen de Solicitudes**")
@@ -1287,43 +1108,41 @@ elif mod_actual == "Reporte Semanal Centracom":
             st.download_button(
                 label="📥 Descargar Reporte CENTRACOM (CSV)",
                 data=csv_centracom,
-                file_name=f"reporte_centracom_{periodo_elegido.lower().replace(' ', '_')}.csv",
+                file_name=f"reporte_centracom_{anio_sel}_{mes_sel}_{semana_sel.replace(' ', '_')}.csv",
                 mime="text/csv",
                 use_container_width=True
             )
         else:
-            st.info("ℹ️ Selecciona un periodo válido en los filtros superiores para visualizar las gráficas y tablas.")
+            st.info("ℹ️ No hay datos guardados para la semana seleccionada.")
     else:
-        st.warning("⚠️ No hay registros en la tabla `reporte_centracom_semanal`. Usa el formulario superior para realizar tu primer registro.")
+        st.warning("⚠️ No hay registros en la tabla `reporte_centracom_semanal`.")
 
-    # -----------------------------------------------------------------------------
-    # ACUMULADO E HISTÓRICO GLOBAL DE SERVICIOS CENTRACOM
-    # -----------------------------------------------------------------------------
+    # --- ANÁLISIS DE ACUMULADOS GLOBALES HISTÓRICOS ---
     st.markdown("---")
     st.markdown("##### **📈 Análisis de Acumulados e Histórico Global de Servicios**")
 
     if not df_centracom.empty and "anio" in df_centracom.columns:
         h_col1, h_col2 = st.columns(2)
-        nivel_acumulado = h_col1.selectbox("Agrupar Acumulado por:", ["Año Completo", "Mes Específico", "Histórico Total (Todas las Semanas)"])
+        nivel_acumulado = h_col1.selectbox("Agrupar Acumulado por:", ["Año Completo", "Mes Específico", "Histórico Total (Todas las Semanas)"], key="f_acum_nivel")
         
         df_analisis = df_centracom.copy()
 
         if nivel_acumulado == "Año Completo":
             anios_h = sorted(df_analisis["anio"].dropna().unique().tolist())
-            anio_h_sel = h_col2.selectbox("Seleccionar Año para Acumulado:", anios_h if anios_h else ["2026"])
+            anio_h_sel = h_col2.selectbox("Seleccionar Año para Acumulado:", anios_h if anios_h else ["2026"], key="f_acum_anio")
             df_analisis = df_analisis[df_analisis["anio"] == anio_h_sel]
             titulo_grafico = f"Acumulado Anual de Servicios ({anio_h_sel})"
             
         elif nivel_acumulado == "Mes Específico":
             meses_h = sorted(df_analisis["mes"].dropna().unique().tolist())
-            mes_h_sel = h_col2.selectbox("Seleccionar Mes para Acumulado:", mes_h_sel if 'meses_h' in locals() and meses_h else ["SEPTIEMBRE"])
-            df_analisis = df_analisis[df_analisis["mes"] == mes_h_sel] if 'mes_h_sel' in locals() else df_analisis
-            titulo_grafico = f"Acumulado Mensual de Servicios"
+            mes_h_sel = h_col2.selectbox("Seleccionar Mes para Acumulado:", meses_h if meses_h else ["SEPTIEMBRE"], key="f_acum_mes")
+            df_analisis = df_analisis[df_analisis["mes"] == mes_h_sel]
+            titulo_grafico = f"Acumulado Mensual de Servicios ({mes_h_sel})"
         else:
             titulo_grafico = "Acumulado Histórico Global de Servicios"
 
         if not df_analisis.empty:
-            df_acumulado_grp = df_analisis.groupby("tipo_servicio")["cantidad"].sum().reset_index()
+            df_acumulado_grp = df_analisis.groupby("tipo_servicio", as_index=False)["cantidad"].sum()
             df_acumulado_grp = df_acumulado_grp.sort_values(by="cantidad", ascending=True)
 
             fig_ac, ax_ac = plt.subplots(figsize=(8, 4.5))
@@ -1355,6 +1174,60 @@ elif mod_actual == "Reporte Semanal Centracom":
                 st.dataframe(aplicar_estilo_tabla(df_tabla_acum), use_container_width=True, hide_index=True)
             except Exception:
                 st.dataframe(df_tabla_acum, use_container_width=True, hide_index=True)
+
+# 9. CARGA INICIAL MASIVA (ADMINISTRADOR)
+elif mod_actual == "Carga Inicial Masiva":
+    st.markdown('<p class="subtitulo-seccion">Carga Inicial y Actualización Masiva de Base de Datos</p>', unsafe_allow_html=True)
+    st.info(f"🔒 Módulo configurado para la carga directa en la tabla de Supabase para la flotilla: **{cat_actual}**.")
+
+    with st.expander("🔑 Autenticación de Administrador", expanded=not st.session_state.get("admin_autenticado", False)):
+        usr = st.text_input("Usuario Administrador:", key="admin_user_input")
+        pwd = st.text_input("Contraseña:", type="password", key="admin_pwd_input")
+        if st.button("Iniciar Sesión"):
+            if usr == "e.casas" and pwd == "99094056":
+                st.session_state.admin_autenticado = True
+                st.success("Acceso concedido como Administrador Central.")
+                st.rerun()
+            else:
+                st.error("Credenciales incorrectas.")
+
+    if st.session_state.get("admin_autenticado", False):
+        st.markdown("##### **1. Descargar Plantilla Oficial**")
+        columnas_plantilla = ["eco", "tipo", "linea", "ubicacion", "arrendadora", "estatus", "placas", "vin", "no_tc", "ultimo_servicio", "cuota_diaria", "total_dias_servicio", "costo_mensual_sin_iva", "total_deduccion", "total_a_pagar", "foto_frontal", "foto_trasera", "foto_lateral_der", "foto_lateral_izq", "documentos"]
+        df_plantilla = pd.DataFrame(columns=columnas_plantilla)
+        st.download_button(label="📥 Descargar Plantilla CSV Oficial", data=df_plantilla.to_csv(index=False).encode("utf-8-sig"), file_name=f"plantilla_carga_{cat_actual.lower()}.csv", mime="text/csv")
+
+        st.markdown("---")
+        st.markdown(f"##### **2. Subir Archivo de Plantilla para: {cat_actual} (.xlsx o .csv)**")
+        up_file = st.file_uploader("Cargar libro de Excel o CSV con estructura oficial:", type=["xlsx", "csv"])
+        
+        if up_file is not None:
+            if st.button("Procesar y Guardar en Supabase"):
+                try:
+                    df_subido = pd.read_csv(up_file, dtype=str) if up_file.name.endswith(".csv") else pd.read_excel(up_file, dtype=str)
+                    df_subido.columns = df_subido.columns.str.strip().str.lower()
+                    if "eco" not in df_subido.columns:
+                        st.error("⚠️ El archivo cargado no contiene la columna 'eco'.")
+                    else:
+                        df_subido["eco"] = df_subido["eco"].astype(str).str.strip()
+                        tabla_map = {"Administrativos": "vehiculos_administrativos", "Ambulancias": "vehiculos_ambulancias", "Institucionales": "vehiculos_institucionales"}
+                        nombre_tabla = tabla_map.get(cat_actual, "vehiculos_administrativos")
+                        
+                        df_subido = df_subido.where(pd.notnull(df_subido), None)
+                        registros = df_subido.to_dict(orient="records")
+                        for i in range(0, len(registros), 500):
+                            supabase.table(nombre_tabla).insert(registros[i:i+500]).execute()
+
+                        st.cache_data.clear()
+                        st.success(f"¡Base de datos actualizada con éxito en Supabase! Se agregaron {len(df_subido)} unidades.")
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"Error al procesar el archivo: {e}")
+
+        st.markdown("---")
+        st.markdown("##### **Histórico y Bitácora de Cargas Realizadas**")
+        st.dataframe(pd.DataFrame(st.session_state.get("bitacora_cargas", [])), use_container_width=True, hide_index=True)
+
 # -----------------------------------------------------------------------------
 # FIRMA INSTITUCIONAL FINAL
 # -----------------------------------------------------------------------------
