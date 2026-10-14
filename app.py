@@ -750,7 +750,7 @@ elif mod_actual == "Expediente por ECO y Documental":
 # 5. REGISTRO DE TALLER E INCIDENCIAS
 elif mod_actual == "Registro de Taller e Incidencias":
     st.markdown(f'<p class="subtitulo-seccion">Registro de Taller, Incidencias y Siniestros - Flotilla {cat_actual}</p>', unsafe_allow_html=True)
-    st.info("🔧 Módulo operativo para el control de entradas, salidas, asignación de sustitutos y bitácora de taller conectada a Supabase.")
+    st.info("🔧 Módulo operativo para el control de entradas, salidas, cálculo de días de inmovilización y filtrado por siniestro o taller.")
 
     with st.expander("📝 Registrar Nueva Entrada a Taller o Incidencia", expanded=False):
         st.markdown("##### **Datos de la Incidencia / Mantenimiento**")
@@ -776,7 +776,9 @@ elif mod_actual == "Registro de Taller e Incidencias":
 
         c_t7, c_t8 = st.columns(2)
         sustituto_t = c_t7.text_input("ECO Sustituto Asignado (si aplica):", value="N/A", key="taller_sust")
-        estatus_t = c_t8.selectbox("Estatus de la Incidencia:", ["Activo (En Taller)", "Reparado / Liberado", "Siniestro", "PATIO MALAS", "Inoperativo / Baja"], key="taller_estatus_sel")
+        
+        # Opciones estandarizadas para el filtro por siniestro o taller
+        estatus_t = c_t8.selectbox("Estatus / Tipo de Incidencia:", ["Activo (En Taller)", "Siniestro", "Reparado / Liberado", "PATIO MALAS", "Inoperativo / Baja"], key="taller_estatus_sel")
 
         observaciones_t = st.text_area("Observaciones / Diagnóstico de la Falla:", value="", key="taller_obs")
 
@@ -798,7 +800,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
                     st.error("⚠️ Error: Cliente de Supabase no inicializado.")
                 else:
                     supabase.table("reporte_semanal").insert(nuevo_registro_taller).execute()
-                    st.success(f"¡Incidencia del ECO `{eco_taller_sel}` registrada con éxito en el taller!")
+                    st.success(f"¡Incidencia del ECO `{eco_taller_sel}` registrada con éxito!")
                     st.cache_data.clear()
                     st.rerun()
             except Exception as e:
@@ -807,10 +809,50 @@ elif mod_actual == "Registro de Taller e Incidencias":
     st.markdown("---")
     st.markdown("##### **📋 Bitácora Activa de Unidades en Taller e Incidencias**")
 
+    # Cargamos registros desde Supabase
     taller_registros_actualizados = cargar_taller_supabase()
 
     if len(taller_registros_actualizados) > 0:
         df_taller_view = pd.DataFrame(taller_registros_actualizados)
+
+        # --- FILTROS DE CONSULTA (Taller vs Siniestro / Búsqueda por ECO) ---
+        f_col_1, f_col_2 = st.columns(2)
+        
+        tipo_filtro_incidencia = f_col_1.selectbox(
+            "🔎 Filtrar por Tipo de Incidencia:", 
+            ["Todos (Taller y Siniestros)", "Solo Taller (Activo en Taller)", "Solo Siniestros", "Reparados / Liberados"]
+        )
+        
+        filtro_eco_texto = f_col_2.text_input("🔍 Buscar por ECO o Taller:", value="")
+
+        # Aplicamos lógica de filtrado
+        if tipo_filtro_incidencia == "Solo Taller (Activo en Taller)":
+            df_taller_view = df_taller_view[df_taller_view["Estatus"].str.contains("Taller", case=False, na=False)]
+        elif tipo_filtro_incidencia == "Solo Siniestros":
+            df_taller_view = df_taller_view[df_taller_view["Estatus"].str.contains("Siniestro", case=False, na=False)]
+        elif tipo_filtro_incidencia == "Reparados / Liberados":
+            df_taller_view = df_taller_view[df_taller_view["Estatus"].str.contains("Reparado", case=False, na=False)]
+
+        if filtro_eco_texto:
+            df_taller_view = df_taller_view[
+                df_taller_view["ECO"].astype(str).str.contains(filtro_eco_texto, case=False, na=False) |
+                df_taller_view["Taller"].astype(str).str.contains(filtro_eco_texto, case=False, na=False)
+            ]
+
+        # --- CÁLCULO AUTOMÁTICO DE DÍAS PARADOS ---
+        def calcular_dias_parada(row_fecha):
+            try:
+                f_ing = datetime.strptime(str(row_fecha).strip(), "%Y-%m-%d").date()
+                # Si sigue en taller o siniestro activo, calculamos contra el día de hoy
+                # Si ya fue liberado, se podría fijar, pero tomamos fecha actual como estándar operativo
+                delta = (date.today() - f_ing).days
+                return max(0, delta)
+            except Exception:
+                return 0
+
+        if "Fecha_Ingreso" in df_taller_view.columns:
+            df_taller_view["Días Parado (Inmovilizado)"] = df_taller_view["Fecha_Ingreso"].apply(calcular_dias_parada)
+
         st.dataframe(aplicar_estilo_tabla(df_taller_view), use_container_width=True, hide_index=True)
     else:
         st.info("ℹ️ No hay registros activos en la bitácora de taller (`reporte_semanal`). Utiliza el formulario superior para dar de alta el primer registro.")
