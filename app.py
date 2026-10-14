@@ -750,11 +750,76 @@ elif mod_actual == "Expediente por ECO y Documental":
 # 5. REGISTRO DE TALLER E INCIDENCIAS
 elif mod_actual == "Registro de Taller e Incidencias":
     st.markdown(f'<p class="subtitulo-seccion">Registro de Taller, Incidencias y Siniestros - Flotilla {cat_actual}</p>', unsafe_allow_html=True)
-    st.info("Módulo operativo de entradas, salidas y bitácora de taller conectada a Supabase.")
-    if len(st.session_state.taller_registros) > 0:
-        st.dataframe(pd.DataFrame(st.session_state.taller_registros), use_container_width=True, hide_index=True)
+    st.info("🔧 Módulo operativo para el control de entradas, salidas, asignación de sustitutos y bitácora de taller conectada a Supabase.")
+
+    # --- FORMULARIO DE REGISTRO / ENTRADA A TALLER ---
+    with st.expander("📝 Registrar Nueva Entrada a Taller o Incidencia", expanded=False):
+        st.markdown("##### **Datos de la Incidencia / Mantenimiento**")
+        
+        # Obtenemos lista de ecos disponibles en la flotilla actual
+        lista_ecos_taller = sorted(df_base["eco"].dropna().astype(str).unique().tolist()) if not df_base.empty and "eco" in df_base.columns else ["ECO-001", "ECO-002"]
+
+        c_t1, c_t2, c_t3 = st.columns(3)
+        eco_taller_sel = c_t1.selectbox("Vehículo (ECO):", lista_ecos_taller, key="taller_eco_sel")
+        
+        # Buscamos el tipo de vehículo automáticamente si existe en df_base
+        tipo_auto_default = "Vehículo"
+        if not df_base.empty and "eco" in df_base.columns and "tipo" in df_base.columns:
+            match_v = df_base[df_base["eco"].astype(str) == eco_taller_sel]
+            if not match_v.empty:
+                tipo_auto_default = str(match_v.iloc[0].get("tipo", "Vehículo"))
+
+        tipo_taller_sel = c_t2.text_input("Tipo de Vehículo:", value=tipo_auto_default, key="taller_tipo_input")
+        fecha_ingreso_taller = c_t3.date_input("Fecha de Ingreso:", value=date.today(), key="taller_f_ingreso")
+
+        c_t4, c_t5, c_t6 = st.columns(3)
+        hora_ingreso_t = c_t4.text_input("Hora de Ingreso (HH:MM):", value=datetime.now().strftime("%H:%M"), key="taller_hora")
+        responsable_t = c_t5.text_input("Responsable / Conductor:", value="", key="taller_resp")
+        taller_lugar = c_t6.text_input("Taller / Agencia Asignada:", value="", key="taller_lugar_agencia")
+
+        c_t7, c_t8 = st.columns(2)
+        sustituto_t = c_t7.text_input("ECO Sustituto Asignado (si aplica):", value="N/A", key="taller_sust")
+        estatus_t = c_t8.selectbox("Estatus de la Incidencia:", ["Activo (En Taller)", "Reparado / Liberado", "Siniestro", "PATIO MALAS", "Inoperativo / Baja"], key="taller_estatus_sel")
+
+        observaciones_t = st.text_area("Observaciones / Diagnóstico de la Falla:", value="", key="taller_obs")
+
+        if st.button("💾 Guardar Registro en Taller", type="primary"):
+            try:
+                nuevo_registro_taller = {
+                    "eco": str(eco_taller_sel),
+                    "tipo": str(tipo_taller_sel),
+                    "fecha_ingreso": str(fecha_ingreso_taller),
+                    "hora": str(hora_ingreso_t),
+                    "responsable": str(responsable_t),
+                    "taller": str(taller_lugar),
+                    "sustituto": str(sustituto_t),
+                    "estatus": str(estatus_t),
+                    "observaciones": str(observaciones_t)
+                }
+
+                if supabase is None:
+                    st.error("⚠️ Error: Cliente de Supabase no inicializado.")
+                else:
+                    # Guardamos directamente en la tabla reporte_semanal
+                    supabase.table("reporte_semanal").insert(nuevo_registro_taller).execute()
+                    st.success(f"¡Incidencia del ECO `{eco_taller_sel}` registrada con éxito en el taller!")
+                    # Limpiamos caché para forzar la recarga inmediata de la tabla
+                    st.cache_data.clear()
+                    st.rerun()
+            except Exception as e:
+                st.error(f"❌ Error al guardar en la tabla `reporte_semanal`: {e}")
+
+    st.markdown("---")
+    st.markdown("##### **📋 Bitácora Activa de Unidades en Taller e Incidencias**")
+
+    # Cargamos los datos actualizados de la tabla reporte_semanal
+    taller_registros_actualizados = cargar_taller_supabase()
+
+    if len(taller_registros_actualizados) > 0:
+        df_taller_view = pd.DataFrame(taller_registros_actualizados)
+        st.dataframe(aplicar_estilo_tabla(df_taller_view), use_container_width=True, hide_index=True)
     else:
-        st.info("No hay registros en la bitácora de taller actualmente.")
+        st.info("ℹ️ No hay registros activos en la bitácora de taller (`reporte_semanal`). Utiliza el formulario superior para dar de alta el primer registro.")
 
 # 6. REASIGNACIÓN POR NECESIDAD DE SERVICIO
 elif mod_actual == "Reasignación por Necesidad de Servicio":
