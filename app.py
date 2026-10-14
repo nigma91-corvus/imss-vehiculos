@@ -750,7 +750,7 @@ elif mod_actual == "Expediente por ECO y Documental":
 # 5. REGISTRO DE TALLER E INCIDENCIAS
 elif mod_actual == "Registro de Taller e Incidencias":
     st.markdown(f'<p class="subtitulo-seccion">Registro de Taller, Incidencias y Siniestros - Flotilla {cat_actual}</p>', unsafe_allow_html=True)
-    st.info("🔧 Módulo operativo para el control de entradas, salidas, cálculo de días de inmovilización y filtrado por siniestro o taller.")
+    st.info("🔧 Módulo operativo para el control de entradas, salidas, cálculo de días de inmovilización, filtrado y análisis gráfico.")
 
     with st.expander("📝 Registrar Nueva Entrada a Taller o Incidencia", expanded=False):
         st.markdown("##### **Datos de la Incidencia / Mantenimiento**")
@@ -776,8 +776,6 @@ elif mod_actual == "Registro de Taller e Incidencias":
 
         c_t7, c_t8 = st.columns(2)
         sustituto_t = c_t7.text_input("ECO Sustituto Asignado (si aplica):", value="N/A", key="taller_sust")
-        
-        # Opciones estandarizadas para el filtro por siniestro o taller
         estatus_t = c_t8.selectbox("Estatus / Tipo de Incidencia:", ["Activo (En Taller)", "Siniestro", "Reparado / Liberado", "PATIO MALAS", "Inoperativo / Baja"], key="taller_estatus_sel")
 
         observaciones_t = st.text_area("Observaciones / Diagnóstico de la Falla:", value="", key="taller_obs")
@@ -807,7 +805,7 @@ elif mod_actual == "Registro de Taller e Incidencias":
                 st.error(f"❌ Error al guardar en la tabla `reporte_semanal`: {e}")
 
     st.markdown("---")
-    st.markdown("##### **📋 Bitácora Activa de Unidades en Taller e Incidencias**")
+    st.markdown("##### **📊 Análisis Gráfico y Métricas de Inmovilización**")
 
     # Cargamos registros desde Supabase
     taller_registros_actualizados = cargar_taller_supabase()
@@ -815,17 +813,85 @@ elif mod_actual == "Registro de Taller e Incidencias":
     if len(taller_registros_actualizados) > 0:
         df_taller_view = pd.DataFrame(taller_registros_actualizados)
 
-        # --- FILTROS DE CONSULTA (Taller vs Siniestro / Búsqueda por ECO) ---
+        # Cálculo robusto de días parados
+        def calcular_dias_parada(row_fecha):
+            if not row_fecha or str(row_fecha).strip().lower() in ['nan', 'none', '', 'null', 'n/a']:
+                return 0
+            f_str = str(row_fecha).strip()
+            f_ing = None
+            formatos_fecha = ["%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%Y/%m/%d"]
+            for fmt in formatos_fecha:
+                try:
+                    f_ing = datetime.strptime(f_str, fmt).date()
+                    break
+                except ValueError:
+                    continue
+            if f_ing:
+                delta = (date.today() - f_ing).days
+                return max(0, delta)
+            return 0
+
+        if "Fecha_Ingreso" in df_taller_view.columns:
+            df_taller_view["Días Parado"] = df_taller_view["Fecha_Ingreso"].apply(calcular_dias_parada)
+
+        # Métricas rápidas superiores
+        tot_registros = len(df_taller_view)
+        tot_siniestros = len(df_taller_view[df_taller_view["Estatus"].str.contains("Siniestro", case=False, na=False)])
+        tot_en_taller = len(df_taller_view[df_taller_view["Estatus"].str.contains("Taller", case=False, na=False)])
+
+        k_m1, k_m2, k_m3 = st.columns(3)
+        k_m1.metric("Total Unidades en Bitácora", tot_registros)
+        k_m2.metric("Unidades en Taller", tot_en_taller)
+        k_m3.metric("Unidades por Siniestro", tot_siniestros)
+
+        st.markdown("---")
+
+        # Gráfica de Impacto Visual: Top Unidades con más días detenidas
+        col_g1, col_g2 = st.columns([1.5, 1])
+
+        with col_g1:
+            st.markdown("##### **Top Unidades con Mayor Tiempo Inmovilizadas (Días)**")
+            df_top_dias = df_taller_view.sort_values(by="Días Parado", ascending=True).tail(10) # Top 10 mayores
+
+            fig_t, ax_t = plt.subplots(figsize=(6, 4))
+            if not df_top_dias.empty:
+                bars_t = ax_t.barh(df_top_dias["ECO"].astype(str), df_top_dias["Días Parado"], color=COLORES_PANTONE["7420"])
+                ax_t.tick_params(axis='both', labelsize=8)
+                ax_t.grid(axis='x', linestyle=':', alpha=0.5)
+
+                for bar in bars_t:
+                    w = bar.get_width()
+                    if w > 0:
+                        ax_t.text(w + 0.5, bar.get_y() + bar.get_height()/2, f'{int(w)} días', 
+                                  ha='left', va='center', fontsize=7, fontweight='bold', color='#333333')
+            fig_t.tight_layout()
+            st.pyplot(fig_t)
+
+        with col_g2:
+            st.markdown("##### **Distribución por Estatus**")
+            fig_pie_t, ax_pie_t = plt.subplots(figsize=(4, 3.2))
+            conteo_estatus = df_taller_view["Estatus"].value_counts()
+            if not conteo_estatus.empty:
+                ax_pie_t.pie(
+                    conteo_estatus.values, labels=conteo_estatus.index, autopct='%1.0f%%',
+                    startangle=140, colors=[COLORES_PANTONE["561"], COLORES_PANTONE["465"], COLORES_PANTONE["7420"], COLORES_PANTONE["626"]],
+                    textprops=dict(fontsize=8, fontweight='bold', color='#1e3d2f')
+                )
+                ax_pie_t.axis('equal')
+            fig_pie_t.tight_layout()
+            st.pyplot(fig_pie_t)
+
+        st.markdown("---")
+        st.markdown("##### **📋 Filtros y Detalle de la Bitácora**")
+
+        # Filtros de consulta
         f_col_1, f_col_2 = st.columns(2)
-        
         tipo_filtro_incidencia = f_col_1.selectbox(
             "🔎 Filtrar por Tipo de Incidencia:", 
             ["Todos (Taller y Siniestros)", "Solo Taller (Activo en Taller)", "Solo Siniestros", "Reparados / Liberados"]
         )
-        
         filtro_eco_texto = f_col_2.text_input("🔍 Buscar por ECO o Taller:", value="")
 
-        # Aplicamos lógica de filtrado
         if tipo_filtro_incidencia == "Solo Taller (Activo en Taller)":
             df_taller_view = df_taller_view[df_taller_view["Estatus"].str.contains("Taller", case=False, na=False)]
         elif tipo_filtro_incidencia == "Solo Siniestros":
@@ -839,32 +905,9 @@ elif mod_actual == "Registro de Taller e Incidencias":
                 df_taller_view["Taller"].astype(str).str.contains(filtro_eco_texto, case=False, na=False)
             ]
 
-        # --- CÁLCULO ROBUSTO DE DÍAS PARADOS ---
-        def calcular_dias_parada(row_fecha):
-            if not row_fecha or str(row_fecha).strip().lower() in ['nan', 'none', '', 'null', 'n/a']:
-                return 0
-            
-            f_str = str(row_fecha).strip()
-            f_ing = None
-            
-            # Intentar varios formatos de fecha comunes (DD/MM/YYYY y YYYY-MM-DD)
-            formatos_fecha = ["%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%Y/%m/%d"]
-            for fmt in formatos_fecha:
-                try:
-                    f_ing = datetime.strptime(f_str, fmt).date()
-                    break
-                except ValueError:
-                    continue
-            
-            if f_ing:
-                delta = (date.today() - f_ing).days
-                return max(0, delta)
-            return 0
-
-        if "Fecha_Ingreso" in df_taller_view.columns:
-            df_taller_view["Días Parado (Inmovilizado)"] = df_taller_view["Fecha_Ingreso"].apply(calcular_dias_parada)
-
         st.dataframe(aplicar_estilo_tabla(df_taller_view), use_container_width=True, hide_index=True)
+    else:
+        st.info("ℹ️ No hay registros activos en la bitácora de taller (`reporte_semanal`). Utiliza el formulario superior para dar de alta el primer registro.")
 
 # 6. REASIGNACIÓN POR NECESIDAD DE SERVICIO
 elif mod_actual == "Reasignación por Necesidad de Servicio":
